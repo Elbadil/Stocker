@@ -1,0 +1,8 @@
+.env
+stockerenv
+
+# Django #
+*.log
+*.pot
+*.pyc
+static/*/images
