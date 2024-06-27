@@ -1,0 +1,28 @@
+{% extends 'layout.html' %}
+{% block content %}
+    <!-- NavBar -->
+    {% include 'nav_bar.html' %}
+    <!-- Login Form -->
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
+            {{ message }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    <h1>Login</h1>
+    <div class="login-form">
+        <form method="POST" action="">
+            {% csrf_token %}
+            <div>
+                <label>Email:</label><br>
+                <input type="text" name="email" {% if user_email %}value="{{user_email}}"{% endif %}><br>
+                <label>Password:</label><br>
+                <input type="password" name="password"><br>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+{% endblock %}

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,8 +39,41 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'base'
+    'base',
+    'rest_framework',
+    'rest_framework_simplejwt',
 ]
+
+# # JWT Configuration
+# REST_FRAMEWORK = {
+#     # This ensures that all views require authentication by default
+#     # 'DEFAULT_PERMISSION_CLASSES': (
+#     #     'rest_framework.permissions.IsAuthenticated',
+#     # ),
+#     # This specifies that JWT authentication should be used
+#     'DEFAULT_AUTHENTICATION_CLASSES': (
+#         'rest_framework_simplejwt.authentication.JWTAuthentication',
+#     ),
+# }
+
+# SIMPLE_JWT = {
+#     # Defines how long the access token is valid
+#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
+#     # Specifies how long refresh tokens are valid
+#     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+#     # Defines how long the sliding token is valid from the moment it is issued
+#     # 'SLIDING_TOKEN_LIFETIME': timedelta(days=1),
+#     # # Defines the maximum lifetime for sliding tokens, beyond which they cannot be refreshed
+#     # 'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=10),
+#     # The algorithm used to sign the tokens, which is HS256
+#     'ALGORITHM': 'HS256',
+#     # The type of the authorization header, which is 'Bearer'
+#     'AUTH_HEADER_TYPES': ('Bearer',),
+#     # # The key used to sign the tokens, usually your Django SECRET_KEY
+#     # 'SIGNING_KEY': SECRET_KEY,
+#     # # Specifies which token class to use for authentication.
+#     # 'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.SlidingToken',)
+# }
 
 # Defining our custom User Model that will be used for auth and all user features
 AUTH_USER_MODEL = 'base.User'
