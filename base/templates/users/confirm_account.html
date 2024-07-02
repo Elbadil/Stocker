@@ -1,7 +1,5 @@
 {% extends 'layout.html' %}
 {% block content %}
-    <!-- NavBar -->
-    {% include 'nav_bar.html' %}
     <!-- Confirm Account Form -->
     <h1>Confirm Account</h1>
     <div class="confirm-form">
@@ -11,6 +9,6 @@
             <input type="text" name="confirm_code" {% if confirm_code %}value="{{ confirm_code }}"{% endif %}>
             <button type="submit">Confirm</button>
         </form>
-        <a href="{% url 'resend-code' %}">Resend Code</a>
+        <a href="{% url 'resend-confirm-code' %}">{% if from_signup %}Resend Code{% else %}Send Confirmation Code{% endif %}</a>
     </div>
 {% endblock %}

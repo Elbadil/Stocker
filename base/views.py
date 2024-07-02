@@ -7,8 +7,7 @@ from datetime import datetime, timezone
 import os
 from .models import User
 from .forms import SignUpForm
-from .utils import (generate_random_number_string,
-                    date_difference_in_minutes)
+from .tokens import Token
 
 
 def home(request):
@@ -36,8 +35,13 @@ def userLogin(request):
         user = authenticate(request, email=user_email, password=user_password)
         if user:
             login(request, user)
-            next_page = request.GET.get('next')
-            return redirect(next_page) if next_page else redirect('home')
+            if not user.is_confirmed:
+                messages.info(request, 'Your Account has not been confirmed yet. \
+                              Please take some few minutes to confirm your account!')
+                return redirect('confirm-account')
+            else:
+                next_page = request.GET.get('next')
+                return redirect(next_page) if next_page else redirect('home')
         else:
             messages.error(request, 'Login Unsuccessful. Please check your email and password')
             context['user_email'] = user_email
@@ -57,7 +61,7 @@ def userSignUp(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            confirm_code = generate_random_number_string(6)
+            confirm_code = Token.generate(6)
             user = form.save(commit=False)
             user.confirm_code = confirm_code
             user.save()
@@ -66,7 +70,10 @@ def userSignUp(request):
                 "Stocker Account Confirmation",
                 f"Account Confirmation Code: {confirm_code}",
                 os.getenv('EMAIL_HOST_USER'),
-                [user.email]
+                [user.email],
+                # fail_silently: A boolean. When it’s False, send_mail()
+                # will raise an smtplib.SMTPException if an error occurs.
+                fail_silently=False
             )
             login(request, user)
             messages.success(request, 'You have successfully created an account! \
@@ -83,26 +90,35 @@ def userSignUp(request):
 def confirmAccount(request):
     """Confirm Account"""
     user = request.user
+    if user.is_confirmed:
+        return redirect('home')
+    context = {'title': 'Confirm Account'}
+    # To handle Send Code text
+    referring_url = request.META.get('HTTP_REFERER')
+    if referring_url and 'signup' in referring_url:
+        context['from_signup'] = True
     if request.method == 'POST':
         confirm_code = request.POST.get('confirm_code')
-        confirm_code_timestamp = date_difference_in_minutes(user.confirm_code_created_at)
-        if user.confirm_code == confirm_code and confirm_code_timestamp < 5:
+        confirm_code_is_valid = Token.validation(user.confirm_code_created_at, 3)
+        if user.confirm_code == confirm_code and confirm_code_is_valid:
             user.is_confirmed = True
             user.save()
             messages.success(request, 'You have successfully confirmed your account!')
             next_page = request.GET.get('next')
             return redirect(next_page) if next_page else redirect('home')
         else:
-            context = {'confirm_code': confirm_code}
+            context['confirm_code'] = confirm_code
             messages.error(request, 'Invalid Confirmation Code. Please request another code!')
             return render(request, 'users/confirm_account.html', context)
-    return render(request, 'users/confirm_account.html')
+    return render(request, 'users/confirm_account.html', context)
 
 
-def resendCode(request):
+def resendConfirmCode(request):
     """Resend a new confirmation code"""
     user = request.user
-    new_confirm_code = generate_random_number_string(6)
+    if user.is_confirmed:
+        return redirect('home')
+    new_confirm_code = Token.generate(6)
     user.confirm_code = new_confirm_code
     user.confirm_code_created_at = datetime.now(timezone.utc)
     user.save()
@@ -110,7 +126,8 @@ def resendCode(request):
         "Stocker Account Confirmation",
         f"Account Confirmation Code: {new_confirm_code}",
         os.getenv('EMAIL_HOST_USER'),
-        [user.email]
+        [user.email],
+        fail_silently=False
     )
     messages.success(request, 'A new confirmation code has been sent to you via email!')
     return redirect('confirm-account')
