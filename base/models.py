@@ -54,6 +54,9 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=200, null=True, blank=False)
     last_name = models.CharField(max_length=200, null=True, blank=False)
     email = models.EmailField(unique=True, blank=False)
+    confirm_code = models.CharField(max_length=6, null=True, blank=True)
+    confirm_code_created_at = models.DateTimeField(auto_now_add=True, null=True)
+    is_confirmed = models.BooleanField(default=False, null=True)
     bio = models.TextField(null=True, blank=True)
     avatar = models.ImageField(null=True, default="base/images/pfp/default.jpg",
                                upload_to="base/images/pfp/")

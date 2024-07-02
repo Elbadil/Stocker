@@ -44,36 +44,25 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 ]
 
-# # JWT Configuration
-# REST_FRAMEWORK = {
-#     # This ensures that all views require authentication by default
-#     # 'DEFAULT_PERMISSION_CLASSES': (
-#     #     'rest_framework.permissions.IsAuthenticated',
-#     # ),
-#     # This specifies that JWT authentication should be used
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework_simplejwt.authentication.JWTAuthentication',
-#     ),
-# }
-
-# SIMPLE_JWT = {
-#     # Defines how long the access token is valid
-#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
-#     # Specifies how long refresh tokens are valid
-#     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-#     # Defines how long the sliding token is valid from the moment it is issued
-#     # 'SLIDING_TOKEN_LIFETIME': timedelta(days=1),
-#     # # Defines the maximum lifetime for sliding tokens, beyond which they cannot be refreshed
-#     # 'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=10),
-#     # The algorithm used to sign the tokens, which is HS256
-#     'ALGORITHM': 'HS256',
-#     # The type of the authorization header, which is 'Bearer'
-#     'AUTH_HEADER_TYPES': ('Bearer',),
-#     # # The key used to sign the tokens, usually your Django SECRET_KEY
-#     # 'SIGNING_KEY': SECRET_KEY,
-#     # # Specifies which token class to use for authentication.
-#     # 'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.SlidingToken',)
-# }
+# Emailing Settings
+# This line specifies the backend to use for sending emails. In this case
+# it's using SMTP (django.core.mail.backends.smtp.EmailBackend),
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# specifies whether to use TLS (Transport Layer Security) 
+# for secure communication with the SMTP server
+EMAIL_USE_TLS = True
+# specifies the SMTP server host to use for sending emails.
+# Here, it's set to Gmail's SMTP server.
+EMAIL_HOST = 'smtp.gmail.com'
+# The username (typically your email address) used to authenticate
+# with the SMTP server specified in EMAIL_HOST
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+# The password or app-specific password used to authenticate
+# with the SMTP server specified in EMAIL_HOST
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_APP_PWD')
+# specifies the port to use for the SMTP server specified in EMAIL_HOST.
+# Port 587 is the standard port for SMTP over TLS
+EMAIL_PORT = 587
 
 # Defining our custom User Model that will be used for auth and all user features
 AUTH_USER_MODEL = 'base.User'
