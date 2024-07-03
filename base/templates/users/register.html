@@ -1,15 +1,27 @@
 {% extends 'layout.html' %}
 {% block content %}
     <!-- Register Form -->
-    <h1>Register</h1>
-    <div class="register-form">
-        <form method="POST" action="">
+    <div class="container d-flex align-items-start justify-content-center mt-5" style="height: 100vh;">
+        <form method="POST" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
             {% csrf_token %}
-            <div>
-                {% csrf_token %}
-                {{ form.as_p }}
-            </div>
-            <button type="submit">Sign Up</button>
+            <h2 class="text-center mb-4">Sign Up</h2>
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}" class="col-form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ error }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary btn-block">Register</button>
+            <p class="text-center mt-3">
+                Already have an Account? <a href="{% url 'login' %}">Sign Up</a>
+            </p>
         </form>
     </div>
 {% endblock %}

@@ -58,9 +58,6 @@ class User(AbstractUser):
     confirm_code = models.CharField(max_length=6, null=True, blank=True)
     confirm_code_created_at = models.DateTimeField(auto_now_add=True, null=True)
     is_confirmed = models.BooleanField(default=False, null=True)
-    # User Account Recovery
-    recovery_code = models.CharField(max_length=6, null=True, blank=True)
-    recovery_code_created_at = models.DateTimeField(null=True)
     # Additional Attributes
     bio = models.TextField(null=True, blank=True)
     avatar = models.ImageField(null=True, default="base/images/pfp/default.jpg",

@@ -1,18 +1,25 @@
 {% extends 'layout.html' %}
 {% block content %}
     <!-- Login Form -->
-    <h1>Login</h1>
-    <div class="login-form">
-        <form method="POST" action="">
+    <div class="container d-flex align-items-start justify-content-center mt-5" style="height: 100vh;">
+        <form method="POST" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 450px;">
+            <h2 class="text-center mb-4">Login</h2>
             {% csrf_token %}
-            <div>
-                <label>Email:</label><br>
-                <input type="text" name="email" {% if user_email %}value="{{user_email}}"{% endif %}><br>
-                <label>Password:</label><br>
-                <input type="password" name="password"><br>
+            <div class="form-group">
+                <label for="email" class="col-form-label">Email address</label>
+                <input type="email" class="form-control" id="email" name="email" placeholder="Enter email" required>
             </div>
-            <button type="submit">Login</button>
+            <div class="form-group">
+                <label for="password" class="col-form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+            <p class="text-center mt-3">
+                <a href="{% url 'password_reset' %}">Forgot password?</a>
+            </p>
+            <p class="text-center">
+                Don't have an Account? <a href="{% url 'register' %}">Sign Up</a>
+            </p>
         </form>
     </div>
-    <a href="{% url 'password_reset' %}">Forgot Password?</a>
 {% endblock %}
