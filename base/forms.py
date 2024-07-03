@@ -1,9 +1,18 @@
-from typing import Any
 from django.contrib.auth.forms import UserCreationForm
+from django.forms import ModelForm
 from .models import User
 
 
-class SignUpForm(UserCreationForm):
+class BaseForm(ModelForm):
+    """Adding a class attribute with a value of form-control
+    to Form Fields"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'
+
+
+class SignUpForm(BaseForm, UserCreationForm):
     """User Sign up Form"""
     class Meta:
         model = User
@@ -14,9 +23,15 @@ class SignUpForm(UserCreationForm):
                   'password1',
                   'password2')
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Adding a class with a value of form-control
-        to the SignUp Form Fields"""
-        super().__init__(*args, **kwargs)
-        for field in self.fields.values():
-            field.widget.attrs['class'] = 'form-control'
+
+class UpdateUserForm(BaseForm, ModelForm):
+    """Update User Form"""
+    class Meta:
+        model = User
+        fields = [
+            'username',
+            'first_name',
+            'last_name',
+            'bio',
+            'avatar'
+        ]

@@ -1,14 +1,18 @@
 {% extends 'layout.html' %}
 {% block content %}
     <!-- Confirm Account Form -->
-    <h1>Confirm Account</h1>
-    <div class="confirm-form">
-        <form method="POST" action="">
+    <div class="container d-flex align-items-start justify-content-center mt-5" style="height: 100vh;">
+        <form method="POST" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
             {% csrf_token %}
-            <label>Confirmation Code</label>
-            <input type="text" name="confirm_code" {% if confirm_code %}value="{{ confirm_code }}"{% endif %}>
-            <button type="submit">Confirm</button>
+            <h2 class="text-center mb-4">Confirmation Code</h2>
+            <div class="form-group">
+                <label for="confirm_code" class="col-form-label">Confirmation Code</label>
+                <input type="text" class="form-control" name="confirm_code" {% if confirm_code %}value="{{ confirm_code }}"{% endif %}>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Submit</button>
+            <p class="text-center mt-3">
+                <a href="{% url 'resend-confirm-code' %}">{% if from_signup %}Resend Code{% else %}Send Confirmation Code{% endif %}</a>
+            </p>
         </form>
-        <a href="{% url 'resend-confirm-code' %}">{% if from_signup %}Resend Code{% else %}Send Confirmation Code{% endif %}</a>
     </div>
 {% endblock %}

@@ -3,10 +3,11 @@ from django.http import HttpResponse
 from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from datetime import datetime, timezone
 import os
 from .models import User
-from .forms import SignUpForm
+from .forms import SignUpForm, UpdateUserForm
 from .tokens import Token
 
 
@@ -20,9 +21,7 @@ def home(request):
 
 def userLogin(request):
     """Login"""
-    context = {
-        'title': 'Login'
-    }
+    context = {'title': 'Login'}
     if request.method == 'POST':
         user_email = request.POST['email']
         try:
@@ -49,6 +48,7 @@ def userLogin(request):
     return render(request, 'users/login.html', context)
 
 
+@login_required(login_url="login")
 def userLogout(request):
     """Logs out the request user"""
     logout(request)
@@ -64,6 +64,7 @@ def userSignUp(request):
             confirm_code = Token.generate(6)
             user = form.save(commit=False)
             user.confirm_code = confirm_code
+            user.username = form.username.lower()
             user.save()
             # Sending Account Confirmation code via Email
             send_mail(
@@ -87,6 +88,7 @@ def userSignUp(request):
     return render(request, 'users/register.html', context)
 
 
+@login_required(login_url="login")
 def confirmAccount(request):
     """Confirm Account"""
     user = request.user
@@ -131,3 +133,23 @@ def resendConfirmCode(request):
     )
     messages.success(request, 'A new confirmation code has been sent to you via email!')
     return redirect('confirm-account')
+
+
+@login_required(login_url="login")
+def updateUser(request):
+    """Update Account"""
+    user = request.user
+    form = UpdateUserForm(instance=user)
+    if request.method == 'POST':
+        post_copy = request.POST.copy()
+        post_copy['username'] = request.POST.get('username').lower()
+        form = UpdateUserForm(post_copy, request.FILES, instance=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'You have successfully updated your account!')
+
+    context = {
+        'form': form,
+        'title': 'Update Account'
+    }
+    return render(request, 'users/account_settings.html', context)

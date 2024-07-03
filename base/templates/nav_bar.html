@@ -3,7 +3,7 @@
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNav">
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <!-- Links on the left -->
         <ul class="navbar-nav mr-auto">
             <li class="nav-item active">
@@ -17,10 +17,19 @@
             </li>
         </ul>
         <!-- Links on the right -->
-        <ul class="navbar-nav">
+        <ul class="navbar-nav ml-auto">
             {% if request.user.is_authenticated %}
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                {{ request.user.username }}
+                </a>
+                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
+                    <a class="dropdown-item" href="#">Profile</a>
+                    <a class="dropdown-item" href="{% url 'update-account' %}">Account Settings</a>
+                    <a class="dropdown-item" href="#">Activity Feed</a>
+                <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="{% url 'logout' %}">Logout</a>
+                </div>
             </li>
             {% else %}
             <li class="nav-item">
@@ -38,12 +47,11 @@
     </div>
 </nav>
 <!-- Flash Messages -->
-{% if messages %}
-<ul class="messages">
-    {% for message in messages %}
-    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>
-        {{ message }}
-    </li>
-    {% endfor %}
-</ul>
-{% endif %}
+{% for message in messages %}
+    <div class="alert {{ message.tags }} alert-dismissible shadow fade show" role="alert">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+        {{ message | safe }}
+    </div>
+{% endfor %}

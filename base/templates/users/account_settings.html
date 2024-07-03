@@ -1,0 +1,24 @@
+{% extends 'layout.html' %}
+{% block content %}
+    <!-- Register Form -->
+    <div class="container d-flex align-items-start justify-content-center mt-5" style="height: 100vh;">
+        <form method="POST" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
+            {% csrf_token %}
+            <h2 class="text-center mb-4">Update Account</h2>
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}" class="col-form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ error }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary btn-block">Update Account</button>
+        </form>
+    </div>
+{% endblock %}
