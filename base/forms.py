@@ -1,18 +1,25 @@
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.forms import ModelForm
+from django.core.exceptions import ValidationError
 from .models import User
 
 
-class BaseForm(ModelForm):
-    """Adding a class attribute with a value of form-control
-    to Form Fields"""
+class AddFormControlClassMixin:
+    """Mixin to add 'form-control' class to form fields"""
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs) # Calls the next class in the MRO, which is PasswordChangeForm
+        # This statement calls the next class in the MRO that has
+        # an __init__ method that accepts *args and **kwargs.
+        # If PasswordChangeForm.__init__ also includes
+        # super().__init__(*args, **kwargs), Python will continue up
+        # the MRO to the next class, typically forms.Form or
+        # another base class that eventually
+        # initializes all necessary attributes and methods for the form.
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
 
 
-class SignUpForm(BaseForm, UserCreationForm):
+class SignUpForm(AddFormControlClassMixin, UserCreationForm):
     """User Sign up Form"""
     class Meta:
         model = User
@@ -24,7 +31,7 @@ class SignUpForm(BaseForm, UserCreationForm):
                   'password2')
 
 
-class UpdateUserForm(BaseForm, ModelForm):
+class UpdateUserForm(AddFormControlClassMixin, ModelForm):
     """Update User Form"""
     class Meta:
         model = User
@@ -35,3 +42,18 @@ class UpdateUserForm(BaseForm, ModelForm):
             'bio',
             'avatar'
         ]
+
+    # The clean_* methods are called during the form.is_valid() check
+    # so by the time you call save(), you can be confident that
+    # all form-level validations have passed.
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        # Check if a user with the same username (case-insensitive) already exists
+        if User.objects.filter(username__iexact=username).exists():
+            raise ValidationError('This username is already taken.')
+        return username.lower()
+
+
+class UpdatePasswordForm(AddFormControlClassMixin):
+    """Update User Password Form"""
+    pass

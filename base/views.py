@@ -4,10 +4,12 @@ from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
 from datetime import datetime, timezone
 import os
 from .models import User
-from .forms import SignUpForm, UpdateUserForm
+from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
 from .tokens import Token
 
 
@@ -135,21 +137,40 @@ def resendConfirmCode(request):
     return redirect('confirm-account')
 
 
+def profile(request, username):
+    """User Profile"""
+
+
 @login_required(login_url="login")
-def updateUser(request):
-    """Update Account"""
+def updateUserInfo(request):
+    """Update User Info"""
     user = request.user
     form = UpdateUserForm(instance=user)
     if request.method == 'POST':
-        post_copy = request.POST.copy()
-        post_copy['username'] = request.POST.get('username').lower()
-        form = UpdateUserForm(post_copy, request.FILES, instance=user)
+        form = UpdateUserForm(request.POST, request.FILES, instance=user)
         if form.is_valid():
             form.save()
             messages.success(request, 'You have successfully updated your account!')
-
     context = {
         'form': form,
         'title': 'Update Account'
     }
     return render(request, 'users/account_settings.html', context)
+
+
+@login_required(login_url="login")
+def updateUserPassword(request):
+    """Update User Password"""
+    user = request.user
+    form = UpdatePasswordForm(user=user)
+    if request.method == 'POST':
+        form = UpdatePasswordForm(user=user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            update_session_auth_hash(request, form.user)  # Important for keeping the user logged in
+            messages.success(request, 'You have successfully updated your password!')
+    context = {
+        'form': form,
+        'title': 'Update Password'
+    }
+    return render(request, 'users/update_password.html', context)
