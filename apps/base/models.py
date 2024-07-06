@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
-import uuid
+from utils.tokens import Token
 
 
 class UserManager(BaseUserManager):
@@ -47,7 +47,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     """Custom User Model"""
-    id = models.UUIDField(default=lambda: str(uuid.uuid4()),
+    id = models.UUIDField(default=Token.generate_uuid,
                           unique=True, primary_key=True, editable=False)
     username = models.CharField(max_length=200, unique=True,
                                 null=True, blank=False)
@@ -62,6 +62,7 @@ class User(AbstractUser):
     bio = models.TextField(null=True, blank=True)
     avatar = models.ImageField(null=True, default="base/images/pfp/default.jpg",
                                upload_to="base/images/pfp/")
+    updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

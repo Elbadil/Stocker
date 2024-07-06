@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import os
 from .models import User
 from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
-from .tokens import Token
+from utils.tokens import Token
 
 
 def home(request):
@@ -31,7 +31,7 @@ def userLogin(request):
         except User.DoesNotExist:
             messages.error(request, 'Email does not Exist')
             context['user_email'] = user_email
-            return render(request, 'users/login.html', context)
+            return render(request, 'login.html', context)
         user_password = request.POST['password']
         user = authenticate(request, email=user_email, password=user_password)
         if user:
@@ -42,7 +42,7 @@ def userLogin(request):
             messages.error(request, 'Login Unsuccessful. Please check your email and password')
             context['user_email'] = user_email
 
-    return render(request, 'users/login.html', context)
+    return render(request, 'login.html', context)
 
 
 @login_required(login_url="login")
@@ -58,7 +58,7 @@ def userSignUp(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
-            confirm_code = Token.generate(6)
+            confirm_code = Token.generate_token_with_length(6)
             user = form.save(commit=False)
             user.confirm_code = confirm_code
             user.username = user.username.lower()
@@ -82,7 +82,7 @@ def userSignUp(request):
         'title': 'Sign Up',
         'form': form
     }
-    return render(request, 'users/register.html', context)
+    return render(request, 'register.html', context)
 
 
 @login_required(login_url="login")
@@ -108,8 +108,8 @@ def confirmAccount(request):
         else:
             context['confirm_code'] = confirm_code
             messages.error(request, 'Invalid Confirmation Code. Please request another code!')
-            return render(request, 'users/confirm_account.html', context)
-    return render(request, 'users/confirm_account.html', context)
+            return render(request, 'confirm_account.html', context)
+    return render(request, 'confirm_account.html', context)
 
 
 @login_required(login_url='login')
@@ -174,5 +174,4 @@ def userProfile(request, user_id):
         'profile_form': profile_form,
         'pwd_form': pwd_form
     }
-    return render(request, 'users/profile.html', context)
-
+    return render(request, 'profile.html', context)

@@ -26,6 +26,4 @@ urlpatterns = [
          name='password_reset_complete'),
      # User Profile
      path('profile/<str:user_id>/', views.userProfile, name='profile'),
-     path('update_account/', views.updateUserInfo, name='update-account'),
-     path('update_password/', views.updateUserPassword, name='update-password')
 ]
