@@ -36,13 +36,8 @@ def userLogin(request):
         user = authenticate(request, email=user_email, password=user_password)
         if user:
             login(request, user)
-            if not user.is_confirmed:
-                messages.info(request, 'Your Account has not been confirmed yet. \
-                              Please take some few minutes to confirm your account!')
-                return redirect('confirm-account')
-            else:
-                next_page = request.GET.get('next')
-                return redirect(next_page) if next_page else redirect('home')
+            next_page = request.GET.get('next')
+            return redirect(next_page) if next_page else redirect('home')
         else:
             messages.error(request, 'Login Unsuccessful. Please check your email and password')
             context['user_email'] = user_email
@@ -66,7 +61,7 @@ def userSignUp(request):
             confirm_code = Token.generate(6)
             user = form.save(commit=False)
             user.confirm_code = confirm_code
-            user.username = form.username.lower()
+            user.username = user.username.lower()
             user.save()
             # Sending Account Confirmation code via Email
             send_mail(
@@ -117,6 +112,7 @@ def confirmAccount(request):
     return render(request, 'users/confirm_account.html', context)
 
 
+@login_required(login_url='login')
 def resendConfirmCode(request):
     """Resend a new confirmation code"""
     user = request.user
@@ -137,40 +133,46 @@ def resendConfirmCode(request):
     return redirect('confirm-account')
 
 
-def profile(request, username):
+def userConfirmed(request, user):
+    """Checks if the request user is confirmed"""
+    if not user.is_confirmed:
+        messages.info(request, 'You need to confirm your account to perform such action. \
+                      Please take some few minutes to confirm your account!')
+    return user.is_confirmed
+
+
+@login_required(login_url='login')
+def userProfile(request, user_id):
     """User Profile"""
+    user = User.objects.get(id=user_id)
+    # checks if the request user account is confirmed
+    if not userConfirmed(request, user):
+        return redirect('confirm-account')
 
+    # check if request user is the same as the profile user
+    if request.user != user:
+        return HttpResponse('Unauthorized')
 
-@login_required(login_url="login")
-def updateUserInfo(request):
-    """Update User Info"""
-    user = request.user
-    form = UpdateUserForm(instance=user)
+    profile_form = UpdateUserForm(instance=user)
+    pwd_form = UpdatePasswordForm(user=user)
+
     if request.method == 'POST':
-        form = UpdateUserForm(request.POST, request.FILES, instance=user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'You have successfully updated your account!')
+        if 'profile_form' in request.POST:
+            profile_form = UpdateUserForm(data=request.POST, instance=user, user=user)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, 'You have successfully updated your Profile Settings!')
+        elif 'pwd_form' in request.POST:
+            pwd_form = UpdatePasswordForm(user=user, data=request.POST)
+            if pwd_form.is_valid():
+                pwd_form.save()
+                update_session_auth_hash(request, pwd_form.user)  # Important for keeping the user logged in
+                messages.success(request, 'You have successfully updated your password!')
     context = {
-        'form': form,
-        'title': 'Update Account'
+        'title': user.username,
+        'user': user,
+        'profile_form': profile_form,
+        'pwd_form': pwd_form
     }
-    return render(request, 'users/account_settings.html', context)
+    return render(request, 'users/profile.html', context)
 
-
-@login_required(login_url="login")
-def updateUserPassword(request):
-    """Update User Password"""
-    user = request.user
-    form = UpdatePasswordForm(user=user)
-    if request.method == 'POST':
-        form = UpdatePasswordForm(user=user, data=request.POST)
-        if form.is_valid():
-            form.save()
-            update_session_auth_hash(request, form.user)  # Important for keeping the user logged in
-            messages.success(request, 'You have successfully updated your password!')
-    context = {
-        'form': form,
-        'title': 'Update Password'
-    }
-    return render(request, 'users/update_password.html', context)

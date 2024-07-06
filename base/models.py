@@ -47,7 +47,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     """Custom User Model"""
-    id = models.UUIDField(default=uuid.uuid4(),
+    id = models.UUIDField(default=lambda: str(uuid.uuid4()),
                           unique=True, primary_key=True, editable=False)
     username = models.CharField(max_length=200, unique=True,
                                 null=True, blank=False)

@@ -43,17 +43,23 @@ class UpdateUserForm(AddFormControlClassMixin, ModelForm):
             'avatar'
         ]
 
+    def __init__(self, *args, **kwargs):
+        # Extract the 'user' parameter from kwargs
+        self.user = kwargs.pop('user', None)
+        # Call the superclass's initializer with the remaining args and kwargs
+        super().__init__(*args, **kwargs)
+
     # The clean_* methods are called during the form.is_valid() check
     # so by the time you call save(), you can be confident that
     # all form-level validations have passed.
     def clean_username(self):
         username = self.cleaned_data['username']
         # Check if a user with the same username (case-insensitive) already exists
-        if User.objects.filter(username__iexact=username).exists():
+        if User.objects.filter(username__iexact=username).exclude(pk=self.user.id).exists():
             raise ValidationError('This username is already taken.')
         return username.lower()
 
 
-class UpdatePasswordForm(AddFormControlClassMixin):
+class UpdatePasswordForm(AddFormControlClassMixin, PasswordChangeForm):
     """Update User Password Form"""
     pass
