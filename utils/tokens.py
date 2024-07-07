@@ -6,16 +6,19 @@ from datetime import datetime, timezone
 
 class Token:
     """Generates and Validates Tokens"""
+    @staticmethod
     def generate_uuid():
         """generates and returns a unique id"""
         return str(uuid.uuid4())
 
+    @staticmethod
     def generate_token_with_length(length: int) -> str:
         """Generates a token of a size of a given length"""
         digits = string.digits
         random_string = ''.join(random.choice(digits) for _ in range(length))
         return str(random_string)
 
+    @staticmethod
     def validation(token_created_at: datetime, max_minutes: int) -> bool:
         """Checks if a token is valid by comparing the difference between
         a created_at datetime and now in minutes"""

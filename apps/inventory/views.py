@@ -2,6 +2,6 @@ from django.shortcuts import render
 from django.http import HttpResponse
 
 
-def index(request):
+def home(request):
     """"""
-    return HttpResponse('Inventory')
+    return render(request, 'home.html')

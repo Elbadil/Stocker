@@ -6,3 +6,6 @@ stockerenv
 *.pot
 *.pyc
 static/*/images
+
+# Bootstrap
+starter_bootstrap

@@ -13,12 +13,12 @@ from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
 from utils.tokens import Token
 
 
-def home(request):
+def index(request):
     """Home"""
     context = {
         'title': 'Home'
     }
-    return render(request, 'home.html', context)
+    return render(request, 'index.html', context)
 
 
 def userLogin(request):
@@ -158,7 +158,7 @@ def userProfile(request, user_id):
 
     if request.method == 'POST':
         if 'profile_form' in request.POST:
-            profile_form = UpdateUserForm(data=request.POST, instance=user, user=user)
+            profile_form = UpdateUserForm(request.POST, request.FILES, instance=user, user=user)
             if profile_form.is_valid():
                 profile_form.save()
                 messages.success(request, 'You have successfully updated your Profile Settings!')

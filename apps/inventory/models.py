@@ -3,7 +3,7 @@ from apps.base.models import User
 from utils.models import BaseModel
 
 
-class Category(BaseModel, models.Model):
+class Category(BaseModel):
     """Product Category Model"""
     name = models.CharField(max_length=200)
 
@@ -11,7 +11,7 @@ class Category(BaseModel, models.Model):
         return self.name
 
 
-class Supplier(BaseModel, models.Model):
+class Supplier(BaseModel):
     """Product Supplier Model"""
     name = models.CharField(max_length=200)
     phone_number = models.CharField(max_length=200)
@@ -20,28 +20,26 @@ class Supplier(BaseModel, models.Model):
         return self.name
 
 
-# class AdditionalAttr(BaseModel, models.Model):
-#     """Product's Additional Attributes"""
-#     name = models.CharField(max_length=200)
-#     description = models.CharField(max_length=300)
+class AddAttr(BaseModel):
+    """Product's Additional Attributes"""
+    name = models.CharField(max_length=200)
 
-#     class Meta:
-#         db_table = 'additional_attr'
+    class Meta:
+        db_table = 'inventory_add_attr'
 
-#     def __str__(self) -> str:
-#         return self.name
-
-
-# class Posts(BaseModel, models.Model):
-#     """Product's Post"""
-#     name = models.CharField(max_length=200)
-#     description = models.CharField(max_length=300)
-
-#     def __str__(self) -> str:
-#         return self.name
+    def __str__(self) -> str:
+        return self.name
 
 
-class Product(BaseModel, models.Model):
+class Post(BaseModel):
+    """Product's Post"""
+    name = models.CharField(max_length=200)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Product(BaseModel):
     """Product Model"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
@@ -50,8 +48,8 @@ class Product(BaseModel, models.Model):
     quantity = models.IntegerField(blank=False)
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
-    # other_attr = models.ManyToManyField(AdditionalAttr, related_name='other_attr')
-    # posts = models.ManyToManyField(Posts, related_name='')
+    other_attr = models.ManyToManyField(AddAttr, related_name='other_attr', blank=True)
+    posts = models.ManyToManyField(Post, related_name='posts', blank=True)
 
     def total_price(self):
         """Returns Quantity times Price"""
@@ -59,3 +57,29 @@ class Product(BaseModel, models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class AddAttrDescription(BaseModel):
+    """Product's Additional Attributes Description"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+    add_attr = models.ForeignKey(AddAttr, on_delete=models.CASCADE, null=True)
+    body = models.CharField(max_length=300)
+
+    class Meta:
+        db_table = 'inventory_add_attr_description'
+
+    def __str__(self) -> str:
+        return f'{self.product.name} is available on {self.add_attr.name}: {self.body}'
+
+
+class PostDescription(BaseModel):
+    """Product's Post Description"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True)
+    body = models.CharField(max_length=300)
+
+    class Meta:
+        db_table = 'inventory_post_description'
+
+    def __str__(self) -> str:
+        return f'{self.product.name} is posted on {self.post.name}'
