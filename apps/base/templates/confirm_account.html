@@ -6,7 +6,7 @@
             {% csrf_token %}
             <h2 class="text-center mb-4">Confirmation Code</h2>
             <div class="form-group">
-                <label for="confirm_code" class="col-form-label">Confirmation Code</label>
+                <label for="confirm_code">Confirmation Code</label>
                 <input type="text" class="form-control" name="confirm_code" {% if confirm_code %}value="{{ confirm_code }}"{% endif %}>
             </div>
             <button type="submit" class="btn btn-primary btn-block">Submit</button>

@@ -15,14 +15,13 @@ from utils.tokens import Token
 
 def index(request):
     """Home"""
-    context = {
-        'title': 'Home'
-    }
-    return render(request, 'index.html', context)
+    return render(request, 'index.html')
 
 
 def userLogin(request):
     """Login"""
+    if request.user.is_authenticated:
+        return redirect('index')
     context = {'title': 'Login'}
     if request.method == 'POST':
         user_email = request.POST['email']
@@ -37,7 +36,7 @@ def userLogin(request):
         if user:
             login(request, user)
             next_page = request.GET.get('next')
-            return redirect(next_page) if next_page else redirect('home')
+            return redirect(next_page) if next_page else redirect('index')
         else:
             messages.error(request, 'Login Unsuccessful. Please check your email and password')
             context['user_email'] = user_email
@@ -49,11 +48,13 @@ def userLogin(request):
 def userLogout(request):
     """Logs out the request user"""
     logout(request)
-    return redirect('home')
+    return redirect('login')
 
 
 def userSignUp(request):
     """User Registration"""
+    if request.user.is_authenticated:
+        return redirect('index')
     form = SignUpForm()
     if request.method == 'POST':
         form = SignUpForm(request.POST)
@@ -90,7 +91,7 @@ def confirmAccount(request):
     """Confirm Account"""
     user = request.user
     if user.is_confirmed:
-        return redirect('home')
+        return redirect('index')
     context = {'title': 'Confirm Account'}
     # To handle Send Code text
     referring_url = request.META.get('HTTP_REFERER')
@@ -104,7 +105,7 @@ def confirmAccount(request):
             user.save()
             messages.success(request, 'You have successfully confirmed your account!')
             next_page = request.GET.get('next')
-            return redirect(next_page) if next_page else redirect('home')
+            return redirect(next_page) if next_page else redirect('index')
         else:
             context['confirm_code'] = confirm_code
             messages.error(request, 'Invalid Confirmation Code. Please request another code!')
@@ -117,7 +118,7 @@ def resendConfirmCode(request):
     """Resend a new confirmation code"""
     user = request.user
     if user.is_confirmed:
-        return redirect('home')
+        return redirect('index')
     new_confirm_code = Token.generate(6)
     user.confirm_code = new_confirm_code
     user.confirm_code_created_at = datetime.now(timezone.utc)
