@@ -13,6 +13,7 @@ from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
 from utils.tokens import Token
 
 
+@login_required(login_url="login")
 def index(request):
     """Home"""
     return render(request, 'index.html')

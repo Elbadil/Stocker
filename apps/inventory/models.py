@@ -5,7 +5,7 @@ from utils.models import BaseModel
 
 class Category(BaseModel):
     """Product Category Model"""
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
 
     def __str__(self) -> str:
         return self.name
@@ -13,8 +13,8 @@ class Category(BaseModel):
 
 class Supplier(BaseModel):
     """Product Supplier Model"""
-    name = models.CharField(max_length=200)
-    phone_number = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
+    phone_number = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name
@@ -42,9 +42,9 @@ class Post(BaseModel):
 class Product(BaseModel):
     """Product Model"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
-    name = models.CharField(max_length=300, blank=False)
+    name = models.CharField(max_length=300, unique=True, blank=False)
     quantity = models.IntegerField(blank=False)
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
@@ -70,16 +70,3 @@ class AddAttrDescription(BaseModel):
 
     def __str__(self) -> str:
         return f'{self.product.name} is available on {self.add_attr.name}: {self.body}'
-
-
-class PostDescription(BaseModel):
-    """Product's Post Description"""
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, null=True)
-    body = models.CharField(max_length=300)
-
-    class Meta:
-        db_table = 'inventory_post_description'
-
-    def __str__(self) -> str:
-        return f'{self.product.name} is posted on {self.post.name}'

@@ -80,7 +80,7 @@
                         <div class="row mt-3">
                             {% for field in pwd_form %}
                             <div class="col-md-12">
-                                <label>{{ field.label }}</label>
+                                <label class="col-form-label">{{ field.label }}</label>
                                 {{ field }}
                                 {% if field.errors %}
                                     {% for error in field.errors %}

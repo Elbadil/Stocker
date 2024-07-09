@@ -57,16 +57,31 @@
         </nav>
         <!-- Flash messages -->
         {% for message in messages %}
+            {% if not 'inventory' in message.tags %}
             <div class="alert {{ message.tags }} alert-dismissible shadow fade show" role="alert">
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
                 {{ message | safe }}
             </div>
+            {% endif %}
         {% endfor %}
         <!-- User Forms -->
         {% block content %}
         {% endblock %}
+        <!-- Footer -->
+        <footer class="py-4 bg-light mt-auto">
+            <div class="container-fluid px-4">
+                <div class="d-flex align-items-center justify-content-between small">
+                    <div class="text-muted">Copyright &copy; Your Website 2023</div>
+                    <div>
+                        <a href="#">Privacy Policy</a>
+                        &middot;
+                        <a href="#">Terms &amp; Conditions</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
         <!-- Scripts -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
         <script src="{% static 'main/js/scripts.js' %}"></script>

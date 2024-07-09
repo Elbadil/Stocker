@@ -1,0 +1,53 @@
+{% extends 'index.html' %}
+{% load static %}
+{% block content %}
+<!-- Register Product Form -->
+<div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
+    <form method="POST" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
+        {% csrf_token %}
+        <h2 class="text-center mb-4">Add Item</h2>
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
+                <!-- Custom fields: Category, Supplier -->
+                {% if field.name in custom_fields %}
+                    <input type="text" class="form-control" value="{{ product.field.name }}" name="{{ field.name }}" list="{{ field.name }}-list">
+                    <datalist id="{{ field.name }}-list">
+                        <select id="product_{{ field.name }}">
+                            {% if field.name == 'category' %}
+                                {% for category in categories %}
+                                    <option value="{{ category.name }}">{{ category.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                {% for supplier in suppliers %}
+                                    <option value="{{ supplier.name }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </datalist>
+                <!-- Other Fields: Name, Quantity, Price -->
+                {% else %}
+                    {{ field }}
+                {% endif %}
+                <!-- Field Errors -->
+                {% if field.errors %}
+                    {% for error in field.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endfor %}
+        <!-- Add Variant Button -->
+        <button type="button" id="add-attr-btn" class="btn btn-secondary mb-3">This item has variants</button>
+        <!-- Add Variant Container -->
+        <div id="add-attr-container">
+            
+        </div>
+        <!-- Submit Form Button -->
+        <button type="submit" class="btn btn-primary btn-block">Add Item</button>
+    </form>
+</div>
+<script src="{% static 'inventory/scripts/add_attributes.js' %}"></script>
+{% endblock %}

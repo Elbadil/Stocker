@@ -1,4 +1,11 @@
-{% extends 'layout.html' %}
+{% extends 'index.html' %}
 {% block content %}
-<h1>Inventory</h1>
+<div class="d-flex justify-content-between align-items-center mt-3">
+    <h1 class="mb-0">Inventory</h1>
+    <div>
+        <a href="{% url 'add_item' %}" class="btn btn-primary">ADD ITEM</a>
+        <a href="#" class="btn btn-secondary">ADD CATEGORY</a>
+    </div>
+</div>
+<hr>
 {% endblock %}
