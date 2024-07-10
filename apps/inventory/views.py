@@ -5,7 +5,8 @@ from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.forms import inlineformset_factory
 from .forms import ProductRegisterForm
-from .models import Product, Category, Supplier
+from .models import Product, Category, Supplier, AddAttr, AddAttrDescription
+import json
 
 
 @login_required(login_url='login')
@@ -23,7 +24,8 @@ def addItem(request):
     custom_fields = ['category', 'supplier']
     categories = Category.objects.all()
     suppliers = Supplier.objects.all()
-
+    query_add_attributes = AddAttr.objects.all()
+    add_attributes = [add_attr.name for add_attr in query_add_attributes]
     if request.method == 'POST':
         form_data = request.POST.copy()
         # Creating new Category/Supplier instance if not exists
@@ -35,11 +37,22 @@ def addItem(request):
                 form_data[field] = obj.id
 
         form = ProductRegisterForm(form_data, request.FILES)
-
         if form.is_valid():
             product = form.save(commit=False)
             product.user = user
             product.save()
+            # Handling Additional Attributes
+            add_attr_name = request.POST.get('add-attr')
+            if add_attr_name:
+                add_attr = AddAttr.objects.get(name=add_attr_name)
+                add_attr_desc = request.POST.get('add-attr-desc')
+                if add_attr_desc:
+                    AddAttrDescription.objects.create(
+                        product=product,
+                        add_attr=add_attr,
+                        body=add_attr_desc
+                    )
+                    product.other_attr.add(add_attr)
             messages.success(request,
                              f'{product.name} has been successfully added to your inventory',
                              extra_tags='inventory')
@@ -50,6 +63,7 @@ def addItem(request):
         'form': form,
         'custom_fields': custom_fields,
         'categories': categories,
-        'suppliers': suppliers
+        'suppliers': suppliers,
+        'add_attributes': json.dumps(add_attributes)
     }
     return render(request, 'register_item.html', context)
