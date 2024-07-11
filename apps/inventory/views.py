@@ -1,9 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.http import HttpResponse
-from django.forms import inlineformset_factory
 from .forms import ProductRegisterForm
 from .models import Product, Category, Supplier, AddAttr, AddAttrDescription
 import json
@@ -42,17 +40,20 @@ def addItem(request):
             product.user = user
             product.save()
             # Handling Additional Attributes
-            add_attr_name = request.POST.get('add-attr')
-            if add_attr_name:
-                add_attr = AddAttr.objects.get(name=add_attr_name)
-                add_attr_desc = request.POST.get('add-attr-desc')
-                if add_attr_desc:
-                    AddAttrDescription.objects.create(
-                        product=product,
-                        add_attr=add_attr,
-                        body=add_attr_desc
-                    )
-                    product.other_attr.add(add_attr)
+            get_attr_num = request.POST.get('attr_num')
+            if get_attr_num:
+                attr_num = int(get_attr_num)
+                if attr_num > 0:
+                    for i in range(1, attr_num + 1):
+                        add_attr_name = request.POST.get(f'add-attr-{i}')
+                        add_attr, created = AddAttr.objects.get_or_create(name=add_attr_name)
+                        add_attr_desc = request.POST.get(f'add-attr-desc-{i}')
+                        AddAttrDescription.objects.create(
+                            product=product,
+                            add_attr=add_attr,
+                            body=add_attr_desc
+                        )
+                        product.other_attr.add(add_attr)
             messages.success(request,
                              f'{product.name} has been successfully added to your inventory',
                              extra_tags='inventory')

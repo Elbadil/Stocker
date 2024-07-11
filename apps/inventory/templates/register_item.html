@@ -3,7 +3,7 @@
 {% block content %}
 <!-- Register Product Form -->
 <div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
-    <form method="POST" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
+    <form method="POST" id="add_item_form" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
         {% csrf_token %}
         <h2 class="text-center mb-4">Add Item</h2>
         {% for field in form %}
@@ -47,9 +47,11 @@
         </div>
         <!-- Add Variant Container -->
         <div id="add-attr-container" data-add-attr='{{ add_attributes }}'></div>
+        <!-- Number of Attributes -->
+        <input type="hidden" id="attr_num" name="attr_num">
         <hr>
         <!-- Submit Form Button -->
-        <button type="submit" id="add_item_form" class="btn btn-primary btn-block">Add Item</button>
+        <button type="submit" class="btn btn-primary btn-block">Add Item</button>
     </form>
 </div>
 <script src="{% static 'inventory/scripts/add_attributes.js' %}"></script>
