@@ -30,13 +30,7 @@
                     {{ field }}
                 {% endif %}
                 <!-- Field Errors -->
-                {% if field.errors %}
-                    {% for error in field.errors %}
-                        <div class="invalid-feedback d-block">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
+                <div class="invalid-feedback" id="{{ field.name }}-errors"></div>
             </div>
         {% endfor %}
         <!-- Add Variant Switch -->
@@ -47,8 +41,6 @@
         </div>
         <!-- Add Variant Container -->
         <div id="add-attr-container" data-add-attr='{{ add_attributes }}'></div>
-        <!-- Number of Attributes -->
-        <input type="hidden" id="attr_num" name="attr_num">
         <hr>
         <!-- Submit Form Button -->
         <button type="submit" class="btn btn-primary btn-block">Add Item</button>

@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from .forms import ProductRegisterForm
 from .models import Product, Category, Supplier, AddAttr, AddAttrDescription
 import json
@@ -57,7 +57,11 @@ def addItem(request):
             messages.success(request,
                              f'{product.name} has been successfully added to your inventory',
                              extra_tags='inventory')
-            return redirect('inventory_home')
+            return JsonResponse({'success': True, 'message': 'Form Submitted Successfully'})
+        else:
+            form_fields = [name for name in form.fields.keys()]
+            print(form_fields)
+            return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
 
     context = {
         'title': 'Inventory - Add Item',
