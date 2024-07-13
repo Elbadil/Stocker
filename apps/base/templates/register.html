@@ -1,21 +1,17 @@
 {% extends 'layout.html' %}
+{% load static %}
 {% block content %}
     <!-- Register Form -->
     <div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
-        <form method="POST" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
+        <form method="POST" id="register-form" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
             {% csrf_token %}
             <h2 class="text-center mb-4">Sign Up</h2>
             {% for field in form %}
                 <div class="form-group">
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     {{ field }}
-                    {% if field.errors %}
-                        {% for error in field.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ error }}
-                            </div>
-                        {% endfor %}
-                    {% endif %}
+                    <!-- Field Errors -->
+                    <div class="invalid-feedback" id="{{ field.name }}-errors"></div>
                 </div>
             {% endfor %}
             <button type="submit" class="btn btn-primary btn-block">Register</button>
@@ -24,4 +20,6 @@
             </p>
         </form>
     </div>
+    <!-- scripts -->
+    <script src="{% static 'base/scripts/auth_forms.js' %}"></script>
 {% endblock %}

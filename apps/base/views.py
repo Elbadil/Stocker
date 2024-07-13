@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
@@ -79,7 +79,10 @@ def userSignUp(request):
             messages.success(request, 'You have successfully created an account! \
                             Please Confirm your account by entering the confirmation \
                             code that was sent to your email to complete registration.')
-            return redirect('confirm-account')
+            return JsonResponse({'success': True, 'message': 'User has been registered'})
+        else:
+            form_fields = [name for name in form.fields.keys()]
+            return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
     context = {
         'title': 'Sign Up',
         'form': form

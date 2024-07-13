@@ -24,6 +24,7 @@ def addItem(request):
     suppliers = Supplier.objects.all()
     query_add_attributes = AddAttr.objects.all()
     add_attributes = [add_attr.name for add_attr in query_add_attributes]
+
     if request.method == 'POST':
         form_data = request.POST.copy()
         # Creating new Category/Supplier instance if not exists
@@ -60,7 +61,6 @@ def addItem(request):
             return JsonResponse({'success': True, 'message': 'Form Submitted Successfully'})
         else:
             form_fields = [name for name in form.fields.keys()]
-            print(form_fields)
             return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
 
     context = {

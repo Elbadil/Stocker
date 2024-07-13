@@ -15,13 +15,7 @@ const generateOptions = (attributes) => {
     return attributes.map(attr => `<option value="${attr}">${attr}</option>`).join('');
 };
 
-// Fn: Gets input field entered value by name
-const getFieldValueByName = (name) => {
-    const inputField = document.querySelector(`input[name="${name}"]`);
-    return inputField ? inputField.value : null;
-};
-
-// Fn: Populating the Add Attributes Container with Elements
+// Fn: Populating the Additional Attributes Container with Field Elements
 const formFields = (attrId, options) => {
     let attrFields =  `<div class='form-group attribute-field' id="form-group-${attrId}">`
     if (attrId !== 1) {
@@ -151,26 +145,22 @@ const setupDynamicElements = () => {
     });
 }
 
-// Fn: Displays Validation Errors sent from the backend
+// Fn: Handles the display of fields form errors that were sent from the backend 
 const handleValidationErrors = (errors, fields) => {
-    console.log(fields);
-    // Example: Display errors next to form fields
-    for (let field of fields) {
-        console.log(field);
-        if (errors[field]) {
-            console.log(errors[field])
-            const errorMessage = errors[field].join(', '); // Join error messages if multiple
-            const fieldError = document.getElementById(`${field}-errors`);
-            fieldError.innerHTML = errorMessage;
-            fieldError.classList.add('d-block');// Display error message next to the field
+    console.log('Handling Errors');
+    fields.forEach(field => {
+        const fieldErrors = errors[field];
+        const fieldErrorElement = document.getElementById(`${field}-errors`);
+
+        if (fieldErrors && fieldErrors.length > 0) {
+            const errorMessage = fieldErrors.join(', '); // Join error messages if multiple
+            fieldErrorElement.innerHTML = errorMessage;
+            fieldErrorElement.classList.add('d-block');
         } else {
-            const fieldError = document.getElementById(`${field}-errors`);
-            if (fieldError.classList.contains('d-block')) {
-                fieldError.innerHTML = '';
-                fieldError.classList.remove('d-block');
-            }
+            fieldErrorElement.innerHTML = '';
+            fieldErrorElement.classList.remove('d-block');
         }
-    }
+    });
 }
 
 // Fn: Checks Validation Errors From Additional Attributes
@@ -178,7 +168,6 @@ const addAttrValidationErrors = () => {
     const addAttrErrors = document.querySelectorAll('.add-attr-errors');
     return addAttrErrors.length > 0;
 }
-
 
 // Fn: Updates Attribute IDs when an Attribute field is deleted
 const updateAttributeIDs = () => {
@@ -237,27 +226,32 @@ addVarSwitch.addEventListener('click', () => {
     }
 });
 
+// Form Submission: Sends with form submission the number of additional Attrs
+// And checks if there are any fields Validation Errors
+addItemForm.addEventListener('submit', (event) => {
+    event.preventDefault(); // Prevent default form submission
 
-// Form Submission: Sending with form submission the number of additional Attrs
-addItemForm.addEventListener('submit', (event) =>{
-    event.preventDefault(); // Prevents default form submission
-
-    // Checking if theres Validation Errors From Add Attributes
+    // Checking if there are additional Attributes validation errors
     if (addAttrValidationErrors()) {
-        console.log('You have Validation Errors');
+        console.log('You have validation errors from Add Attr');
     } else {
         let formData = new FormData(addItemForm);
-        formData.append('attr_num', attrNum)
+        formData.append('attr_num', attrNum);
+
         fetch("/inventory/add_item/", {
             method: 'POST',
             body: formData,
         })
         .then(response => response.json())
         .then(data => {
+            // Checking if there are backend fields validation errors
             if (data.success) {
                 console.log(`Success: ${data.message}`);
+                // Redirecting the user to the inventory page
+                window.location.href = '/inventory/';
             } else {
-                console.log(`Error`);
+                console.log(`Error: Validation Errors from Django Form`);
+                // Displays backend fields validation errors
                 handleValidationErrors(data.errors, data.fields);
             }
         })
