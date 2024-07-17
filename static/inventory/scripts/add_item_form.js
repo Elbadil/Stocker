@@ -179,7 +179,7 @@ const updateAttributeIDs = () => {
         // Attribute Input Field
         const attrInput = formGroup.querySelector('input.attr');
         attrInput.name = `add-attr-${newAttrId}`;
-        attrInput.list = `add-attr-list-${newAttrId}`;
+        attrInput.setAttribute('list', `add-attr-list-${newAttrId}`);
         // Attribute Datalist Element
         const datalist = formGroup.querySelector('datalist');
         datalist.id = `add-attr-list-${newAttrId}`;
@@ -245,11 +245,7 @@ addItemForm.addEventListener('submit', (event) => {
         .then(response => response.json())
         .then(data => {
             // Checking if there are backend fields validation errors
-            if (data.success) {
-                console.log(`Success: ${data.message}`);
-                // Redirecting the user to the inventory page
-                window.location.href = '/inventory/';
-            } else {
+            if (!data.success) {
                 console.log(`Error: Validation Errors from Django Form`);
                 // Displays backend fields validation errors
                 handleValidationErrors(data.errors, data.fields);

@@ -23,24 +23,25 @@ def userLogin(request):
     """Login"""
     if request.user.is_authenticated:
         return redirect('index')
+    errors = {}
     context = {'title': 'Login'}
     if request.method == 'POST':
         user_email = request.POST['email']
         try:
             user = User.objects.get(email=user_email)
         except User.DoesNotExist:
-            messages.error(request, 'Email does not Exist')
-            context['user_email'] = user_email
-            return render(request, 'login.html', context)
+            errors['login'] = ['Login Unsuccessful. Please check your email and password']
+            return JsonResponse({'success': False, 'errors': errors})
         user_password = request.POST['password']
         user = authenticate(request, email=user_email, password=user_password)
         if user:
             login(request, user)
-            next_page = request.GET.get('next')
-            return redirect(next_page) if next_page else redirect('index')
+            next_page = request.POST.get('next', '/')
+            print(next_page)
+            return JsonResponse({'success': True, 'message': 'Successful Login', 'redirect_url': next_page})
         else:
-            messages.error(request, 'Login Unsuccessful. Please check your email and password')
-            context['user_email'] = user_email
+            errors['login'] = ['Login Unsuccessful. Please check your email and password']
+            return JsonResponse({'success': False, 'errors': errors})
 
     return render(request, 'login.html', context)
 

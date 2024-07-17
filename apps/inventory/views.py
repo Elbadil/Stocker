@@ -35,10 +35,12 @@ def addItem(request):
                 obj, created = model.objects.get_or_create(name=field_name)
                 form_data[field] = obj.id
 
-        form = ProductRegisterForm(form_data, request.FILES)
+        form = ProductRegisterForm(form_data)
         if form.is_valid():
             product = form.save(commit=False)
             product.user = user
+            if 'picture' in request.FILES:
+                product.picture = request.FILES['picture']
             product.save()
             # Handling Additional Attributes
             get_attr_num = request.POST.get('attr_num')

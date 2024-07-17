@@ -1,4 +1,3 @@
-
 const registerForm = document.getElementById('register-form');
 
 function handleValidationErrors (errors, fields) {
@@ -32,7 +31,6 @@ registerForm.addEventListener('submit', (event) => {
         // Checking if there are backend fields validation errors
         if (data.success) {
             console.log(`Success: ${data.message}`);
-            // Redirecting the user to the inventory page
             window.location.href = '/confirm-account/';
         } else {
             console.log(`Error: Validation Errors from Django Form`);

@@ -1,24 +1,23 @@
 {% extends 'layout.html' %}
+{% load static %}
 {% block content %}
     <!-- Login Form -->
     {% if next %}
         <p>You need to be logged in to access the requested page.</p>
     {% endif %}
     <div class="container d-flex align-items-start justify-content-center mt-5" style="height: 100vh;">
-        <form method="POST" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 450px;">
+        <form method="POST" id="login-form" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 450px;">
             <h2 class="text-center mb-4">Login</h2>
             {% csrf_token %}
             <div class="form-group">
                 <label for="email">Email address</label>
-                <input type="email" class="form-control" id="email" name="email" {% if user_email %}value="{{ user_email }}"{% endif %} required>
-                <!-- Field Errors -->
-                <div class="invalid-feedback" id="email-errors"></div>
+                <input type="email" class="form-control" id="email" name="email" required>
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
-                <!-- Field Errors -->
-                <div class="invalid-feedback" id="password-errors"></div>
+                <!-- Login Errors -->
+                <div class="invalid-feedback" id="login-errors"></div>
             </div>
             <button type="submit" class="btn btn-primary btn-block">Login</button>
             <p class="text-center mt-3">
@@ -29,4 +28,5 @@
             </p>
         </form>
     </div>
+    <script src="{% static 'base/scripts/login_form.js' %}"></script>
 {% endblock %}
