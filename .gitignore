@@ -9,3 +9,6 @@ static/*/images
 
 # Bootstrap
 starter_bootstrap
+
+# vs code
+.vscode

@@ -244,8 +244,12 @@ addItemForm.addEventListener('submit', (event) => {
         })
         .then(response => response.json())
         .then(data => {
+            if (data.success) {
+                console.log(`Success ${data.message}`);
+                window.location.href = '/inventory/';
+            }
             // Checking if there are backend fields validation errors
-            if (!data.success) {
+            else {
                 console.log(`Error: Validation Errors from Django Form`);
                 // Displays backend fields validation errors
                 handleValidationErrors(data.errors, data.fields);

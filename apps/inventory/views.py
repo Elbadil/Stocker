@@ -8,10 +8,14 @@ import json
 
 
 @login_required(login_url='login')
-def home(request):
+def listItems(request):
     """Inventory Home"""
-    context = {'title': 'Inventory'}
-    return render(request, 'home.html', context)
+    products = Product.objects.all()
+    context = {
+        'title': 'Inventory',
+        'products': products
+    }
+    return render(request, 'inventory.html', context)
 
 
 @login_required(login_url='login')
@@ -20,8 +24,13 @@ def addItem(request):
     user = request.user
     form = ProductRegisterForm()
     custom_fields = ['category', 'supplier']
-    categories = Category.objects.all()
-    suppliers = Supplier.objects.all()
+    products = Product.objects.filter(user=user)
+    # retrieves categories/suppliers where the related product is in
+    # the products queryset obtained from the user's products.
+    categories = Category.objects.filter(product__in=products).distinct()
+    # .distinct() ensures that each category appears only once in
+    # the queryset, even if it's associated with multiple products.
+    suppliers = Supplier.objects.filter(product__in=products).distinct()
     query_add_attributes = AddAttr.objects.all()
     add_attributes = [add_attr.name for add_attr in query_add_attributes]
 
@@ -68,6 +77,33 @@ def addItem(request):
     context = {
         'title': 'Inventory - Add Item',
         'form': form,
+        'custom_fields': custom_fields,
+        'categories': categories,
+        'suppliers': suppliers,
+        'add_attributes': json.dumps(add_attributes)
+    }
+    return render(request, 'register_item.html', context)
+
+
+@login_required(login_url='login')
+def editItem(request, product_id):
+    """Updates an Exiting Item in the inventory"""
+    product = Product.objects.get(id=product_id)
+    if request.user != product.user:
+        return HttpResponse('Unauthorized')
+    form = ProductRegisterForm(instance=product)
+    user = request.user
+    products = Product.objects.filter(user=user)
+    categories = Category.objects.filter(product__in=products).distinct()
+    suppliers = Supplier.objects.filter(product__in=products).distinct()
+    custom_fields = ['category', 'supplier']
+    query_add_attributes = AddAttr.objects.all()
+    add_attributes = [add_attr.name for add_attr in query_add_attributes]
+
+    context = {
+        'title': f'Update Item {product.name}',
+        'form': form,
+        'product': product,
         'custom_fields': custom_fields,
         'categories': categories,
         'suppliers': suppliers,

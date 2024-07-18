@@ -11,7 +11,11 @@
                 <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
                 <!-- Custom fields: Category, Supplier -->
                 {% if field.name in custom_fields %}
-                    <input type="text" class="form-control" value="{{ product.field.name }}" name="{{ field.name }}" list="{{ field.name }}-list">
+                    <input type="text" class="form-control"
+                           value="{% if field.name == 'category' %}{{ product.category.name }}{% else %}{{ product.supplier.name }}{% endif%}" 
+                           name="{{ field.name }}"
+                           list="{{ field.name }}-list">
+                    <h1>{{ product.field.name.name }}</h1>
                     <datalist id="{{ field.name }}-list">
                         <select id="product_{{ field.name }}">
                             {% if field.name == 'category' %}
@@ -36,8 +40,11 @@
         <!-- Add Variant Switch -->
         <hr>
         <div class="form-check form-switch mb-3">
-            <input class="form-check-input" id="add-variants-switch" type="checkbox" role="switch" id="flexSwitchCheckDefault">
-            <label class="form-check-label"  for="flexSwitchCheckDefault">This item has variants</label>
+            <input class="form-check-input"
+                   id="add-variants-switch"
+                   type="checkbox" role="switch"
+                   id="flexSwitchCheckDefault">
+            <label class="form-check-label" for="flexSwitchCheckDefault">This item has variants</label>
         </div>
         <!-- Add Variant Container -->
         <div id="add-attr-container" data-add-attr='{{ add_attributes }}'></div>
