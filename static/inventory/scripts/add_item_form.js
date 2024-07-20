@@ -87,6 +87,14 @@ const handleDeleteAttribute = (event) => {
         console.log(`You are trying to delete attribute ${attrIndex} from remove`);
         attrNum--;
         removeElement(`form-group-${attrIndex}`);
+        console.log(`Attr Num: ${attrNum}`)
+        if (attrNum == 1) {
+            const parentElement = document.getElementById(`form-group-${attrNum}`);
+            const hrElement = parentElement.querySelector('hr');
+            if (hrElement) {
+                hrElement.remove();
+            }
+        }
         updateAttributeIDs();
         console.log(`Deleted attr ${attrIndex} from remove the length now is ${attrNum}`);
     }
@@ -210,6 +218,15 @@ const initialFields = `
     <!-- Add Other Attributes Button -->
     <button type="button" id="add-attr-btn" class="btn btn-secondary">Add Attribute</button>
 `;
+
+// Handling edit Item form with additional attributes
+if (addVarSwitch.hasAttribute('checked')) {
+    const formGroups = document.querySelectorAll('.attribute-field');
+    attrNum = formGroups.length;
+    containerDisplay = true;
+    document.getElementById('add-attr-btn').addEventListener('click', addNewAttribute);
+    setupDynamicElements();
+}
 
 // Listener: Adding/Removing Additional Attributes Container
 addVarSwitch.addEventListener('click', () => {

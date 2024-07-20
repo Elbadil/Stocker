@@ -75,7 +75,7 @@ def addItem(request):
             return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
 
     context = {
-        'title': 'Inventory - Add Item',
+        'title': 'Add Item',
         'form': form,
         'custom_fields': custom_fields,
         'categories': categories,
@@ -101,7 +101,7 @@ def editItem(request, product_id):
     add_attributes = [add_attr.name for add_attr in query_add_attributes]
 
     context = {
-        'title': f'Update Item {product.name}',
+        'title': f'Edit Item: {product.name}',
         'form': form,
         'product': product,
         'custom_fields': custom_fields,

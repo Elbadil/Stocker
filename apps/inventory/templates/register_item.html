@@ -1,11 +1,11 @@
 {% extends 'index.html' %}
 {% load static %}
 {% block content %}
-<!-- Register Product Form -->
+<!-- Register/Edit Product Form -->
 <div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
     <form method="POST" id="add_item_form" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
         {% csrf_token %}
-        <h2 class="text-center mb-4">Add Item</h2>
+        <h2 class="text-center mb-4">{{ title }}</h2>
         {% for field in form %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
@@ -43,20 +43,70 @@
             <input class="form-check-input"
                    id="add-variants-switch"
                    type="checkbox" role="switch"
-                   id="flexSwitchCheckDefault">
+                   id="flexSwitchCheckDefault" {% if product.other_attr.all|length > 0 %}checked{% endif %}>
             <label class="form-check-label" for="flexSwitchCheckDefault">This item has variants</label>
         </div>
         <!-- Add Variant Container -->
-        <div id="add-attr-container" data-add-attr='{{ add_attributes }}'></div>
+        <div id="add-attr-container" data-add-attr='{{ add_attributes }}'>
+            {% if product.other_attr.all|length > 0 %}
+            <label for="add-attr">Attributes And Options<span style="color: red;">*</span></label>
+            <div id="form-groups">
+                {% for add_attr in product.other_attr.all %}
+                    <!-- Additional Attribute -->
+                    <div class='form-group attribute-field' id="form-group-{{ forloop.counter }}">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control mb-2 attr" name="add-attr-{{ forloop.counter }}"  value="{{ add_attr.name }}" data-index="{{ forloop.counter }}" id="floatingInputGrid-{{ forloop.counter }}" list="add-attr-list-{{ forloop.counter }}" placeholder="e.g. Color or Size" required>
+                                    <datalist id="add-attr-list-{{ forloop.counter }}"
+                                        <select id="product_add-attr">
+                                            {% for other_attr in product.other_attr.all %}
+                                                <option value="{{ other_attr.name }}">{{ other_attr.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </datalist>
+                                    <label class="attr" for="floatingInputGrid-{{ forloop.counter }}" style="color: grey;">Attribute (e.g. Color or Size)</label>
+                                </div>
+                            </div>
+                            <!-- Delete Attribute Button -->
+                            <div class="col-auto">
+                                <button class="btn btn-outline-secondary delete-icon mb-2" type="button" data-index="{{ forloop.counter }}">
+                                    <i class="bi bi-archive-fill" style="font-size: 20px;"></i> <!-- Example using Bootstrap Icons -->
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Options (Additional Attribute Descriptions) -->
+                        <div class="form-floating">
+                            <input type="text" class="form-control opt" name="add-attr-desc-{{ forloop.counter }}"  value="{{add_attr.addattrdescription_set.all.first.body}}" id="floatingInputGrid-desc-{{ forloop.counter }}" placeholder="Type options separated by comma" required>
+                            <label class="opt" for="floatingInputGrid-desc-{{ forloop.counter }}" style="color: grey;">Options (Type options separated by comma)</label>
+                        </div>
+                        <!-- Validation Errors -->
+                        <div class="invalid-feedback" id="attr-error-{{ forloop.counter }}"></div>
+                        <!-- Trailing Line -->
+                        {% if forloop.counter < product.other_attr.all|length %}
+                        <hr>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <!-- Add Other Attributes Button -->
+            <button type="button" id="add-attr-btn" class="btn btn-secondary">Add Attribute</button>
+            {% endif %}
+        </div>
         <hr>
         <!-- Picture Field -->
         <div class="form-group">
-            <label for="picture">Picture</label>
+            {% if product.picture %}
+                <label for="picture">Picture Currently: <a href="#" {{ product.picture.url }}>{{ product.picture.url|slice:"/media/" }}</a></label>
+                Change:
+            {% else %}
+                <label for="picture">Picture</label>
+            {% endif %}
             <input type="file" name="picture" accept="image/*" class="form-control">
         </div>
         <!-- Submit Form Button -->
-        <button type="submit" class="btn btn-primary btn-block">Add Item</button>
+        <button type="submit" class="btn btn-primary btn-block">{% if title == 'Add Item' %}Add Item{% else %}Update Item{% endif %}</button>
     </form>
 </div>
-<script type="module" src="{% static 'inventory/scripts/add_item_form.js' %}"></script>
+<script src="{% static 'inventory/scripts/add_item_form.js' %}"></script>
 {% endblock %}
