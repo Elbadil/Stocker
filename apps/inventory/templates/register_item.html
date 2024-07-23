@@ -3,9 +3,13 @@
 {% block content %}
 <!-- Register/Edit Product Form -->
 <div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
-    <form method="POST" id="add_item_form" enctype="multipart/form-data" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 500px;">
+    <form method="POST"
+          id="add_item_form" enctype="multipart/form-data"
+          class="border p-4 shadow rounded bg-white"
+          style="width: 100%; max-width: 500px;">
         {% csrf_token %}
-        <h2 class="text-center mb-4">{{ title }}</h2>
+        <h2 class="text-center mb-4" id="form-title">{{ title }}</h2>
+        <input type="hidden" value="{{ product.id }}" id="product_id">
         {% for field in form %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
@@ -57,7 +61,14 @@
                         <div class="row align-items-center">
                             <div class="col">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control mb-2 attr" name="add-attr-{{ forloop.counter }}"  value="{{ add_attr.name }}" data-index="{{ forloop.counter }}" id="floatingInputGrid-{{ forloop.counter }}" list="add-attr-list-{{ forloop.counter }}" placeholder="e.g. Color or Size" required>
+                                    <input type="text"
+                                           class="form-control mb-2 attr"
+                                           name="add-attr-{{ forloop.counter }}"
+                                           value="{{ add_attr.name }}"
+                                           data-index="{{ forloop.counter }}"
+                                           id="floatingInputGrid-{{ forloop.counter }}"
+                                           list="add-attr-list-{{ forloop.counter }}"
+                                           placeholder="e.g. Color or Size" required>
                                     <datalist id="add-attr-list-{{ forloop.counter }}"
                                         <select id="product_add-attr">
                                             {% for other_attr in product.other_attr.all %}
@@ -77,8 +88,15 @@
                         </div>
                         <!-- Options (Additional Attribute Descriptions) -->
                         <div class="form-floating">
-                            <input type="text" class="form-control opt" name="add-attr-desc-{{ forloop.counter }}"  value="{{add_attr.addattrdescription_set.all.first.body}}" id="floatingInputGrid-desc-{{ forloop.counter }}" placeholder="Type options separated by comma" required>
-                            <label class="opt" for="floatingInputGrid-desc-{{ forloop.counter }}" style="color: grey;">Options (Type options separated by comma)</label>
+                            <input type="text"
+                                   class="form-control opt"
+                                   name="add-attr-desc-{{ forloop.counter }}"
+                                   value="{{ add_attr.addattrdescription_set.all.first.body }}"
+                                   id="floatingInputGrid-desc-{{ forloop.counter }}"
+                                   placeholder="Type options separated by comma" required>
+                            <label class="opt"
+                                   for="floatingInputGrid-desc-{{ forloop.counter }}"
+                                   style="color: grey;">Options (Type options separated by comma)</label>
                         </div>
                         <!-- Validation Errors -->
                         <div class="invalid-feedback" id="attr-error-{{ forloop.counter }}"></div>
@@ -97,7 +115,7 @@
         <!-- Picture Field -->
         <div class="form-group">
             {% if product.picture %}
-                <label for="picture">Picture Currently: <a href="#" {{ product.picture.url }}>{{ product.picture.url|slice:"/media/" }}</a></label>
+                <label for="picture">Current Picture: <a href="#" {{ product.picture.url }}>{{ product.picture.url|slice:"/media/" }}</a></label>
                 Change:
             {% else %}
                 <label for="picture">Picture</label>

@@ -43,7 +43,14 @@
                     <td>
                         {% if product.other_attr.count > 0 %}
                             {% for add_attr in product.other_attr.all %}
-                                <span style="display: block;"><b>{{ add_attr }}: </b>{% for desc in add_attr.addattrdescription_set.all %}{{ desc.body }}{% endfor %}</span>
+                                <span style="display: block;">
+                                    <b>{{ add_attr }}: </b>
+                                    {% for desc in add_attr.addattrdescription_set.all %}
+                                        {% if desc.product == product %}
+                                            {{ desc.body }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </span>
                             {% endfor %}
                         {% else %}-{% endif %}
                     </td>
@@ -56,7 +63,7 @@
                     <!-- Picture -->
                     <td>
                         {% if product.picture %}
-                            <img class="img-thumbnail" style="width: 80px;" src="{{ product.picture.url }}">
+                            <img class="img-thumbnail" style="width: 100px;" src="{{ product.picture.url }}">
                         {% else %}-{% endif %}
                     </td>
                     <!-- Action -->

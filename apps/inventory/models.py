@@ -44,7 +44,7 @@ class Product(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
-    name = models.CharField(max_length=300, unique=True, blank=False)
+    name = models.CharField(max_length=300, blank=False)
     quantity = models.IntegerField(blank=False)
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
@@ -56,7 +56,7 @@ class Product(BaseModel):
         return self.quantity * self.price
 
     def __str__(self) -> str:
-        return self.name
+        return f'{self.name} added by - {self.user.username} -'
 
 
 class AddAttrDescription(BaseModel):
@@ -69,4 +69,4 @@ class AddAttrDescription(BaseModel):
         db_table = 'inventory_add_attr_description'
 
     def __str__(self) -> str:
-        return f'{self.product.name} is available on {self.add_attr.name}: {self.body}'
+        return f'{self.product.name} added by - {self.product.user.username} - is available on {self.add_attr.name}: {self.body}'

@@ -253,9 +253,18 @@ addItemForm.addEventListener('submit', (event) => {
         console.log('You have validation errors from Add Attr');
     } else {
         let formData = new FormData(addItemForm);
-        formData.append('attr_num', attrNum);
-
-        fetch("/inventory/add_item/", {
+        if (attrNum > 0) {
+            formData.append('attr_num', attrNum);
+        }
+        let formUrl;
+        const formTitle = document.getElementById('form-title');
+        if (formTitle.textContent.startsWith('Add')) {
+            formUrl = '/inventory/add_item/';
+        } else {
+            const itemId = document.getElementById('product_id');
+            formUrl = `/inventory/edit_item/${itemId.value}/`;
+        }
+        fetch(formUrl, {
             method: 'POST',
             body: formData,
         })

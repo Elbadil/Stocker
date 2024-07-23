@@ -1,16 +1,18 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from .forms import ProductRegisterForm
 from .models import Product, Category, Supplier, AddAttr, AddAttrDescription
+from .utils import user_products_info, add_additional_attr
 import json
 
 
 @login_required(login_url='login')
 def listItems(request):
     """Inventory Home"""
-    products = Product.objects.all()
+    user = request.user
+    products = Product.objects.filter(user=user)
     context = {
         'title': 'Inventory',
         'products': products
@@ -22,29 +24,20 @@ def listItems(request):
 def addItem(request):
     """Registers New Item"""
     user = request.user
-    form = ProductRegisterForm()
-    custom_fields = ['category', 'supplier']
-    products = Product.objects.filter(user=user)
-    # retrieves categories/suppliers where the related product is in
-    # the products queryset obtained from the user's products.
-    categories = Category.objects.filter(product__in=products).distinct()
-    # .distinct() ensures that each category appears only once in
-    # the queryset, even if it's associated with multiple products.
-    suppliers = Supplier.objects.filter(product__in=products).distinct()
-    query_add_attributes = AddAttr.objects.all()
-    add_attributes = [add_attr.name for add_attr in query_add_attributes]
+    form = ProductRegisterForm(user=user)
+    products_info = user_products_info(user)
 
     if request.method == 'POST':
         form_data = request.POST.copy()
         # Creating new Category/Supplier instance if not exists
-        for field in custom_fields:
+        for field in products_info['custom_fields']:
             field_name = request.POST.get(field)
             if field_name:
                 model = Category if field == 'category' else Supplier
                 obj, created = model.objects.get_or_create(name=field_name)
                 form_data[field] = obj.id
 
-        form = ProductRegisterForm(form_data)
+        form = ProductRegisterForm(form_data, user=user)
         if form.is_valid():
             product = form.save(commit=False)
             product.user = user
@@ -52,35 +45,29 @@ def addItem(request):
                 product.picture = request.FILES['picture']
             product.save()
             # Handling Additional Attributes
-            get_attr_num = request.POST.get('attr_num')
-            if get_attr_num:
-                attr_num = int(get_attr_num)
-                if attr_num > 0:
-                    for i in range(1, attr_num + 1):
-                        add_attr_name = request.POST.get(f'add-attr-{i}')
-                        add_attr, created = AddAttr.objects.get_or_create(name=add_attr_name)
-                        add_attr_desc = request.POST.get(f'add-attr-desc-{i}')
-                        AddAttrDescription.objects.create(
-                            product=product,
-                            add_attr=add_attr,
-                            body=add_attr_desc
-                        )
-                        product.other_attr.add(add_attr)
+            attr_num = request.POST.get('attr_num')
+            if attr_num:
+                add_additional_attr(product, int(attr_num), request.POST)
+            # Success Message
             messages.success(request,
                              f'{product.name} has been successfully added to your inventory',
                              extra_tags='inventory')
-            return JsonResponse({'success': True, 'message': 'Form Submitted Successfully'})
+            return JsonResponse({'success': True,
+                                 'message': 'Form Submitted Successfully'})
         else:
             form_fields = [name for name in form.fields.keys()]
-            return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
+            return JsonResponse({'success': False,
+                                 'errors': form.errors,
+                                 'fields': form_fields})
 
     context = {
         'title': 'Add Item',
         'form': form,
-        'custom_fields': custom_fields,
-        'categories': categories,
-        'suppliers': suppliers,
-        'add_attributes': json.dumps(add_attributes)
+        'products': products_info['products'],
+        'custom_fields': products_info['custom_fields'],
+        'categories': products_info['categories'],
+        'suppliers': products_info['suppliers'],
+        'add_attributes': json.dumps(products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
 
@@ -88,25 +75,57 @@ def addItem(request):
 @login_required(login_url='login')
 def editItem(request, product_id):
     """Updates an Exiting Item in the inventory"""
-    product = Product.objects.get(id=product_id)
+    product = get_object_or_404(Product, id=product_id)
     if request.user != product.user:
         return HttpResponse('Unauthorized')
-    form = ProductRegisterForm(instance=product)
     user = request.user
-    products = Product.objects.filter(user=user)
-    categories = Category.objects.filter(product__in=products).distinct()
-    suppliers = Supplier.objects.filter(product__in=products).distinct()
-    custom_fields = ['category', 'supplier']
-    query_add_attributes = AddAttr.objects.all()
-    add_attributes = [add_attr.name for add_attr in query_add_attributes]
+    form = ProductRegisterForm(instance=product, product=product, user=user)
+    products_info = user_products_info(user)
+    product_name = product.name
+
+    if request.method == 'POST':
+        form_data = request.POST.copy()
+        # Creating new Category/Supplier instance if not exists
+        for field in products_info['custom_fields']:
+            field_name = request.POST.get(field)
+            if field_name:
+                model = Category if field == 'category' else Supplier
+                obj, created = model.objects.get_or_create(name=field_name)
+                form_data[field] = obj.id
+
+        form = ProductRegisterForm(form_data, instance=product, product=product, user=user)
+        if form.is_valid():
+            product = form.save(commit=False)
+            if 'picture' in request.FILES:
+                product.picture = request.FILES['picture']
+            product.save()
+            # Handling Additional Attributes
+            # Clearing old other_attr and descriptions
+            product.other_attr.clear()
+            product.addattrdescription_set.all().delete()
+            attr_num = request.POST.get('attr_num')
+            # Adding new additional attributes if any
+            if attr_num:
+                add_additional_attr(product, int(attr_num), request.POST)
+            # Success Message
+            messages.success(request,
+                             f'{product_name} has been successfully updated!',
+                             extra_tags='inventory')
+            return JsonResponse({'success': True,
+                                 'message': 'Form Submitted Successfully'})
+        else:
+            form_fields = [name for name in form.fields.keys()]
+            return JsonResponse({'success': False,
+                                 'errors': form.errors,
+                                 'fields': form_fields})
 
     context = {
-        'title': f'Edit Item: {product.name}',
+        'title': f'Edit Item - {product.name}',
         'form': form,
         'product': product,
-        'custom_fields': custom_fields,
-        'categories': categories,
-        'suppliers': suppliers,
-        'add_attributes': json.dumps(add_attributes)
+        'custom_fields': products_info['custom_fields'],
+        'categories': products_info['categories'],
+        'suppliers': products_info['suppliers'],
+        'add_attributes': json.dumps(products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
