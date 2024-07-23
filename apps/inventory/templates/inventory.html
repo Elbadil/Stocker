@@ -67,7 +67,38 @@
                         {% else %}-{% endif %}
                     </td>
                     <!-- Action -->
-                    <th><a href="{% url 'edit_item' product.id %}" style="color: black;"><i class="bi bi-pencil-square"></i></a> <a href="#" style="color: black;"><i class="bi bi-archive-fill"></i></a></th>
+                    <th>
+                        <!-- Update Item -->
+                        <a href="{% url 'edit_item' product.id %}" style="color: black;">
+                        <i class="bi bi-pencil-square"></i></a>
+                        <!-- Delete Item Trigger -->
+                        <a href=""
+                           style="color: black;"
+                           data-toggle="modal"
+                           data-target="#deleteItemModal">
+                           <i class="bi bi-archive-fill"></i>
+                        </a>
+                        <!-- Delete Item Form -->
+                        <div class="modal fade" id="deleteItemModal" tabindex="-1" role="dialog" aria-labelledby="deleteItemModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel">DELETE ITEM</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                Are you sure you want to delete item <b>{{ product.name }}</b>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <a href="{% url 'delete_item' product.id %}"><button type="button" class="btn btn-danger">Delete</button></a>
+                            </div>
+                            </div>
+                        </div>
+                        </div>
+                    </th>
                 </tr>
                 {% endfor %}
             </tbody>

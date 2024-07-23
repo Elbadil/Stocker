@@ -50,7 +50,7 @@ def addItem(request):
                 add_additional_attr(product, int(attr_num), request.POST)
             # Success Message
             messages.success(request,
-                             f'{product.name} has been successfully added to your inventory',
+                             f'Item <b>{product.name}</b> has been successfully added to your inventory',
                              extra_tags='inventory')
             return JsonResponse({'success': True,
                                  'message': 'Form Submitted Successfully'})
@@ -109,7 +109,7 @@ def editItem(request, product_id):
                 add_additional_attr(product, int(attr_num), request.POST)
             # Success Message
             messages.success(request,
-                             f'{product_name} has been successfully updated!',
+                             f'Item <b>{product_name}</b> has been successfully updated!',
                              extra_tags='inventory')
             return JsonResponse({'success': True,
                                  'message': 'Form Submitted Successfully'})
@@ -129,3 +129,18 @@ def editItem(request, product_id):
         'add_attributes': json.dumps(products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
+
+
+@login_required(login_url='login')
+def deleteItem(request, product_id):
+    """Deletes an Existing Item From the inventory"""
+    product = get_object_or_404(Product, id=product_id)
+    if request.user != product.user:
+        return HttpResponse('Unauthorized')
+    product_name = product.name
+    # deleting the selected product
+    product.delete()
+    messages.success(request,
+                     f'Item <b>{product_name}</b> has been successfully deleted!',
+                     extra_tags='inventory')
+    return redirect('inventory_home')
