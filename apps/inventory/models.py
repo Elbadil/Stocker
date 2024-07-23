@@ -5,23 +5,26 @@ from utils.models import BaseModel
 
 class Category(BaseModel):
     """Product Category Model"""
-    name = models.CharField(max_length=200, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    name = models.CharField(max_length=200, blank=False)
 
     def __str__(self) -> str:
-        return self.name
+        return f'Category: -{self.name}- Added by -{self.user.username}-'
 
 
 class Supplier(BaseModel):
     """Product Supplier Model"""
-    name = models.CharField(max_length=200, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    name = models.CharField(max_length=200)
     phone_number = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self) -> str:
-        return self.name
+        return f'Supplier: -{self.name}- Added by -{self.user.username}-'
 
 
 class AddAttr(BaseModel):
     """Product's Additional Attributes"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=200)
 
     class Meta:

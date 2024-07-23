@@ -1,0 +1,22 @@
+{% extends 'index.html' %}
+{% load static %}
+{% block content %}
+<!-- Register Category Form -->
+<div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
+    <form method="POST"
+          id="add_category_form" enctype="multipart/form-data"
+          class="border p-4 shadow rounded bg-white"
+          style="width: 100%; max-width: 500px;">
+        {% csrf_token %}
+        <h2 class="text-center mb-4">{{ title }}</h2>
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}<span style="color: red;">*</span></label>
+            {{ field }}
+        </div>
+        {% endfor %}
+        <!-- Submit Form Button -->
+        <button type="submit" class="btn btn-primary btn-block">Add Category</button>
+    </form>
+</div>
+{% endblock %}

@@ -2,9 +2,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from .forms import ProductRegisterForm
-from .models import Product, Category, Supplier, AddAttr, AddAttrDescription
-from .utils import user_products_info, add_additional_attr
+from .forms import ProductRegisterForm, CategoryRegisterForm
+from .models import Product, Category, Supplier
+from .utils import user_products_data, get_or_create_custom_fields, add_additional_attr
 import json
 
 
@@ -25,18 +25,14 @@ def addItem(request):
     """Registers New Item"""
     user = request.user
     form = ProductRegisterForm(user=user)
-    products_info = user_products_info(user)
+    user_products_info = user_products_data(user)
 
     if request.method == 'POST':
-        form_data = request.POST.copy()
-        # Creating new Category/Supplier instance if not exists
-        for field in products_info['custom_fields']:
-            field_name = request.POST.get(field)
-            if field_name:
-                model = Category if field == 'category' else Supplier
-                obj, created = model.objects.get_or_create(name=field_name)
-                form_data[field] = obj.id
-
+        # Creating new Category/Supplier instances if not exists
+        # And Adding the instances to the submitted form data
+        form_data = get_or_create_custom_fields(user,
+                                                user_products_info['custom_fields'],
+                                                request.POST)
         form = ProductRegisterForm(form_data, user=user)
         if form.is_valid():
             product = form.save(commit=False)
@@ -47,10 +43,10 @@ def addItem(request):
             # Handling Additional Attributes
             attr_num = request.POST.get('attr_num')
             if attr_num:
-                add_additional_attr(product, int(attr_num), request.POST)
+                add_additional_attr(user, product, int(attr_num), request.POST)
             # Success Message
             messages.success(request,
-                             f'Item <b>{product.name}</b> has been successfully added to your inventory',
+                             f'Item <b>{product.name}</b> has been successfully added to your inventory!',
                              extra_tags='inventory')
             return JsonResponse({'success': True,
                                  'message': 'Form Submitted Successfully'})
@@ -63,11 +59,11 @@ def addItem(request):
     context = {
         'title': 'Add Item',
         'form': form,
-        'products': products_info['products'],
-        'custom_fields': products_info['custom_fields'],
-        'categories': products_info['categories'],
-        'suppliers': products_info['suppliers'],
-        'add_attributes': json.dumps(products_info['add_attributes'])
+        'products': user_products_info['products'],
+        'custom_fields': user_products_info['custom_fields'],
+        'categories': user_products_info['categories'],
+        'suppliers': user_products_info['suppliers'],
+        'add_attributes': json.dumps(user_products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
 
@@ -80,19 +76,13 @@ def editItem(request, product_id):
         return HttpResponse('Unauthorized')
     user = request.user
     form = ProductRegisterForm(instance=product, product=product, user=user)
-    products_info = user_products_info(user)
+    user_products_info = user_products_data(user)
     product_name = product.name
 
     if request.method == 'POST':
-        form_data = request.POST.copy()
-        # Creating new Category/Supplier instance if not exists
-        for field in products_info['custom_fields']:
-            field_name = request.POST.get(field)
-            if field_name:
-                model = Category if field == 'category' else Supplier
-                obj, created = model.objects.get_or_create(name=field_name)
-                form_data[field] = obj.id
-
+        form_data = get_or_create_custom_fields(user,
+                                                user_products_info['custom_fields'],
+                                                request.POST)
         form = ProductRegisterForm(form_data, instance=product, product=product, user=user)
         if form.is_valid():
             product = form.save(commit=False)
@@ -106,7 +96,7 @@ def editItem(request, product_id):
             attr_num = request.POST.get('attr_num')
             # Adding new additional attributes if any
             if attr_num:
-                add_additional_attr(product, int(attr_num), request.POST)
+                add_additional_attr(user, product, int(attr_num), request.POST)
             # Success Message
             messages.success(request,
                              f'Item <b>{product_name}</b> has been successfully updated!',
@@ -123,10 +113,10 @@ def editItem(request, product_id):
         'title': f'Edit Item - {product.name}',
         'form': form,
         'product': product,
-        'custom_fields': products_info['custom_fields'],
-        'categories': products_info['categories'],
-        'suppliers': products_info['suppliers'],
-        'add_attributes': json.dumps(products_info['add_attributes'])
+        'custom_fields': user_products_info['custom_fields'],
+        'categories': user_products_info['categories'],
+        'suppliers': user_products_info['suppliers'],
+        'add_attributes': json.dumps(user_products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
 
@@ -144,3 +134,17 @@ def deleteItem(request, product_id):
                      f'Item <b>{product_name}</b> has been successfully deleted!',
                      extra_tags='inventory')
     return redirect('inventory_home')
+
+
+@login_required(login_url='login')
+def addCategory(request):
+    """Adds a new Category with specified Items"""
+    user = request.user
+    products = Product.objects.filter(category__isnull=True, user=user)
+    form = CategoryRegisterForm(user=user)
+    context = {
+        'title': 'Add Category',
+        'form': form,
+        'products' : products
+    }
+    return render(request, 'register_category.html', context)

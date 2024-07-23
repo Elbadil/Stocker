@@ -115,7 +115,13 @@
         <!-- Picture Field -->
         <div class="form-group">
             {% if product.picture %}
-                <label for="picture">Current Picture: <a href="#" {{ product.picture.url }}>{{ product.picture.url|slice:"/media/" }}</a></label>
+            <div class="d-flex justify-content-between">
+                <label for="picture">Current Picture:</label>
+                <img src="{{ product.picture.url }}"
+                     class="img-fluid border border-1 rounded-1"
+                     style="width: 100px;">
+                </img>
+            </div>
                 Change:
             {% else %}
                 <label for="picture">Picture</label>
