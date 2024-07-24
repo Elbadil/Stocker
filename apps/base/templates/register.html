@@ -7,14 +7,16 @@
             {% csrf_token %}
             <h2 class="text-center mb-4">Sign Up</h2>
             {% for field in form %}
-                <div class="form-group">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <div class="form-group mb-3">
+                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                     {{ field }}
                     <!-- Field Errors -->
                     <div class="invalid-feedback" id="{{ field.name }}-errors"></div>
                 </div>
             {% endfor %}
-            <button type="submit" class="btn btn-primary btn-block">Register</button>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-block">Register</button>
+            </div>
             <p class="text-center mt-3">
                 Already have an Account? <a href="{% url 'login' %}">Login</a>
             </p>

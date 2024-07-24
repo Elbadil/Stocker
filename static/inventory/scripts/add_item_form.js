@@ -211,12 +211,12 @@ const updateAttributeIDs = () => {
 // Var: initializing fields and attributes options
 let options = generateOptions(addAttributes);
 const initialFields = `
-    <label for="add-attr">Attributes And Options<span style="color: red;">*</span></label>
+    <label for="add-attr" class="form-label">Attributes And Options<span style="color: red;">*</span></label>
     <div id="form-groups">
         ${formFields(1, options)}
     </div>
     <!-- Add Other Attributes Button -->
-    <button type="button" id="add-attr-btn" class="btn btn-secondary">Add Attribute</button>
+    <button type="button" id="add-attr-btn" class="btn btn-secondary mt-2">Add Attribute</button>
 `;
 
 // Handling edit Item form with additional attributes

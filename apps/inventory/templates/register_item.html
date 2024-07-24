@@ -11,15 +11,14 @@
         <h2 class="text-center mb-4" id="form-title">{{ title }}</h2>
         <input type="hidden" value="{{ product.id }}" id="product_id">
         {% for field in form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
+            <div class="form-group mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
                 <!-- Custom fields: Category, Supplier -->
                 {% if field.name in custom_fields %}
                     <input type="text" class="form-control"
-                           value="{% if field.name == 'category' %}{{ product.category.name }}{% else %}{{ product.supplier.name }}{% endif%}" 
+                           value="{% if field.name == 'category' %}{% if category_name %}{{ category_name }}{% else %}{{ product.category.name }}{% endif %}{% else %}{{ product.supplier.name }}{% endif %}" 
                            name="{{ field.name }}"
                            list="{{ field.name }}-list">
-                    <h1>{{ product.field.name.name }}</h1>
                     <datalist id="{{ field.name }}-list">
                         <select id="product_{{ field.name }}">
                             {% if field.name == 'category' %}
@@ -53,7 +52,7 @@
         <!-- Add Variant Container -->
         <div id="add-attr-container" data-add-attr='{{ add_attributes }}'>
             {% if product.other_attr.all|length > 0 %}
-            <label for="add-attr">Attributes And Options<span style="color: red;">*</span></label>
+            <label for="add-attr" class="form-label">Attributes And Options<span style="color: red;">*</span></label>
             <div id="form-groups">
                 {% for add_attr in product.other_attr.all %}
                     <!-- Additional Attribute -->
@@ -108,7 +107,7 @@
                 {% endfor %}
             </div>
             <!-- Add Other Attributes Button -->
-            <button type="button" id="add-attr-btn" class="btn btn-secondary">Add Attribute</button>
+            <button type="button" id="add-attr-btn" class="btn btn-secondary mt-2">Add Attribute</button>
             {% endif %}
         </div>
         <hr>
@@ -116,7 +115,7 @@
         <div class="form-group">
             {% if product.picture %}
             <div class="d-flex justify-content-between">
-                <label for="picture">Current Picture:</label>
+                <label for="picture" class="form-label">Current Picture:</label>
                 <img src="{{ product.picture.url }}"
                      class="img-fluid border border-1 rounded-1"
                      style="width: 100px;">
@@ -124,12 +123,14 @@
             </div>
                 Change:
             {% else %}
-                <label for="picture">Picture</label>
+                <label for="picture" class="form-label">Picture</label>
             {% endif %}
             <input type="file" name="picture" accept="image/*" class="form-control">
         </div>
         <!-- Submit Form Button -->
-        <button type="submit" class="btn btn-primary btn-block">{% if title == 'Add Item' %}Add Item{% else %}Update Item{% endif %}</button>
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-block mt-3">{% if title == 'Add Item' %}Add Item{% else %}Update Item{% endif %}</button>
+        </div>
     </form>
 </div>
 <script src="{% static 'inventory/scripts/add_item_form.js' %}"></script>

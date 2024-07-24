@@ -9,17 +9,22 @@
         <form method="POST" id="login-form" class="border p-4 shadow rounded bg-white" style="width: 100%; max-width: 450px;">
             <h2 class="text-center mb-4">Login</h2>
             {% csrf_token %}
-            <div class="form-group">
-                <label for="email">Email address</label>
+            <!-- Email -->
+            <div class="form-group mb-3">
+                <label for="email" class="form-label">Email address</label>
                 <input type="email" class="form-control" id="email" name="email" required>
             </div>
-            <div class="form-group">
-                <label for="password">Password</label>
+            <!-- Password -->
+            <div class="form-group mb-3">
+                <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
                 <!-- Login Errors -->
                 <div class="invalid-feedback" id="login-errors"></div>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Login</button>
+            <!-- Submit Button -->
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+            </div>
             <p class="text-center mt-3">
                 <a href="{% url 'password_reset' %}">Forgot password?</a>
             </p>

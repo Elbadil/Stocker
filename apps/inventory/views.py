@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
+from urllib.parse import urlencode
 from .forms import ProductRegisterForm, CategoryRegisterForm
 from .models import Product, Category, Supplier
 from .utils import user_products_data, get_or_create_custom_fields, add_additional_attr
@@ -26,6 +28,9 @@ def addItem(request):
     user = request.user
     form = ProductRegisterForm(user=user)
     user_products_info = user_products_data(user)
+    # Getting and filling the category field with a category name
+    # if we recently created a category in the addCategory view
+    category_name = request.GET.get('category_name')
 
     if request.method == 'POST':
         # Creating new Category/Supplier instances if not exists
@@ -63,6 +68,7 @@ def addItem(request):
         'custom_fields': user_products_info['custom_fields'],
         'categories': user_products_info['categories'],
         'suppliers': user_products_info['suppliers'],
+        'category_name': category_name,
         'add_attributes': json.dumps(user_products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
@@ -142,6 +148,37 @@ def addCategory(request):
     user = request.user
     products = Product.objects.filter(category__isnull=True, user=user)
     form = CategoryRegisterForm(user=user)
+
+    if request.method == 'POST':
+        form = CategoryRegisterForm(request.POST, user=user)
+        if form.is_valid():
+            category = form.save(commit=False)
+            category.user = user
+            category.save()
+            # Adding Selected products to the category
+            json_category_products = request.POST.get('category_products')
+            if json_category_products:
+                category_products_ids = json.loads(json_category_products)
+                for product_id in category_products_ids:
+                    product = Product.objects.get(id=product_id)
+                    product.category = category
+                    product.save()
+            # Success Message
+            add_item_url = reverse('add_item')
+            category_name_query_params = urlencode({'category_name': category.name})
+            add_item_url_with_params = f'{add_item_url}?{category_name_query_params}'
+            messages.success(request,
+                             f"""Category <b>{category.name}</b> has been successfully added. 
+                             <b><a href={add_item_url_with_params}>Add {'more items' if json_category_products else 'items'} 
+                             to this Category</a></b>.""",
+                             extra_tags='inventory')
+            return JsonResponse({'success': True,
+                                 'message': 'Category Form has been successfully submitted!'})
+        else:
+            form_fields = [name for name in form.fields.keys()]
+            return JsonResponse({'success': False,
+                                 'errors': form.errors,
+                                 'fields': form_fields})
     context = {
         'title': 'Add Category',
         'form': form,
