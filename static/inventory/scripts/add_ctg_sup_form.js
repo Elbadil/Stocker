@@ -1,5 +1,5 @@
 
-const categoryForm = document.getElementById('add_category_form');
+const addCategorySupplierForm = document.getElementById('add_category_supplier_form');
 const checkedProducts = document.querySelectorAll('input[name=category_products]:checked');
 
 const handleValidationErrors = (errors, fields) => {
@@ -19,27 +19,35 @@ const handleValidationErrors = (errors, fields) => {
     });
 };
 
-categoryForm.addEventListener('submit', (event) => {
+addCategorySupplierForm.addEventListener('submit', (event) => {
     // Prevents the default form submission to handle it via JavaScript
     event.preventDefault();
 
     // Handling checked products
-    let categoryProducts = [];
-    const checkedProducts = document.querySelectorAll('input.category_products:checked');
+    let userProducts = [];
+    const checkedProducts = document.querySelectorAll('input.user_products:checked');
     checkedProducts.forEach((product) => {
-        categoryProducts.push(product.id)
+        userProducts.push(product.id)
     });
-    console.log(categoryProducts);
+    console.log(userProducts);
 
-    const formData = new FormData(categoryForm);
-    if (categoryProducts.length > 0) {
+    const formData = new FormData(addCategorySupplierForm);
+    if (userProducts.length > 0) {
         // Since the append method of FormData expects and converts into a string
         // We have utilized JSON.stringify so we can explicitly convert the array 
         // into a JSON-formatted string, preserving the array structure.
-        formData.append('category_products', JSON.stringify(categoryProducts));
+        formData.append('user_products', JSON.stringify(userProducts));
     }
 
-    fetch('/inventory/add_category/', {
+    const formTitle = document.getElementById('form_title');
+    let formUrl;
+    if (formTitle.textContent.includes('Category')) {
+        formUrl = '/inventory/add_category/';
+    } else {
+        formUrl = '/inventory/add_supplier/';
+    }
+
+    fetch(formUrl, {
         method: 'POST',
         body: formData
     })

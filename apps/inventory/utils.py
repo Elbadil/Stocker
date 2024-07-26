@@ -1,4 +1,6 @@
 from .models import User, Product, Category, Supplier, AddAttr, AddAttrDescription
+from typing import Union
+import json
 
 
 def user_products_data(user: User) -> dict:
@@ -54,3 +56,12 @@ def add_additional_attr(user: User, product: Product, attr_num: int, request_pos
             body=add_attr_desc
         )
         product.other_attr.add(add_attr)
+
+
+def add_category_supplier_to_products(products_json: json, instance: Union[Category, Supplier]) -> str:
+    """Adds a category or a supplier to a list of products"""
+    products_ids = [id for id in json.loads(products_json)]
+    if isinstance(instance, Category):
+        Product.objects.filter(id__in=products_ids).update(category=instance)
+    else:
+        Product.objects.filter(id__in=products_ids).update(supplier=instance)

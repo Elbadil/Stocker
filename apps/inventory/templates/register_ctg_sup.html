@@ -4,15 +4,15 @@
 <!-- Register Category Form -->
 <div class="container d-flex align-items-start justify-content-center mt-5 mb-5">
     <form method="POST"
-          id="add_category_form" enctype="multipart/form-data"
+          id="add_category_supplier_form"
           class="border p-4 shadow rounded bg-white"
           style="width: 100%; max-width: 450px;">
         {% csrf_token %}
-        <h2 class="text-center mb-4">{{ title }}</h2>
+        <h2 class="text-center mb-4" id="form_title">{{ title }}</h2>
         <!-- Category Name -->
         {% for field in form %}
             <div class="form-group mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}<span style="color: red;">*</span></label>
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if not field.name == 'phone_number' %}<span style="color: red;">*</span>{% endif %}</label>
                 {{ field }}
                 <!-- Field Errors -->
                 <div class="invalid-feedback" id="{{ field.name }}-errors"></div>
@@ -25,10 +25,10 @@
                 <ul class="list-group">
                     {% for product in products %}
                         <li class="list-group-item">
-                        <input class="form-check-input me-1 category_products" id="{{ product.id }}"
+                        <input class="form-check-input me-1 user_products" id="{{ product.id }}"
                             type="checkbox"
                             value=""
-                            ria-label="Checks product for category">
+                            ria-label="Checks products">
                         {{ product.name }}
                         </li>
                     {% endfor %}
@@ -37,9 +37,9 @@
         {% endif %}
         <!-- Submit Form Button -->
         <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary btn-block">Add Category</button>
+            <button type="submit" class="btn btn-primary btn-block">{{ title }}</button>
         </div>
     </form>
 </div>
-<script src="{% static 'inventory/scripts/add_category_form.js' %}"></script>
+<script src="{% static 'inventory/scripts/add_ctg_sup_form.js' %}"></script>
 {% endblock %}

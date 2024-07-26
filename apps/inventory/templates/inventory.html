@@ -3,16 +3,46 @@
 <div class="d-flex justify-content-between align-items-center mt-3">
     <h1 class="mb-0">Inventory</h1>
     <div>
-        <a href="{% url 'add_item' %}" class="btn btn-primary">ADD ITEM</a>
-        <a href="{% url 'add_category' %}" class="btn btn-secondary">ADD CATEGORY</a>
+        <a href="{% url 'add_item' %}" class="btn btn-primary me-2">ADD ITEM</a>
+        <a href="{% url 'add_category' %}" class="btn btn-primary me-2">ADD CATEGORY</a>
+        <a href="{% url 'add_supplier' %}" class="btn btn-primary">ADD SUPPLIER</a>
     </div>
 </div>
 <hr>
 <div class="card mb-4">
+    <!-- Table Header -->
     <div class="card-header">
-        <i class="fas fa-table me-1"></i>
-        All Products
+        <div class="d-flex align-items-center justify-content-between">
+            <!-- Table Title | Left -->
+            <div class="table-header-elements me-3">
+                {% if table_title %}
+                    <a href="{% url 'inventory_home' %}" class="me-2" style="color: black;"><i class="bi bi-arrow-left-circle-fill" style="font-size: 18px;"></i></a>
+                {% endif %}
+                <i class="fas fa-table me-1"></i>
+                <span id="search_title">{% if table_title %}{{ table_title|safe }}{% else %}All Items{% endif %}</span>
+            </div>
+            <!-- Table Data Info | Right -->
+            <div class="d-flex align-items-center justify-content-between">
+                <!-- Total items -->
+                <div class="table-header-elements me-3" id="total_items">
+                    <b>Items: </b><span id="item_num">{{ products.count }}</span>
+                </div>
+                <!-- Total Quantity -->
+                <div class="table-header-elements me-3" id="total_items">
+                    <b>Total Quantity: </b>{{ products.total_quantity }}
+                </div>
+                <!-- Total Value -->
+                <div class="table-header-elements me-3" id="total_value">
+                    <b>Total Value: </b>{{ products.total_value }}
+                </div>
+                <!-- Total Categories -->
+                <div class="table-header-elements me-2" id="total_categories">
+                    <b>Categories: </b>{{ categories.count }}
+                </div>
+            </div>
+        </div>
     </div>
+    <!-- Table Elements(Data) -->
     <div class="card-body">
         <table id="datatablesSimple">
             <!-- Header section for the table | Table Column Names -->
@@ -22,7 +52,7 @@
                     <th>Quantity</th>
                     <th>Price</th>
                     <th>Additional Attributes</th>
-                    <th>Total</th>
+                    <th>Total Price</th>
                     <th>Category</th>
                     <th>Supplier</th>
                     <th>Picture</th>
@@ -57,9 +87,15 @@
                     <!-- Total Price -->
                     <td>{{ product.total_price }}</td>
                     <!-- Category -->
-                    <td>{% if product.category %}{{ product.category.name }}{% else %}-{% endif %}</td>
+                    <td>{% if product.category %}
+                            <a href="{% url 'category_items' product.category.name %}">{{ product.category.name }}</a>
+                        {% else %}-{% endif %}
+                    </td>
                     <!-- Supplier -->
-                    <td>{% if product.supplier %}{{ product.supplier.name }}{% else %}-{% endif %}</td>
+                    <td>{% if product.supplier %}
+                            <a href="{% url 'supplier_items' product.supplier.name %}">{{ product.supplier.name }}</a>
+                        {% else %}-{% endif %}
+                    </td>
                     <!-- Picture -->
                     <td>
                         {% if product.picture %}
@@ -68,7 +104,7 @@
                     </td>
                     <!-- Action -->
                     <th>
-                        <!-- Update Item -->
+                        <!-- Edit Item -->
                         <a href="{% url 'edit_item' product.id %}" style="color: black;">
                         <i class="bi bi-pencil-square"></i></a>
                         <!-- Delete Item -->
@@ -88,7 +124,7 @@
                                 <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                Are you sure you want to delete item <b>{{ product.name }}</b>
+                                Are you sure you want to delete item <b>{{ product.name }}</b>?
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>

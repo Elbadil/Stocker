@@ -4,7 +4,7 @@ window.addEventListener('DOMContentLoaded', event => {
 
     const datatablesSimple = document.getElementById('datatablesSimple');
     if (datatablesSimple) {
-        new simpleDatatables.DataTable(datatablesSimple, {
+        const table = new simpleDatatables.DataTable(datatablesSimple, {
             columns: [
                 { select: 0, sortable: true },
                 { select: 1, sortable: true },
@@ -17,5 +17,27 @@ window.addEventListener('DOMContentLoaded', event => {
                 { select: 8, sortable: false },
             ]
         });
+
+        // Function to perform custom actions after search
+        function performCustomActions() {
+            let visibleRows;
+            const searchQuery = document.querySelector('.datatable-input').value;
+            const searchTitle = document.getElementById('search_title');
+            if (!searchQuery) {
+                searchTitle.textContent = 'All Items';
+            } else {
+                searchTitle.innerHTML = `<b>Search: </b>${searchQuery}`;
+            }
+            const itemsNumber = document.getElementById('item_num');
+            console.log(`Search query: ${searchQuery}`);
+            console.log(`Visible rows: ${visibleRows}`);
+        }
+
+        // Attach event listener to the automatically generated search input
+        document.querySelector('.datatable-input').addEventListener('input', function() {
+            // Perform custom actions
+            performCustomActions();
+        });
+
     }
 });

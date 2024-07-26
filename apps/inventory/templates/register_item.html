@@ -16,7 +16,7 @@
                 <!-- Custom fields: Category, Supplier -->
                 {% if field.name in custom_fields %}
                     <input type="text" class="form-control"
-                           value="{% if field.name == 'category' %}{% if category_name %}{{ category_name }}{% else %}{{ product.category.name }}{% endif %}{% else %}{{ product.supplier.name }}{% endif %}" 
+                           value="{% if field.name == 'category' %}{% if category_name %}{{ category_name }}{% else %}{{ product.category.name }}{% endif %}{% else %}{% if supplier_name %}{{ supplier_name }}{% else %}{{ product.supplier.name }}{% endif %}{% endif %}"
                            name="{{ field.name }}"
                            list="{{ field.name }}-list">
                     <datalist id="{{ field.name }}-list">

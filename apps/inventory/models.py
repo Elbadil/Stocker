@@ -54,6 +54,7 @@ class Product(BaseModel):
     other_attr = models.ManyToManyField(AddAttr, related_name='other_attr', blank=True)
     posts = models.ManyToManyField(Post, related_name='posts', blank=True)
 
+    @property
     def total_price(self):
         """Returns Quantity times Price"""
         return self.quantity * self.price

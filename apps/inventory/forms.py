@@ -2,7 +2,7 @@ from django.forms import ModelForm
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from apps.base.forms import AddFormControlClassMixin
-from .models import Product, Category
+from .models import Product, Category, Supplier
 
 
 class ProductRegisterForm(AddFormControlClassMixin, ModelForm):
@@ -43,7 +43,7 @@ class CategoryRegisterForm(AddFormControlClassMixin, ModelForm):
         fields = ['name']
 
     def __init__(self, *args, **kwargs):
-        self.category = kwargs.pop('product', None)
+        self.category = kwargs.pop('category', None)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
@@ -55,3 +55,27 @@ class CategoryRegisterForm(AddFormControlClassMixin, ModelForm):
                                                                        else None).exists():
             raise ValidationError('Category with this name already exists.')
         return category_name
+
+
+class SupplierRegisterForm(AddFormControlClassMixin, ModelForm):
+    """Product Supplier Register Form"""
+    class Meta:
+        model = Supplier
+        fields = [
+            'name',
+            'phone_number'
+        ]
+
+    def __init__(self, *args, **kwargs):
+        self.supplier = kwargs.pop('supplier', None)
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def clean_name(self):
+        supplier_name = self.cleaned_data['name']
+        if Supplier.objects.filter(name__iexact=supplier_name,
+                                               user=self.user).exclude(pk=self.supplier.id
+                                                                       if self.supplier
+                                                                       else None).exists():
+            raise ValidationError('Supplier with this name already exists.')
+        return supplier_name

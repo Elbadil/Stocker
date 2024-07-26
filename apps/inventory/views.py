@@ -1,12 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
+from django.urls import reverse
 from urllib.parse import urlencode
-from .forms import ProductRegisterForm, CategoryRegisterForm
+from .forms import ProductRegisterForm, CategoryRegisterForm, SupplierRegisterForm
 from .models import Product, Category, Supplier
-from .utils import user_products_data, get_or_create_custom_fields, add_additional_attr
+from .utils import (user_products_data,
+                    get_or_create_custom_fields,
+                    add_additional_attr,
+                    add_category_supplier_to_products)
 import json
 
 
@@ -15,9 +18,15 @@ def listItems(request):
     """Inventory Home"""
     user = request.user
     products = Product.objects.filter(user=user)
+    products_total_prices = [product.total_price for product in products]
+    products_quantities = [product.quantity for product in products]
+    categories = Category.objects.filter(product__in=products).distinct()
+    products.total_value = sum(products_total_prices)
+    products.total_quantity = sum(products_quantities)
     context = {
         'title': 'Inventory',
-        'products': products
+        'products': products,
+        'categories': categories
     }
     return render(request, 'inventory.html', context)
 
@@ -28,9 +37,10 @@ def addItem(request):
     user = request.user
     form = ProductRegisterForm(user=user)
     user_products_info = user_products_data(user)
-    # Getting and filling the category field with a category name
-    # if we recently created a category in the addCategory view
+    # Getting and filling the category/supplier field with a category/supplier
+    # name if we recently created a category/supplier in the addCategory/addSupplier views
     category_name = request.GET.get('category_name')
+    supplier_name = request.GET.get('supplier_name')
 
     if request.method == 'POST':
         # Creating new Category/Supplier instances if not exists
@@ -69,6 +79,7 @@ def addItem(request):
         'categories': user_products_info['categories'],
         'suppliers': user_products_info['suppliers'],
         'category_name': category_name,
+        'supplier_name': supplier_name,
         'add_attributes': json.dumps(user_products_info['add_attributes'])
     }
     return render(request, 'register_item.html', context)
@@ -155,15 +166,11 @@ def addCategory(request):
             category = form.save(commit=False)
             category.user = user
             category.save()
-            # Adding Selected products to the category
-            json_category_products = request.POST.get('category_products')
+            # Adding Selected products to the category if any
+            json_category_products = request.POST.get('user_products')
             if json_category_products:
-                category_products_ids = json.loads(json_category_products)
-                for product_id in category_products_ids:
-                    product = Product.objects.get(id=product_id)
-                    product.category = category
-                    product.save()
-            # Success Message
+                add_category_supplier_to_products(json_category_products, category)
+            # Generating a link that will be used in the Success Message
             add_item_url = reverse('add_item')
             category_name_query_params = urlencode({'category_name': category.name})
             add_item_url_with_params = f'{add_item_url}?{category_name_query_params}'
@@ -184,4 +191,86 @@ def addCategory(request):
         'form': form,
         'products' : products
     }
-    return render(request, 'register_category.html', context)
+    return render(request, 'register_ctg_sup.html', context)
+
+
+@login_required(login_url='login')
+def addSupplier(request):
+    """Adds a new Supplier with specified Items"""
+    user = request.user
+    products = Product.objects.filter(supplier__isnull=True, user=user)
+    form = SupplierRegisterForm(user=user)
+
+    if request.method == 'POST':
+        form = SupplierRegisterForm(request.POST, user=user)
+        if form.is_valid():
+            supplier = form.save(commit=False)
+            supplier.user = user
+            supplier.save()
+            # Adding Selected products to the supplier if any
+            json_supplier_products = request.POST.get('user_products')
+            if json_supplier_products:
+                add_category_supplier_to_products(json_supplier_products, supplier)
+            # Generating a link that will be used in the Success Message
+            add_item_url = reverse('add_item')
+            supplier_name_query_params = urlencode({'supplier_name': supplier.name})
+            add_item_url_with_params = f'{add_item_url}?{supplier_name_query_params}'
+            # Success Message
+            messages.success(request,
+                             f"""Supplier <b>{supplier.name}</b> has been successfully added. 
+                             <b><a href={add_item_url_with_params}>Add {'more items' if json_supplier_products else 'items'} 
+                             with this Supplier</a></b>.""",
+                             extra_tags='inventory')
+            return JsonResponse({'success': True,
+                                 'message': 'Supplier Form has been successfully submitted!'})
+        else:
+            form_fields = [name for name in form.fields.keys()]
+            return JsonResponse({'success': False,
+                                 'errors': form.errors,
+                                 'fields': form_fields})
+    context = {
+        'title': 'Add Supplier',
+        'form': form,
+        'products': products
+    }
+    return render(request, 'register_ctg_sup.html', context)
+
+
+@login_required(login_url='login')
+def itemsByCategory(request, category_name):
+    """Filters items by a category"""
+    user = request.user
+    category = get_object_or_404(Category, name=category_name, user=user)
+    products = Product.objects.filter(user=user, category__name=category.name)
+    products_total_prices = [product.total_price for product in products]
+    products_quantities = [product.quantity for product in products]
+    categories = Category.objects.filter(product__in=products).distinct()
+    products.total_value = sum(products_total_prices)
+    products.total_quantity = sum(products_quantities)
+    context = {
+        'title': f'Items By Category - {category.name}',
+        'table_title': f'<b>Items By Category: </b>{category.name}',
+        'products': products,
+        'categories': categories
+    }
+    return render(request, 'inventory.html', context)
+
+
+@login_required(login_url='login')
+def itemsBySupplier(request, supplier_name):
+    """Filters items by a supplier"""
+    user = request.user
+    supplier = get_object_or_404(Supplier, name=supplier_name, user=user)
+    products = Product.objects.filter(user=user, supplier__name=supplier.name)
+    products_total_prices = [product.total_price for product in products]
+    products_quantities = [product.quantity for product in products]
+    categories = Category.objects.filter(product__in=products).distinct()
+    products.total_value = sum(products_total_prices)
+    products.total_quantity = sum(products_quantities)
+    context = {
+        'title': f'Items By Supplier - {supplier.name}',
+        'table_title': f'<b>Items By Supplier: </b>{supplier.name}',
+        'products': products,
+        'categories': categories
+    }
+    return render(request, 'inventory.html', context)
