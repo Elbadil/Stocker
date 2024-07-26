@@ -1,5 +1,5 @@
 from .models import User, Product, Category, Supplier, AddAttr, AddAttrDescription
-from typing import Union
+from typing import Union, List
 import json
 
 
@@ -33,7 +33,7 @@ def get_or_create_custom_fields(user: User, custom_fields: list, request_data: d
         field_name = request_data.get(field)
         if field_name:
             model = Category if field == 'category' else Supplier
-            obj, created = model.objects.get_or_create(name=field_name)
+            obj, created = model.objects.get_or_create(name=field_name, user=user)
             if created:
                 obj.user = user
                 obj.save()
@@ -45,7 +45,7 @@ def add_additional_attr(user: User, product: Product, attr_num: int, request_pos
     """Adds Additional Attributes with descriptions to the product"""
     for i in range(1, attr_num + 1):
         add_attr_name = request_post_data.get(f'add-attr-{i}')
-        add_attr, created = AddAttr.objects.get_or_create(name=add_attr_name)
+        add_attr, created = AddAttr.objects.get_or_create(name=add_attr_name, user=user)
         if created:
             add_attr.user = user
             add_attr.save()
@@ -65,3 +65,14 @@ def add_category_supplier_to_products(products_json: json, instance: Union[Categ
         Product.objects.filter(id__in=products_ids).update(category=instance)
     else:
         Product.objects.filter(id__in=products_ids).update(supplier=instance)
+
+
+def set_products_table_display_data(products: List[Product]) -> dict:
+    """Sets Necessary Data to be displayed in the Items Data Table"""
+    products_total_prices = [product.total_price for product in products]
+    products_quantities = [product.quantity for product in products]
+    for product in products:
+        product.created_at = product.created_at.strftime("%d/%m/%y")
+        product.updated_at = product.updated_at.strftime("%d/%m/%y")
+    products.total_value = sum(products_total_prices)
+    products.total_quantity = sum(products_quantities)

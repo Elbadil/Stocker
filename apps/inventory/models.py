@@ -53,6 +53,7 @@ class Product(BaseModel):
     picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
     other_attr = models.ManyToManyField(AddAttr, related_name='other_attr', blank=True)
     posts = models.ManyToManyField(Post, related_name='posts', blank=True)
+    updated = models.BooleanField(default=False)
 
     @property
     def total_price(self):

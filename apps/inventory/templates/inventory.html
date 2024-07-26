@@ -51,11 +51,13 @@
                     <th>Name</th>
                     <th>Quantity</th>
                     <th>Price</th>
-                    <th>Additional Attributes</th>
+                    <th>Variants</th>
                     <th>Total Price</th>
                     <th>Category</th>
                     <th>Supplier</th>
                     <th>Picture</th>
+                    <th>Created</th>
+                    <th>Updated</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -88,12 +90,12 @@
                     <td>{{ product.total_price }}</td>
                     <!-- Category -->
                     <td>{% if product.category %}
-                            <a href="{% url 'category_items' product.category.name %}">{{ product.category.name }}</a>
+                            <a class="table_links" href="{% url 'category_items' product.category.name %}">{{ product.category.name }}</a>
                         {% else %}-{% endif %}
                     </td>
                     <!-- Supplier -->
                     <td>{% if product.supplier %}
-                            <a href="{% url 'supplier_items' product.supplier.name %}">{{ product.supplier.name }}</a>
+                            <a class="table_links" href="{% url 'supplier_items' product.supplier.name %}">{{ product.supplier.name }}</a>
                         {% else %}-{% endif %}
                     </td>
                     <!-- Picture -->
@@ -102,6 +104,10 @@
                             <img class="img-thumbnail" style="width: 100px;" src="{{ product.picture.url }}">
                         {% else %}-{% endif %}
                     </td>
+                    <!-- Date Added -->
+                    <td>{{ product.created_at }}</td>
+                    <!-- Date Updated -->
+                    <td>{% if product.updated %}{{ product.updated_at }}{% else %}-{% endif %}</td>
                     <!-- Action -->
                     <th>
                         <!-- Edit Item -->

@@ -9,7 +9,8 @@ from .models import Product, Category, Supplier
 from .utils import (user_products_data,
                     get_or_create_custom_fields,
                     add_additional_attr,
-                    add_category_supplier_to_products)
+                    add_category_supplier_to_products,
+                    set_products_table_display_data)
 import json
 
 
@@ -18,11 +19,8 @@ def listItems(request):
     """Inventory Home"""
     user = request.user
     products = Product.objects.filter(user=user)
-    products_total_prices = [product.total_price for product in products]
-    products_quantities = [product.quantity for product in products]
+    set_products_table_display_data(products)
     categories = Category.objects.filter(product__in=products).distinct()
-    products.total_value = sum(products_total_prices)
-    products.total_quantity = sum(products_quantities)
     context = {
         'title': 'Inventory',
         'products': products,
@@ -88,7 +86,7 @@ def addItem(request):
 @login_required(login_url='login')
 def editItem(request, product_id):
     """Updates an Exiting Item in the inventory"""
-    product = get_object_or_404(Product, id=product_id)
+    product = get_object_or_404(Product, id=product_id, user=request.user)
     if request.user != product.user:
         return HttpResponse('Unauthorized')
     user = request.user
@@ -103,6 +101,7 @@ def editItem(request, product_id):
         form = ProductRegisterForm(form_data, instance=product, product=product, user=user)
         if form.is_valid():
             product = form.save(commit=False)
+            product.updated = True
             if 'picture' in request.FILES:
                 product.picture = request.FILES['picture']
             product.save()
@@ -242,11 +241,8 @@ def itemsByCategory(request, category_name):
     user = request.user
     category = get_object_or_404(Category, name=category_name, user=user)
     products = Product.objects.filter(user=user, category__name=category.name)
-    products_total_prices = [product.total_price for product in products]
-    products_quantities = [product.quantity for product in products]
+    set_products_table_display_data(products)
     categories = Category.objects.filter(product__in=products).distinct()
-    products.total_value = sum(products_total_prices)
-    products.total_quantity = sum(products_quantities)
     context = {
         'title': f'Items By Category - {category.name}',
         'table_title': f'<b>Items By Category: </b>{category.name}',
@@ -262,11 +258,8 @@ def itemsBySupplier(request, supplier_name):
     user = request.user
     supplier = get_object_or_404(Supplier, name=supplier_name, user=user)
     products = Product.objects.filter(user=user, supplier__name=supplier.name)
-    products_total_prices = [product.total_price for product in products]
-    products_quantities = [product.quantity for product in products]
+    set_products_table_display_data(products)
     categories = Category.objects.filter(product__in=products).distinct()
-    products.total_value = sum(products_total_prices)
-    products.total_quantity = sum(products_quantities)
     context = {
         'title': f'Items By Supplier - {supplier.name}',
         'table_title': f'<b>Items By Supplier: </b>{supplier.name}',

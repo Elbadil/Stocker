@@ -14,7 +14,9 @@ window.addEventListener('DOMContentLoaded', event => {
                 { select: 5, sortable: false },
                 { select: 6, sortable: false },
                 { select: 7, sortable: false },
-                { select: 8, sortable: false },
+                { select: 8, sortable: true },
+                { select: 9, sortable: true },
+                { select: 10, sortable: false },
             ]
         });
 
@@ -38,6 +40,5 @@ window.addEventListener('DOMContentLoaded', event => {
             // Perform custom actions
             performCustomActions();
         });
-
     }
 });

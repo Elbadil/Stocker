@@ -1,0 +1,18 @@
+
+.table_links {
+    color: #1F305E;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.table_links:hover {
+    text-decoration: underline;
+}
+
+#datatablesSimple thead {
+    background-color: #F5F5F5;
+}
+
+#datatablesSimple {
+    font-size: 0.95em;
+}
