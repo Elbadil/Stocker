@@ -24,7 +24,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('apps.base.urls')),
-    path('inventory/', include('apps.inventory.urls'))
+    path('inventory/', include('apps.inventory.urls')),
+    path('api/inventory/', include('apps.inventory.api.urls'))
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

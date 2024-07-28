@@ -1,27 +1,27 @@
-from .models import User, Product, Category, Supplier, AddAttr, AddAttrDescription
+from .models import User, Item, Category, Supplier, Variant, VariantOptions
 from typing import Union, List
 import json
 
 
-def user_products_data(user: User) -> dict:
+def user_items_data(user: User) -> dict:
     """Return a dictionary of all necessary info that will be used in
     the register_item template"""
     custom_fields = ['category', 'supplier']
-    products = Product.objects.filter(user=user)
+    items = Item.objects.filter(user=user)
     categories = Category.objects.filter(user=user)
     suppliers = Supplier.objects.filter(user=user)
-    add_attributes = ['Color', 'Size', 'Style']
-    query_user_add_attributes = AddAttr.objects.filter(user=user)
-    user_add_attributes = [add_attr.name for add_attr in query_user_add_attributes]
-    for add_attr in user_add_attributes:
-        if add_attr not in add_attributes:
-            add_attributes.append(add_attr)
+    variants = ['Color', 'Size', 'Style']
+    query_user_items_variants = Variant.objects.filter(user=user)
+    user_items_variants = [variant.name for variant in query_user_items_variants]
+    for variant in user_items_variants:
+        if variant not in variants:
+            variants.append(variant)
     return {
         'custom_fields': custom_fields,
-        'products': products,
+        'items': items,
         'categories': categories,
         'suppliers': suppliers,
-        'add_attributes': add_attributes
+        'variants': variants
     }
 
 
@@ -41,38 +41,38 @@ def get_or_create_custom_fields(user: User, custom_fields: list, request_data: d
     return form_data
 
 
-def add_additional_attr(user: User, product: Product, attr_num: int, request_post_data: dict) -> None:
-    """Adds Additional Attributes with descriptions to the product"""
-    for i in range(1, attr_num + 1):
-        add_attr_name = request_post_data.get(f'add-attr-{i}')
-        add_attr, created = AddAttr.objects.get_or_create(name=add_attr_name, user=user)
+def add_item_variants(user: User, item: Item, variants_num: int, request_post_data: dict) -> None:
+    """Adds Variants with options to the item"""
+    for i in range(1, variants_num + 1):
+        variant_name = request_post_data.get(f'variant-{i}')
+        variant, created = Variant.objects.get_or_create(name=variant_name, user=user)
         if created:
-            add_attr.user = user
-            add_attr.save()
-        add_attr_desc = request_post_data.get(f'add-attr-desc-{i}')
-        AddAttrDescription.objects.create(
-            product=product,
-            add_attr=add_attr,
-            body=add_attr_desc
+            variant.user = user
+            variant.save()
+        variant_opts = request_post_data.get(f'variant-opt-{i}')
+        VariantOptions.objects.create(
+            item=item,
+            variant=variant,
+            body=variant_opts
         )
-        product.other_attr.add(add_attr)
+        item.variants.add(variant)
 
 
-def add_category_supplier_to_products(products_json: json, instance: Union[Category, Supplier]) -> str:
-    """Adds a category or a supplier to a list of products"""
-    products_ids = [id for id in json.loads(products_json)]
+def add_category_supplier_to_items(items_json: json, instance: Union[Category, Supplier]) -> str:
+    """Adds a category or a supplier to a list of items"""
+    items_ids = [id for id in json.loads(items_json)]
     if isinstance(instance, Category):
-        Product.objects.filter(id__in=products_ids).update(category=instance)
+        Item.objects.filter(id__in=items_ids).update(category=instance, updated=True)
     else:
-        Product.objects.filter(id__in=products_ids).update(supplier=instance)
+        Item.objects.filter(id__in=items_ids).update(supplier=instance, updated=True)
 
 
-def set_products_table_display_data(products: List[Product]) -> dict:
+def set_items_table_display_data(items: List[Item]) -> dict:
     """Sets Necessary Data to be displayed in the Items Data Table"""
-    products_total_prices = [product.total_price for product in products]
-    products_quantities = [product.quantity for product in products]
-    for product in products:
-        product.created_at = product.created_at.strftime("%d/%m/%y")
-        product.updated_at = product.updated_at.strftime("%d/%m/%y")
-    products.total_value = sum(products_total_prices)
-    products.total_quantity = sum(products_quantities)
+    items_total_prices = [item.total_price for item in items]
+    items_quantities = [item.quantity for item in items]
+    for item in items:
+        item.created_at = item.created_at.strftime("%d/%m/%y")
+        item.updated_at = item.updated_at.strftime("%d/%m/%y")
+    items.total_value = sum(items_total_prices)
+    items.total_quantity = sum(items_quantities)

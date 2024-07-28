@@ -9,14 +9,14 @@
           style="width: 100%; max-width: 500px;">
         {% csrf_token %}
         <h2 class="text-center mb-4" id="form-title">{{ title }}</h2>
-        <input type="hidden" value="{{ product.id }}" id="product_id">
+        <input type="hidden" value="{{ item.id }}" id="item_id">
         {% for field in form %}
             <div class="form-group mb-3">
                 <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if not field.name in custom_fields %}<span style="color: red;">*</span>{% endif %}</label>
                 <!-- Custom fields: Category, Supplier -->
                 {% if field.name in custom_fields %}
                     <input type="text" class="form-control"
-                           value="{% if field.name == 'category' %}{% if category_name %}{{ category_name }}{% else %}{{ product.category.name }}{% endif %}{% else %}{% if supplier_name %}{{ supplier_name }}{% else %}{{ product.supplier.name }}{% endif %}{% endif %}"
+                           value="{% if field.name == 'category' %}{% if category_name %}{{ category_name }}{% else %}{{ item.category.name }}{% endif %}{% else %}{% if supplier_name %}{{ supplier_name }}{% else %}{{ item.supplier.name }}{% endif %}{% endif %}"
                            name="{{ field.name }}"
                            list="{{ field.name }}-list">
                     <datalist id="{{ field.name }}-list">
@@ -46,68 +46,68 @@
             <input class="form-check-input"
                    id="add-variants-switch"
                    type="checkbox" role="switch"
-                   id="flexSwitchCheckDefault" {% if product.other_attr.all|length > 0 %}checked{% endif %}>
+                   id="flexSwitchCheckDefault" {% if item.variants.all|length > 0 %}checked{% endif %}>
             <label class="form-check-label" for="flexSwitchCheckDefault">This item has variants</label>
         </div>
-        <!-- Add Variant Container -->
-        <div id="add-attr-container" data-add-attr='{{ add_attributes }}'>
-            {% if product.other_attr.all|length > 0 %}
-            <label for="add-attr" class="form-label">Attributes And Options<span style="color: red;">*</span></label>
+        <!-- Add Variants Container -->
+        <div id="add-variants-container" data-variants='{{ variants }}'>
+            {% if item.variants.all|length > 0 %}
+            <label for="variants" class="form-label">Variants And Options<span style="color: red;">*</span></label>
             <div id="form-groups">
-                {% for add_attr in product.other_attr.all %}
-                    <!-- Additional Attribute -->
-                    <div class='form-group attribute-field' id="form-group-{{ forloop.counter }}">
+                {% for variant in item.variants.all %}
+                    <!-- Item's Variant -->
+                    <div class='form-group variant-field' id="form-group-{{ forloop.counter }}">
                         <div class="row align-items-center">
                             <div class="col">
                                 <div class="form-floating">
                                     <input type="text"
-                                           class="form-control mb-2 attr"
-                                           name="add-attr-{{ forloop.counter }}"
-                                           value="{{ add_attr.name }}"
+                                           class="form-control mb-2 variant"
+                                           name="variant-{{ forloop.counter }}"
+                                           value="{{ variant.name }}"
                                            data-index="{{ forloop.counter }}"
                                            id="floatingInputGrid-{{ forloop.counter }}"
-                                           list="add-attr-list-{{ forloop.counter }}"
+                                           list="variant-list-{{ forloop.counter }}"
                                            placeholder="e.g. Color or Size" required>
-                                    <datalist id="add-attr-list-{{ forloop.counter }}"
-                                        <select id="product_add-attr">
-                                            {% for other_attr in product.other_attr.all %}
-                                                <option value="{{ other_attr.name }}">{{ other_attr.name }}</option>
+                                    <datalist id="variant-list-{{ forloop.counter }}">
+                                        <select id="item_variant">
+                                            {% for variant in item.variants.all %}
+                                                <option value="{{ variant.name }}">{{ variant.name }}</option>
                                             {% endfor %}
                                         </select>
                                     </datalist>
-                                    <label class="attr" for="floatingInputGrid-{{ forloop.counter }}" style="color: grey;">Attribute (e.g. Color or Size)</label>
+                                    <label class="variant" for="floatingInputGrid-{{ forloop.counter }}" style="color: grey;">Variant (e.g. Color or Size)</label>
                                 </div>
                             </div>
-                            <!-- Delete Attribute Button -->
+                            <!-- Delete Variant Button -->
                             <div class="col-auto">
                                 <button class="btn btn-outline-secondary delete-icon mb-2" type="button" data-index="{{ forloop.counter }}">
                                     <i class="bi bi-archive-fill" style="font-size: 20px;"></i> <!-- Example using Bootstrap Icons -->
                                 </button>
                             </div>
                         </div>
-                        <!-- Options (Additional Attribute Descriptions) -->
+                        <!-- Options (Variant Options) -->
                         <div class="form-floating">
                             <input type="text"
                                    class="form-control opt"
-                                   name="add-attr-desc-{{ forloop.counter }}"
-                                   value="{{ add_attr.addattrdescription_set.all.first.body }}"
-                                   id="floatingInputGrid-desc-{{ forloop.counter }}"
+                                   name="variant-opt-{{ forloop.counter }}"
+                                   value="{% for option in variant.variantoptions_set.all %}{% if option.item == item  %}{{ option.body }}{% endif %}{% endfor %}"
+                                   id="floatingInputGrid-opt-{{ forloop.counter }}"
                                    placeholder="Type options separated by comma" required>
                             <label class="opt"
-                                   for="floatingInputGrid-desc-{{ forloop.counter }}"
+                                   for="floatingInputGrid-opt-{{ forloop.counter }}"
                                    style="color: grey;">Options (Type options separated by comma)</label>
                         </div>
                         <!-- Validation Errors -->
-                        <div class="invalid-feedback" id="attr-error-{{ forloop.counter }}"></div>
+                        <div class="invalid-feedback variant-e" id="variant-error-{{ forloop.counter }}" data-index="{{ forloop.counter }}"></div>
                         <!-- Trailing Line -->
-                        {% if forloop.counter < product.other_attr.all|length %}
+                        {% if forloop.counter < item.variants.all|length %}
                         <hr>
                         {% endif %}
                     </div>
                 {% endfor %}
             </div>
-            <!-- Add Other Attributes Button -->
-            <button type="button" id="add-attr-btn" class="btn btn-secondary mt-2">Add Attribute</button>
+            <!-- Add Other Variants Button -->
+            <button type="button" id="add-variant-btn" class="btn btn-secondary mt-2">Add Variant</button>
             {% endif %}
         </div>
         <hr>

@@ -1,6 +1,5 @@
 
 const addCategorySupplierForm = document.getElementById('add_category_supplier_form');
-const checkedProducts = document.querySelectorAll('input[name=category_products]:checked');
 
 const handleValidationErrors = (errors, fields) => {
     console.log('Handling Errors');
@@ -24,19 +23,19 @@ addCategorySupplierForm.addEventListener('submit', (event) => {
     event.preventDefault();
 
     // Handling checked products
-    let userProducts = [];
-    const checkedProducts = document.querySelectorAll('input.user_products:checked');
-    checkedProducts.forEach((product) => {
-        userProducts.push(product.id)
+    let userItems = [];
+    const checkedItems = document.querySelectorAll('input.user_items:checked');
+    checkedItems.forEach((item) => {
+        userItems.push(item.id)
     });
-    console.log(userProducts);
+    console.log(userItems);
 
     const formData = new FormData(addCategorySupplierForm);
-    if (userProducts.length > 0) {
+    if (userItems.length > 0) {
         // Since the append method of FormData expects and converts into a string
         // We have utilized JSON.stringify so we can explicitly convert the array 
         // into a JSON-formatted string, preserving the array structure.
-        formData.append('user_products', JSON.stringify(userProducts));
+        formData.append('user_items', JSON.stringify(userItems));
     }
 
     const formTitle = document.getElementById('form_title');

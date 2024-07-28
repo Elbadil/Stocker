@@ -18,18 +18,18 @@
                 <div class="invalid-feedback" id="{{ field.name }}-errors"></div>
             </div>
         {% endfor %}
-        <!-- Category Products -->
-        {% if products.count > 0 %}
+        <!-- Category Items -->
+        {% if items.count > 0 %}
             <div class="form-group mb-3">
-                <label for="products" class="form-label">Products</label>
+                <label for="items" class="form-label">Items</label>
                 <ul class="list-group">
-                    {% for product in products %}
+                    {% for item in items %}
                         <li class="list-group-item">
-                        <input class="form-check-input me-1 user_products" id="{{ product.id }}"
+                        <input class="form-check-input me-1 user_items" id="{{ item.id }}"
                             type="checkbox"
                             value=""
-                            ria-label="Checks products">
-                        {{ product.name }}
+                            ria-label="Checks items">
+                        {{ item.name }}
                         </li>
                     {% endfor %}
                 </ul>

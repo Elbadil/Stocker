@@ -2,13 +2,13 @@ from django.forms import ModelForm
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from apps.base.forms import AddFormControlClassMixin
-from .models import Product, Category, Supplier
+from .models import Item, Category, Supplier
 
 
-class ProductRegisterForm(AddFormControlClassMixin, ModelForm):
+class ItemRegisterForm(AddFormControlClassMixin, ModelForm):
     """Product Register Form"""
     class Meta:
-        model = Product
+        model = Item
         fields = [
             'name',
             'quantity',
@@ -18,22 +18,22 @@ class ProductRegisterForm(AddFormControlClassMixin, ModelForm):
         ]
 
     def __init__(self, *args, **kwargs):
-        self.product = kwargs.pop('product', None)
+        self.item = kwargs.pop('item', None)
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
     def clean_name(self):
-        product_name = self.cleaned_data['name']
-        exiting_product = Product.objects.filter(name__iexact=product_name,
-                                                  user=self.user).exclude(pk=self.product.id
-                                                                          if self.product
+        item_name = self.cleaned_data['name']
+        exiting_item = Item.objects.filter(name__iexact=item_name,
+                                                  user=self.user).exclude(pk=self.item.id
+                                                                          if self.item
                                                                           else None).first()
-        if exiting_product:
+        if exiting_item:
             # The reverse function will return the constructed URL as a string
-            edit_url = reverse('edit_item', kwargs={'product_id': exiting_product.id})
-            raise ValidationError(f"""Product with this name already exists.
-                                   <a href="{edit_url}">Update {exiting_product.name}</a>""")
-        return product_name
+            edit_url = reverse('edit_item', kwargs={'item_id': exiting_item.id})
+            raise ValidationError(f"""Item with this name already exists.
+                                   <a href="{edit_url}">Update {exiting_item.name}</a>""")
+        return item_name
 
 
 class CategoryRegisterForm(AddFormControlClassMixin, ModelForm):

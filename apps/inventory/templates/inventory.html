@@ -1,4 +1,5 @@
 {% extends 'index.html' %}
+{% load static %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mt-3">
     <h1 class="mb-0">Inventory</h1>
@@ -25,15 +26,15 @@
             <div class="d-flex align-items-center justify-content-between">
                 <!-- Total items -->
                 <div class="table-header-elements me-3" id="total_items">
-                    <b>Items: </b><span id="item_num">{{ products.count }}</span>
+                    <b>Items: </b><span id="item_num">{{ items.count }}</span>
                 </div>
                 <!-- Total Quantity -->
                 <div class="table-header-elements me-3" id="total_items">
-                    <b>Total Quantity: </b>{{ products.total_quantity }}
+                    <b>Total Quantity: </b>{{ items.total_quantity }}
                 </div>
                 <!-- Total Value -->
                 <div class="table-header-elements me-3" id="total_value">
-                    <b>Total Value: </b>{{ products.total_value }}
+                    <b>Total Value: </b>{{ items.total_value }}
                 </div>
                 <!-- Total Categories -->
                 <div class="table-header-elements me-2" id="total_categories">
@@ -44,6 +45,7 @@
     </div>
     <!-- Table Elements(Data) -->
     <div class="card-body">
+        <div class="ag-theme-quartz" style="height: 500px;" id="myGrid"></div>
         <table id="datatablesSimple">
             <!-- Header section for the table | Table Column Names -->
             <thead>
@@ -62,24 +64,24 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Table Products -->
-                {% for product in products %}
+                <!-- Table items -->
+                {% for item in items %}
                 <tr>
                     <!-- Name -->
-                    <td>{{ product.name }}</td>
+                    <td>{{ item.name }}</td>
                     <!-- Quantity -->
-                    <td>{{ product.quantity }}</td>
+                    <td>{{ item.quantity }}</td>
                     <!-- Price -->
-                    <td>{{ product.price }}</td>
+                    <td>{{ item.price }}</td>
                     <!-- Additional Attributes -->
                     <td>
-                        {% if product.other_attr.count > 0 %}
-                            {% for add_attr in product.other_attr.all %}
+                        {% if item.variants.count > 0 %}
+                            {% for variant in item.variants.all %}
                                 <span style="display: block;">
-                                    <b>{{ add_attr }}: </b>
-                                    {% for desc in add_attr.addattrdescription_set.all %}
-                                        {% if desc.product == product %}
-                                            {{ desc.body }}
+                                    <b>{{ variant.name }}: </b>
+                                    {% for option in variant.variantoptions_set.all %}
+                                        {% if option.item == item %}
+                                            {{ option.body }}
                                         {% endif %}
                                     {% endfor %}
                                 </span>
@@ -87,42 +89,42 @@
                         {% else %}-{% endif %}
                     </td>
                     <!-- Total Price -->
-                    <td>{{ product.total_price }}</td>
+                    <td>{{ item.total_price }}</td>
                     <!-- Category -->
-                    <td>{% if product.category %}
-                            <a class="table_links" href="{% url 'category_items' product.category.name %}">{{ product.category.name }}</a>
+                    <td>{% if item.category %}
+                            <a class="table_links" href="{% url 'category_items' item.category.name %}">{{ item.category.name }}</a>
                         {% else %}-{% endif %}
                     </td>
                     <!-- Supplier -->
-                    <td>{% if product.supplier %}
-                            <a class="table_links" href="{% url 'supplier_items' product.supplier.name %}">{{ product.supplier.name }}</a>
+                    <td>{% if item.supplier %}
+                            <a class="table_links" href="{% url 'supplier_items' item.supplier.name %}">{{ item.supplier.name }}</a>
                         {% else %}-{% endif %}
                     </td>
                     <!-- Picture -->
                     <td>
-                        {% if product.picture %}
-                            <img class="img-thumbnail" style="width: 100px;" src="{{ product.picture.url }}">
+                        {% if item.picture %}
+                            <img class="img-thumbnail" style="width: 100px;" src="{{ item.picture.url }}">
                         {% else %}-{% endif %}
                     </td>
                     <!-- Date Added -->
-                    <td>{{ product.created_at }}</td>
+                    <td>{{ item.created_at }}</td>
                     <!-- Date Updated -->
-                    <td>{% if product.updated %}{{ product.updated_at }}{% else %}-{% endif %}</td>
+                    <td>{% if item.updated %}{{ item.updated_at }}{% else %}-{% endif %}</td>
                     <!-- Action -->
                     <th>
                         <!-- Edit Item -->
-                        <a href="{% url 'edit_item' product.id %}" style="color: black;">
+                        <a href="{% url 'edit_item' item.id %}" style="color: black;">
                         <i class="bi bi-pencil-square"></i></a>
                         <!-- Delete Item -->
                         <!-- Delete Item Trigger -->
                         <a href=""
                            style="color: black;"
                            data-toggle="modal"
-                           data-target="#deleteItemModal-{{ product.id }}">
+                           data-target="#deleteItemModal-{{ item.id }}">
                            <i class="bi bi-archive-fill"></i>
                         </a>
                         <!-- Delete Item Form -->
-                        <div class="modal fade" id="deleteItemModal-{{ product.id }}" tabindex="-1" role="dialog" aria-labelledby="deleteItemModalLabel" aria-hidden="true">
+                        <div class="modal fade" id="deleteItemModal-{{ item.id }}" tabindex="-1" role="dialog" aria-labelledby="deleteItemModalLabel" aria-hidden="true">
                         <div class="modal-dialog" role="document">
                             <div class="modal-content">
                             <div class="modal-header">
@@ -130,11 +132,11 @@
                                 <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                Are you sure you want to delete item <b>{{ product.name }}</b>?
+                                Are you sure you want to delete item <b>{{ item.name }}</b>?
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <a href="{% url 'delete_item' product.id %}"><button type="button" class="btn btn-danger">Delete</button></a>
+                                <a href="{% url 'delete_item' item.id %}"><button type="button" class="btn btn-danger">Delete</button></a>
                             </div>
                             </div>
                         </div>
@@ -146,4 +148,6 @@
         </table>
     </div>
 </div>
+<script src="{% static 'main/scripts/ag_grid_datatable.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
 {% endblock %}
