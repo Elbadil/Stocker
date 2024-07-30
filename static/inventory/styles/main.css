@@ -1,4 +1,3 @@
-
 .table_links {
     color: #1F305E;
     font-weight: 500;
@@ -15,4 +14,27 @@
 
 #datatablesSimple {
     font-size: 0.95em;
+}
+
+.ag-theme-material .ag-cell {
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid #F0F0F0;
+    border-right: none;
+}
+
+.ag-theme-material .ag-header {
+    background-color: #F0F0F0;
+    border: 1px solid	#D3D3D3;
+}
+
+
+.ag-theme-material .ag-header-cell {
+    border-left: 1px solid #D3D3D3;
+}
+
+.ag-theme-material .ag-body {
+    border-left: 1px solid #D3D3D3;
+    border-right: 1px solid #D3D3D3;
+    border-bottom: 1px solid #D3D3D3;
 }

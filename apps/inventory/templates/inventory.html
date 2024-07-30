@@ -45,10 +45,12 @@
     </div>
     <!-- Table Elements(Data) -->
     <div class="card-body">
-        <div class="ag-theme-quartz" style="height: 500px;" id="myGrid"></div>
-        <table id="datatablesSimple">
+        <!-- Inventory AG GRID DataTable -->
+        <input type="hidden" id="user_id" value="{{ request.user.id }}">
+        <div class="ag-theme-material" id="inventoryTable" style="width: 100%; height: 100%;"></div>
+        <!-- <table id="datatablesSimple"> -->
             <!-- Header section for the table | Table Column Names -->
-            <thead>
+            <!-- <thead>
                 <tr>
                     <th>Name</th>
                     <th>Quantity</th>
@@ -62,18 +64,18 @@
                     <th>Updated</th>
                     <th>Actions</th>
                 </tr>
-            </thead>
-            <tbody>
-                <!-- Table items -->
+            </thead> -->
+            <!-- <tbody>
+                Table items 
                 {% for item in items %}
                 <tr>
-                    <!-- Name -->
+                    Name 
                     <td>{{ item.name }}</td>
-                    <!-- Quantity -->
+                    Quantity 
                     <td>{{ item.quantity }}</td>
-                    <!-- Price -->
+                     Price 
                     <td>{{ item.price }}</td>
-                    <!-- Additional Attributes -->
+                    Variants 
                     <td>
                         {% if item.variants.count > 0 %}
                             {% for variant in item.variants.all %}
@@ -88,42 +90,42 @@
                             {% endfor %}
                         {% else %}-{% endif %}
                     </td>
-                    <!-- Total Price -->
+                    Total Price
                     <td>{{ item.total_price }}</td>
-                    <!-- Category -->
+                    Category 
                     <td>{% if item.category %}
                             <a class="table_links" href="{% url 'category_items' item.category.name %}">{{ item.category.name }}</a>
                         {% else %}-{% endif %}
                     </td>
-                    <!-- Supplier -->
+                    Supplier 
                     <td>{% if item.supplier %}
                             <a class="table_links" href="{% url 'supplier_items' item.supplier.name %}">{{ item.supplier.name }}</a>
                         {% else %}-{% endif %}
                     </td>
-                    <!-- Picture -->
+                     Picture
                     <td>
                         {% if item.picture %}
                             <img class="img-thumbnail" style="width: 100px;" src="{{ item.picture.url }}">
                         {% else %}-{% endif %}
                     </td>
-                    <!-- Date Added -->
+                     Date Added
                     <td>{{ item.created_at }}</td>
-                    <!-- Date Updated -->
+                    Date Updated 
                     <td>{% if item.updated %}{{ item.updated_at }}{% else %}-{% endif %}</td>
-                    <!-- Action -->
+                    Action
                     <th>
-                        <!-- Edit Item -->
+                         Edit Item 
                         <a href="{% url 'edit_item' item.id %}" style="color: black;">
                         <i class="bi bi-pencil-square"></i></a>
-                        <!-- Delete Item -->
-                        <!-- Delete Item Trigger -->
+                         Delete Item -->
+                        <!-- Delete Item Trigger 
                         <a href=""
                            style="color: black;"
                            data-toggle="modal"
                            data-target="#deleteItemModal-{{ item.id }}">
                            <i class="bi bi-archive-fill"></i>
                         </a>
-                        <!-- Delete Item Form -->
+                        Delete Item Form 
                         <div class="modal fade" id="deleteItemModal-{{ item.id }}" tabindex="-1" role="dialog" aria-labelledby="deleteItemModalLabel" aria-hidden="true">
                         <div class="modal-dialog" role="document">
                             <div class="modal-content">
@@ -144,10 +146,10 @@
                     </th>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
+            </tbody> -->
+        <!-- </table> -->
     </div>
 </div>
-<script src="{% static 'main/scripts/ag_grid_datatable.js' %}"></script>
+<script src="{% static 'inventory/scripts/ag_grid_datatable.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
 {% endblock %}

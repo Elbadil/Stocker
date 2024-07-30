@@ -34,14 +34,6 @@ class Variant(BaseModel):
         return f'Variant: -{self.name}- Added by -{self.user.username}-'
 
 
-class Post(BaseModel):
-    """Item's Posts"""
-    name = models.CharField(max_length=200)
-
-    def __str__(self) -> str:
-        return self.name
-
-
 class Item(BaseModel):
     """Item Model"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
@@ -52,8 +44,10 @@ class Item(BaseModel):
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
     variants = models.ManyToManyField(Variant, related_name='variants', blank=True)
-    posts = models.ManyToManyField(Post, related_name='posts', blank=True)
     updated = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
 
     @property
     def total_price(self):
@@ -71,7 +65,7 @@ class VariantOptions(BaseModel):
     body = models.CharField(max_length=300)
 
     class Meta:
-        db_table = 'inventory_variant_description'
+        db_table = 'inventory_variant_options'
 
     def __str__(self) -> str:
         return f'{self.item.name} added by - {self.item.user.username} - is available on {self.variant.name}: {self.body}'
