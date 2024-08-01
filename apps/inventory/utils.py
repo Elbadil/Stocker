@@ -49,12 +49,14 @@ def add_item_variants(user: User, item: Item, variants_num: int, request_post_da
         if created:
             variant.user = user
             variant.save()
-        variant_opts = request_post_data.get(f'variant-opt-{i}')
-        VariantOptions.objects.create(
-            item=item,
-            variant=variant,
-            body=variant_opts
-        )
+        variant_opts = request_post_data.get(f'variant-opt-{i}').split(',')
+        print(f'Variant Options: {variant_opts}, {variant_opts}')
+        for option in variant_opts:
+            VariantOptions.objects.create(
+                item=item,
+                variant=variant,
+                body=option.strip()
+            )
         item.variants.add(variant)
 
 

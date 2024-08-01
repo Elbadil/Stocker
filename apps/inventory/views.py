@@ -19,7 +19,6 @@ def inventory(request):
     """Inventory Home"""
     user = request.user
     items = Item.objects.filter(user=user)
-    set_items_table_display_data(items)
     categories = Category.objects.filter(item__in=items).distinct()
     context = {
         'title': 'Inventory',
@@ -241,12 +240,12 @@ def itemsByCategory(request, category_name):
     user = request.user
     category = get_object_or_404(Category, name=category_name, user=user)
     items = Item.objects.filter(user=user, category__name=category.name)
-    set_items_table_display_data(items)
     categories = Category.objects.filter(item__in=items).distinct()
     context = {
         'title': f'Items By Category - {category.name}',
         'table_title': f'<b>Items By Category: </b>{category.name}',
         'items': items,
+        'category_id': category.id,
         'categories': categories
     }
     return render(request, 'inventory.html', context)
@@ -264,6 +263,7 @@ def itemsBySupplier(request, supplier_name):
         'title': f'Items By Supplier - {supplier.name}',
         'table_title': f'<b>Items By Supplier: </b>{supplier.name}',
         'items': items,
+        'supplier_id': supplier.id,
         'categories': categories
     }
     return render(request, 'inventory.html', context)
