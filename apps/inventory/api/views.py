@@ -30,7 +30,7 @@ def categoryItems(request, category_id):
 
 
 @api_view(['GET'])
-def categoryItems(request, supplier_id):
+def supplierItems(request, supplier_id):
     """Returns a list of user item's objects for a specified category"""
     user = request.user
     validation_response = request_validation_errors(request, user.id)

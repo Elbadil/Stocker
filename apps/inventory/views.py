@@ -19,6 +19,7 @@ def inventory(request):
     """Inventory Home"""
     user = request.user
     items = Item.objects.filter(user=user)
+    set_items_table_display_data(items)
     categories = Category.objects.filter(item__in=items).distinct()
     context = {
         'title': 'Inventory',
@@ -240,6 +241,7 @@ def itemsByCategory(request, category_name):
     user = request.user
     category = get_object_or_404(Category, name=category_name, user=user)
     items = Item.objects.filter(user=user, category__name=category.name)
+    set_items_table_display_data(items)
     categories = Category.objects.filter(item__in=items).distinct()
     context = {
         'title': f'Items By Category - {category.name}',
