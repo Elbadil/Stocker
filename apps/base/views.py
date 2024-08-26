@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
+from django.middleware.csrf import get_token
 from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
@@ -7,10 +8,18 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from datetime import datetime, timezone
+import json
 import os
 from .models import User
 from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
 from utils.tokens import Token
+
+
+def get_csrf_token(request):
+    """Returns the csrf token that will be used in
+    form submission from the frontend"""
+    token = get_token(request)
+    return JsonResponse({'csrfToken': token})
 
 
 @login_required(login_url="login")
@@ -21,18 +30,19 @@ def index(request):
 
 def userLogin(request):
     """Login"""
-    if request.user.is_authenticated:
-        return redirect('index')
+    # if request.user.is_authenticated:
+    #     return redirect('index')
     errors = {}
     context = {'title': 'Login'}
     if request.method == 'POST':
-        user_email = request.POST['email']
+        data = json.loads(request.body)
+        user_email = data['email']
         try:
             user = User.objects.get(email=user_email)
         except User.DoesNotExist:
             errors['login'] = ['Login Unsuccessful. Please check your email and password']
             return JsonResponse({'success': False, 'errors': errors})
-        user_password = request.POST['password']
+        user_password = data['password']
         user = authenticate(request, email=user_email, password=user_password)
         if user:
             login(request, user)
@@ -40,7 +50,7 @@ def userLogin(request):
             print(next_page)
             return JsonResponse({'success': True, 'message': 'Successful Login', 'redirect_url': next_page})
         else:
-            errors['login'] = ['Login Unsuccessful. Please check your email and password']
+            errors['login'] = 'Login unsuccessful. Please check your email and password.'
             return JsonResponse({'success': False, 'errors': errors})
 
     return render(request, 'login.html', context)

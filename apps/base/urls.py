@@ -5,6 +5,7 @@ from . import views
 
 urlpatterns = [
      path('', views.index, name='index'),
+     path('get-csrf-token/', views.get_csrf_token, name="csrf_token"),
      path('login/', views.userLogin, name='login'),
      path('logout/', views.userLogout, name='logout'),
      path('signup/', views.userSignUp, name='register'),
