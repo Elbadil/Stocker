@@ -1,18 +1,81 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 
+type FormErrors = {
+  [key: string]: string | Array<string>;
+};
+
 const SignUp: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [usernameErrors, setUsernameErrors] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [firstNameErrors, setFirstNameErrors] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [lastNameErrors, setLastNameErrors] = useState('');
-  const [email, setEmail] = useState('');
-  const [emailErrors, setEmailErrors] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordErrors, setPasswordErrors] = useState('');
+  const [formValues, setFormValues] = useState({
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    password1: '',
+    password2: '',
+  });
+
+  const [formErrors, setFormErrors] = useState<FormErrors>({
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    password1: '',
+    password2: '',
+  });
+
+  const navigate = useNavigate();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormValues({
+      ...formValues,
+      [name]: value,
+    });
+  };
+
+  const handleInputErrors = (fieldErrors: FormErrors) => {
+    const resetErrors: FormErrors = {
+      username: '',
+      first_name: '',
+      last_name: '',
+      email: '',
+      password1: '',
+      password2: '',
+    };
+    setFormErrors({
+      ...resetErrors,
+      ...fieldErrors,
+    });
+  };
+
+  const submitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const newUser = formValues;
+      console.log(newUser);
+      const response = await fetch('/api/get-csrf-token/');
+      const { csrfToken } = await response.json();
+      const res = await fetch('/api/signup/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify(newUser),
+      });
+      const data = await res.json();
+      if (data.success) {
+        return navigate('/');
+      } else {
+        handleInputErrors(data.errors);
+      }
+      console.log(data);
+    } catch (err) {
+      console.log(`Error submitting the sign up form: ${err}`);
+    }
+  };
 
   return (
     <>
@@ -161,7 +224,7 @@ const SignUp: React.FC = () => {
                 Sign Up to Stocker
               </h2>
 
-              <form>
+              <form onSubmit={submitForm}>
                 <div className="mb-4">
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Username
@@ -169,7 +232,10 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Enter your full name"
+                      name="username"
+                      value={formValues.username}
+                      onChange={handleInputChange}
+                      placeholder="Enter your username"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
 
@@ -195,6 +261,11 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
+                  {formErrors.username && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.username}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap -mx-3 mb-6">
@@ -209,9 +280,18 @@ const SignUp: React.FC = () => {
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                       id="grid-first-name"
                       type="text"
+                      name="first_name"
+                      value={formValues.first_name}
+                      onChange={handleInputChange}
                       placeholder="Enter your first name"
                     />
+                    {formErrors.first_name && (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {formErrors.first_name}
+                      </p>
+                    )}
                   </div>
+
                   <div className="w-full md:w-1/2 px-3">
                     <label
                       className="mb-2.5 block font-medium text-black dark:text-white"
@@ -223,8 +303,16 @@ const SignUp: React.FC = () => {
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                       id="grid-last-name"
                       type="text"
+                      name="last_name"
+                      value={formValues.last_name}
+                      onChange={handleInputChange}
                       placeholder="Enter your last name"
                     />
+                    {formErrors.last_name && (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {formErrors.last_name}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -235,6 +323,9 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="email"
+                      name="email"
+                      value={formValues.email}
+                      onChange={handleInputChange}
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -257,6 +348,11 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
+                  {formErrors.email && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mb-4">
@@ -266,6 +362,9 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
+                      name="password1"
+                      value={formValues.password1}
+                      onChange={handleInputChange}
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -292,6 +391,11 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
+                  {formErrors.password1 && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.password1}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mb-6">
@@ -301,6 +405,9 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
+                      name="password2"
+                      value={formValues.password2}
+                      onChange={handleInputChange}
                       placeholder="Re-enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -327,6 +434,11 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
+                  {formErrors.password2 && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.password2}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mb-5">

@@ -5,7 +5,6 @@ from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from datetime import datetime, timezone
 import json
@@ -33,16 +32,15 @@ def userLogin(request):
     # if request.user.is_authenticated:
     #     return redirect('index')
     errors = {}
-    context = {'title': 'Login'}
     if request.method == 'POST':
-        data = json.loads(request.body)
-        user_email = data['email']
+        form_data = json.loads(request.body)
+        user_email = form_data['email']
         try:
             user = User.objects.get(email=user_email)
         except User.DoesNotExist:
             errors['login'] = ['Login Unsuccessful. Please check your email and password']
             return JsonResponse({'success': False, 'errors': errors})
-        user_password = data['password']
+        user_password = form_data['password']
         user = authenticate(request, email=user_email, password=user_password)
         if user:
             login(request, user)
@@ -53,7 +51,7 @@ def userLogin(request):
             errors['login'] = 'Login unsuccessful. Please check your email and password.'
             return JsonResponse({'success': False, 'errors': errors})
 
-    return render(request, 'login.html', context)
+    return render(request, 'login.html')
 
 
 @login_required(login_url="login")
@@ -65,11 +63,12 @@ def userLogout(request):
 
 def userSignUp(request):
     """User Registration"""
-    if request.user.is_authenticated:
-        return redirect('index')
+    # if request.user.is_authenticated:
+    #     return redirect('index')
     form = SignUpForm()
     if request.method == 'POST':
-        form = SignUpForm(request.POST)
+        form_data = json.loads(request.body)
+        form = SignUpForm(form_data)
         if form.is_valid():
             confirm_code = Token.generate_token_with_length(6)
             user = form.save(commit=False)
@@ -90,10 +89,9 @@ def userSignUp(request):
             messages.success(request, 'You have successfully created an account! \
                             Please Confirm your account by entering the confirmation \
                             code that was sent to your email to complete registration.')
-            return JsonResponse({'success': True, 'message': 'User has been registered'})
+            return JsonResponse({'success': True, 'message': f'User {user.username} has been registered'})
         else:
-            form_fields = [name for name in form.fields.keys()]
-            return JsonResponse({'success': False, 'errors': form.errors, 'fields': form_fields})
+            return JsonResponse({'success': False, 'errors': form.errors})
     context = {
         'title': 'Sign Up',
         'form': form
