@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 
 const SignIn: React.FC = () => {
@@ -7,6 +8,7 @@ const SignIn: React.FC = () => {
   const [emailErrors, setEmailErrors] = useState('');
   const [password, setPassword] = useState('');
   const [passwordErrors, setPasswordErrors] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const credentials = {
     email,
@@ -16,7 +18,8 @@ const SignIn: React.FC = () => {
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmailErrors('')
+    setLoading(true);
+    setEmailErrors('');
     setPasswordErrors('');
     if (!email) {
       setEmailErrors('Please enter your email.');
@@ -37,6 +40,7 @@ const SignIn: React.FC = () => {
         const data = await res.json();
         console.log(data);
         if (data.success) {
+          setLoading(false);
           return navigate('/');
         } else {
           setPasswordErrors(data.errors.login);
@@ -44,6 +48,8 @@ const SignIn: React.FC = () => {
       } catch (err) {
         console.log('Error during form submission:', err);
         setPasswordErrors('Something went wrong. Please try again later.');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -277,11 +283,16 @@ const SignIn: React.FC = () => {
                 </div>
 
                 <div className="mb-5">
-                  <input
+                  <button
                     type="submit"
-                    value="Sign In"
                     className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90"
-                  />
+                  >
+                    {loading ? (
+                      <ClipLoader color="#ffffff" size={30} />
+                    ) : (
+                      'Sign In'
+                    )}
+                  </button>
                 </div>
 
                 <div className="mt-6 text-center">

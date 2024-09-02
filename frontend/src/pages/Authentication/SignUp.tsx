@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
+import { useAlert } from '../../contexts/AlertContext';
 
 type FormErrors = {
   [key: string]: string | Array<string>;
 };
 
 const SignUp: React.FC = () => {
+  const { setAlert } = useAlert();
+  const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState({
     username: '',
     first_name: '',
@@ -52,6 +56,7 @@ const SignUp: React.FC = () => {
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const newUser = formValues;
       console.log(newUser);
@@ -67,13 +72,25 @@ const SignUp: React.FC = () => {
       });
       const data = await res.json();
       if (data.success) {
-        return navigate('/');
+        setLoading(false);
+        setAlert({
+          type: 'success',
+          title: 'Welcome to Stocker',
+          description: 'You have successfully created a Stocker account!',
+        });
+        return navigate('/', { state: { showMessage: true } });
       } else {
         handleInputErrors(data.errors);
       }
       console.log(data);
     } catch (err) {
       console.log(`Error submitting the sign up form: ${err}`);
+      setFormErrors({
+        ...formErrors,
+        password2: 'Something went wrong. Please try again later.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -442,11 +459,17 @@ const SignUp: React.FC = () => {
                 </div>
 
                 <div className="mb-5">
-                  <input
+                  <button
                     type="submit"
-                    value="Create account"
-                    className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90"
-                  />
+                    className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90 flex items-center justify-center"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ClipLoader color="#ffffff" size={30} />
+                    ) : (
+                      'Create account'
+                    )}
+                  </button>
                 </div>
 
                 <div className="mt-6 text-center">
