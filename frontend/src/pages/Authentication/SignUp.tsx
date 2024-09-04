@@ -3,15 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
-
-type FormErrors = {
-  [key: string]: string | Array<string>;
-};
+import { FormValues, FormErrors } from '../../types/form';
+import api from '../../api/axios';
 
 const SignUp: React.FC = () => {
   const { setAlert } = useAlert();
   const [loading, setLoading] = useState(false);
-  const [formValues, setFormValues] = useState({
+  const [formValues, setFormValues] = useState<FormValues>({
     username: '',
     first_name: '',
     last_name: '',
@@ -27,6 +25,7 @@ const SignUp: React.FC = () => {
     email: '',
     password1: '',
     password2: '',
+    signup: '',
   });
 
   const navigate = useNavigate();
@@ -39,6 +38,16 @@ const SignUp: React.FC = () => {
     });
   };
 
+  const removeBlankFields = (values: FormValues) => {
+    const cleanedValues : FormValues = {};
+    for (const key in values) {
+      if (values[key].trim() !== '') {
+        cleanedValues[key] = values[key];
+      }
+    }
+    return cleanedValues;
+  };
+
   const handleInputErrors = (fieldErrors: FormErrors) => {
     const resetErrors: FormErrors = {
       username: '',
@@ -47,6 +56,7 @@ const SignUp: React.FC = () => {
       email: '',
       password1: '',
       password2: '',
+      signup: '',
     };
     setFormErrors({
       ...resetErrors,
@@ -57,38 +67,40 @@ const SignUp: React.FC = () => {
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const cleanedValues = removeBlankFields(formValues);
     try {
-      const newUser = formValues;
-      console.log(newUser);
-      const response = await fetch('/api/get-csrf-token/');
-      const { csrfToken } = await response.json();
-      const res = await fetch('/api/signup/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
+      const response = await api.get('/auth/get-csrf-token/');
+      const { csrfToken } = response.data;
+      const res = await api.post(
+        '/auth/signup/',
+        {
+          ...cleanedValues,
         },
-        body: JSON.stringify(newUser),
+        {
+          headers: {
+            'X-CSRFToken': csrfToken,
+          },
+        },
+      );
+      const { message } = res.data;
+      console.log(message);
+      setLoading(false);
+      setAlert({
+        type: 'success',
+        title: 'Welcome to Stocker',
+        description: 'You have successfully created a Stocker account!',
       });
-      const data = await res.json();
-      if (data.success) {
-        setLoading(false);
-        setAlert({
-          type: 'success',
-          title: 'Welcome to Stocker',
-          description: 'You have successfully created a Stocker account!',
-        });
-        return navigate('/', { state: { showMessage: true } });
-      } else {
-        handleInputErrors(data.errors);
-      }
-      console.log(data);
-    } catch (err) {
+      return navigate('/');
+    } catch (err: any) {
       console.log(`Error submitting the sign up form: ${err}`);
-      setFormErrors({
-        ...formErrors,
-        password2: 'Something went wrong. Please try again later.',
-      });
+      if (err.response && err.response.status === 400) {
+        handleInputErrors(err.response.data.errors);
+      } else {
+        setFormErrors({
+          ...formErrors,
+          signup: 'Something went wrong. Please try again later.',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -454,6 +466,11 @@ const SignUp: React.FC = () => {
                   {formErrors.password2 && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {formErrors.password2}
+                    </p>
+                  )}
+                  {formErrors.signup && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.signup}
                     </p>
                   )}
                 </div>

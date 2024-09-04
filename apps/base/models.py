@@ -50,9 +50,9 @@ class User(AbstractUser):
     id = models.UUIDField(default=Token.generate_uuid,
                           unique=True, primary_key=True, editable=False)
     username = models.CharField(max_length=200, unique=True,
-                                null=True, blank=False)
-    first_name = models.CharField(max_length=200, null=True, blank=False)
-    last_name = models.CharField(max_length=200, null=True, blank=False)
+                                null=False, blank=False)
+    first_name = models.CharField(max_length=200, null=False, blank=False)
+    last_name = models.CharField(max_length=200, null=False, blank=False)
     email = models.EmailField(unique=True, blank=False)
     # User Account Confirmation
     confirm_code = models.CharField(max_length=6, null=True, blank=True)

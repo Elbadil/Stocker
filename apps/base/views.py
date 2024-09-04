@@ -1,81 +1,58 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
-from django.middleware.csrf import get_token
 from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from datetime import datetime, timezone
-import json
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.decorators import api_view
+from django.middleware.csrf import get_token
 import os
 from .models import User
-from .forms import SignUpForm, UpdateUserForm, UpdatePasswordForm
+from .forms import UpdateUserForm, UpdatePasswordForm
+from .serializers import (UserSerializer,
+                          UserLoginSerializer,
+                          UserRegisterSerializer)
 from utils.tokens import Token
 
 
+@api_view(['GET'])
 def get_csrf_token(request):
-    """Returns the csrf token that will be used in
-    form submission from the frontend"""
+    """Returns the CSRF token that will be used in
+    form submission from the frontend."""
     token = get_token(request)
-    return JsonResponse({'csrfToken': token})
+    return Response({'csrfToken': token}, status=status.HTTP_200_OK)
 
 
-@login_required(login_url="login")
-def index(request):
-    """Home"""
-    return render(request, 'index.html')
-
-
-def userLogin(request):
-    """Login"""
-    # if request.user.is_authenticated:
-    #     return redirect('index')
-    errors = {}
-    if request.method == 'POST':
-        form_data = json.loads(request.body)
-        user_email = form_data['email']
-        try:
-            user = User.objects.get(email=user_email)
-        except User.DoesNotExist:
-            errors['login'] = ['Login Unsuccessful. Please check your email and password']
-            return JsonResponse({'success': False, 'errors': errors})
-        user_password = form_data['password']
-        user = authenticate(request, email=user_email, password=user_password)
-        if user:
+class LoginView(APIView):
+    """Handles User Login"""
+    def post(self, request):
+        print(request.data)
+        serializer = UserLoginSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.validated_data['user']
             login(request, user)
-            next_page = request.POST.get('next', '/')
-            print(next_page)
-            return JsonResponse({'success': True, 'message': 'Successful Login', 'redirect_url': next_page})
-        else:
-            errors['login'] = 'Login unsuccessful. Please check your email and password.'
-            return JsonResponse({'success': False, 'errors': errors})
-
-    return render(request, 'login.html')
+            user_data = UserSerializer(user, context={'request': request}).data
+            return Response({'user': user_data},
+                             status=status.HTTP_200_OK)
+        return Response({'errors': serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
-@login_required(login_url="login")
-def userLogout(request):
-    """Logs out the request user"""
-    logout(request)
-    return redirect('login')
+class SignUpView(APIView):
+    """Handles User Registration"""
+    def post(self, request):
+        serializer = UserRegisterSerializer(data=request.data)
 
-
-def userSignUp(request):
-    """User Registration"""
-    # if request.user.is_authenticated:
-    #     return redirect('index')
-    form = SignUpForm()
-    if request.method == 'POST':
-        form_data = json.loads(request.body)
-        form = SignUpForm(form_data)
-        if form.is_valid():
+        if serializer.is_valid():
             confirm_code = Token.generate_token_with_length(6)
-            user = form.save(commit=False)
+            user = serializer.save()
             user.confirm_code = confirm_code
-            user.username = user.username.lower()
             user.save()
-            # Sending Account Confirmation code via Email
             send_mail(
                 "Stocker Account Confirmation",
                 f"Account Confirmation Code: {confirm_code}",
@@ -85,18 +62,17 @@ def userSignUp(request):
                 # will raise an smtplib.SMTPException if an error occurs.
                 fail_silently=False
             )
-            login(request, user)
-            messages.success(request, 'You have successfully created an account! \
-                            Please Confirm your account by entering the confirmation \
-                            code that was sent to your email to complete registration.')
-            return JsonResponse({'success': True, 'message': f'User {user.username} has been registered'})
-        else:
-            return JsonResponse({'success': False, 'errors': form.errors})
-    context = {
-        'title': 'Sign Up',
-        'form': form
-    }
-    return render(request, 'register.html', context)
+            return Response({'message': f'User has been registered'},
+                              status=status.HTTP_201_CREATED)
+        return Response({'errors': serializer.errors},
+                         status=status.HTTP_400_BAD_REQUEST)
+
+
+@login_required(login_url="login")
+def userLogout(request):
+    """Logs out the request user"""
+    logout(request)
+    return redirect('login')
 
 
 @login_required(login_url="login")

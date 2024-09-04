@@ -2,55 +2,74 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../api/axios';
+import { FormErrors, FormValues } from '../../types/form';
 
 const SignIn: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [emailErrors, setEmailErrors] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordErrors, setPasswordErrors] = useState('');
+  const [formValues, setFormValues] = useState<FormValues>({
+    email: '',
+    password: '',
+  });
+  const [formErrors, setFormErrors] = useState<FormErrors>({
+    email: '',
+    password: '',
+    login: '',
+  });
   const [loading, setLoading] = useState(false);
-
-  const credentials = {
-    email,
-    password,
-  };
+  const { setUser } = useAuth();
   const navigate = useNavigate();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormValues({
+      ...formValues,
+      [name]: value,
+    });
+  };
+
+  const handleFieldErrors = (fieldErrors: FormErrors) => {
+    const resetErrors: FormErrors = { email: '', password: '', login: '' };
+    setFormErrors({
+      ...resetErrors,
+      ...fieldErrors,
+    });
+  };
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setEmailErrors('');
-    setPasswordErrors('');
-    if (!email) {
-      setEmailErrors('Please enter your email.');
-    } else if (!password) {
-      setPasswordErrors('Please enter your password.');
-    } else {
-      try {
-        const response = await fetch('/api/get-csrf-token/');
-        const { csrfToken } = await response.json();
-        const res = await fetch('/api/login/', {
-          method: 'POST',
+    try {
+      const response = await api.get('/auth/get-csrf-token/');
+      const { csrfToken } = response.data;
+      const res = await api.post(
+        '/auth/login/',
+        {
+          ...formValues,
+        },
+        {
           headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken,
           },
-          body: JSON.stringify(credentials),
+        },
+      );
+      const { user } = res.data;
+      console.log(user);
+      setLoading(false);
+      setUser(user);
+      return navigate('/');
+    } catch (err: any) {
+      console.log('Error during form submission:', err);
+      if (err.response && err.response.status === 400) {
+        handleFieldErrors(err.response.data.errors);
+      } else {
+        setFormErrors({
+          ...formErrors,
+          login: 'Something went wrong. Please try again later.',
         });
-        const data = await res.json();
-        console.log(data);
-        if (data.success) {
-          setLoading(false);
-          return navigate('/');
-        } else {
-          setPasswordErrors(data.errors.login);
-        }
-      } catch (err) {
-        console.log('Error during form submission:', err);
-        setPasswordErrors('Something went wrong. Please try again later.');
-      } finally {
-        setLoading(false);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -209,8 +228,9 @@ const SignIn: React.FC = () => {
                   <div className="relative">
                     <input
                       type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      name="email"
+                      value={formValues.email}
+                      onChange={handleInputChange}
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -233,9 +253,9 @@ const SignIn: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {emailErrors && (
+                  {formErrors.email && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {emailErrors}
+                      {formErrors.email}
                     </p>
                   )}
                 </div>
@@ -247,8 +267,9 @@ const SignIn: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      name="password"
+                      value={formValues.password}
+                      onChange={handleInputChange}
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -275,9 +296,14 @@ const SignIn: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {passwordErrors && (
+                  {formErrors.password && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {passwordErrors}
+                      {formErrors.password}
+                    </p>
+                  )}
+                  {formErrors.login && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.login}
                     </p>
                   )}
                 </div>

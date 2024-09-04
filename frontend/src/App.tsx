@@ -15,6 +15,7 @@ import Tables from './pages/Tables';
 import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -31,118 +32,120 @@ function App() {
   return loading ? (
     <Loader />
   ) : (
-    <DefaultLayout>
-      <Routes>
-        <Route
-          index
-          element={
-            <>
-              <PageTitle title="eCommerce Dashboard | Stocker" />
-              <ECommerce />
-            </>
-          }
-        />
-        <Route
-          path="/calendar"
-          element={
-            <>
-              <PageTitle title="Calendar | Stocker" />
-              <Calendar />
-            </>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <>
-              <PageTitle title="Profile | Stocker" />
-              <Profile />
-            </>
-          }
-        />
-        <Route
-          path="/forms/form-elements"
-          element={
-            <>
-              <PageTitle title="Form Elements | Stocker" />
-              <FormElements />
-            </>
-          }
-        />
-        <Route
-          path="/forms/form-layout"
-          element={
-            <>
-              <PageTitle title="Form Layout | Stocker" />
-              <FormLayout />
-            </>
-          }
-        />
-        <Route
-          path="/tables"
-          element={
-            <>
-              <PageTitle title="Tables | Stocker" />
-              <Tables />
-            </>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <>
-              <PageTitle title="Settings | Stocker" />
-              <Settings />
-            </>
-          }
-        />
-        <Route
-          path="/chart"
-          element={
-            <>
-              <PageTitle title="Basic Chart | Stocker" />
-              <Chart />
-            </>
-          }
-        />
-        <Route
-          path="/ui/alerts"
-          element={
-            <>
-              <PageTitle title="Alerts | Stocker" />
-              <Alerts />
-            </>
-          }
-        />
-        <Route
-          path="/ui/buttons"
-          element={
-            <>
-              <PageTitle title="Buttons | Stocker" />
-              <Buttons />
-            </>
-          }
-        />
-        <Route
-          path="/auth/signin"
-          element={
-            <>
-              <PageTitle title="Signin | Stocker" />
-              <SignIn />
-            </>
-          }
-        />
-        <Route
-          path="/auth/signup"
-          element={
-            <>
-              <PageTitle title="Signup | Stocker" />
-              <SignUp />
-            </>
-          }
-        />
-      </Routes>
-    </DefaultLayout>
+    <AuthProvider>
+      <DefaultLayout>
+        <Routes>
+          <Route
+            index
+            element={
+              <>
+                <PageTitle title="eCommerce Dashboard | Stocker" />
+                <ECommerce />
+              </>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <>
+                <PageTitle title="Calendar | Stocker" />
+                <Calendar />
+              </>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <>
+                <PageTitle title="Profile | Stocker" />
+                <Profile />
+              </>
+            }
+          />
+          <Route
+            path="/forms/form-elements"
+            element={
+              <>
+                <PageTitle title="Form Elements | Stocker" />
+                <FormElements />
+              </>
+            }
+          />
+          <Route
+            path="/forms/form-layout"
+            element={
+              <>
+                <PageTitle title="Form Layout | Stocker" />
+                <FormLayout />
+              </>
+            }
+          />
+          <Route
+            path="/tables"
+            element={
+              <>
+                <PageTitle title="Tables | Stocker" />
+                <Tables />
+              </>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <>
+                <PageTitle title="Settings | Stocker" />
+                <Settings />
+              </>
+            }
+          />
+          <Route
+            path="/chart"
+            element={
+              <>
+                <PageTitle title="Basic Chart | Stocker" />
+                <Chart />
+              </>
+            }
+          />
+          <Route
+            path="/ui/alerts"
+            element={
+              <>
+                <PageTitle title="Alerts | Stocker" />
+                <Alerts />
+              </>
+            }
+          />
+          <Route
+            path="/ui/buttons"
+            element={
+              <>
+                <PageTitle title="Buttons | Stocker" />
+                <Buttons />
+              </>
+            }
+          />
+          <Route
+            path="/auth/signin"
+            element={
+              <>
+                <PageTitle title="Signin | Stocker" />
+                <SignIn />
+              </>
+            }
+          />
+          <Route
+            path="/auth/signup"
+            element={
+              <>
+                <PageTitle title="Signup | Stocker" />
+                <SignUp />
+              </>
+            }
+          />
+        </Routes>
+      </DefaultLayout>
+    </AuthProvider>
   );
 }
 
