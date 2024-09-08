@@ -4,9 +4,15 @@ import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
 import { FormValues, FormErrors } from '../../types/form';
+import {
+  handleInputChange,
+  handleInputErrors,
+  removeBlankFields,
+} from '../../utils/form';
 import api from '../../api/axios';
 
 const SignUp: React.FC = () => {
+  const navigate = useNavigate();
   const { setAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>({
@@ -27,42 +33,6 @@ const SignUp: React.FC = () => {
     password2: '',
     signup: '',
   });
-
-  const navigate = useNavigate();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormValues({
-      ...formValues,
-      [name]: value,
-    });
-  };
-
-  const removeBlankFields = (values: FormValues) => {
-    const cleanedValues : FormValues = {};
-    for (const key in values) {
-      if (values[key].trim() !== '') {
-        cleanedValues[key] = values[key];
-      }
-    }
-    return cleanedValues;
-  };
-
-  const handleInputErrors = (fieldErrors: FormErrors) => {
-    const resetErrors: FormErrors = {
-      username: '',
-      first_name: '',
-      last_name: '',
-      email: '',
-      password1: '',
-      password2: '',
-      signup: '',
-    };
-    setFormErrors({
-      ...resetErrors,
-      ...fieldErrors,
-    });
-  };
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,14 +62,14 @@ const SignUp: React.FC = () => {
       });
       return navigate('/');
     } catch (err: any) {
-      console.log(`Error submitting the sign up form: ${err}`);
+      console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
-        handleInputErrors(err.response.data.errors);
+        handleInputErrors(err.response.data.errors, setFormErrors);
       } else {
-        setFormErrors({
-          ...formErrors,
-          signup: 'Something went wrong. Please try again later.',
-        });
+        handleInputErrors(
+          { signup: 'Something went wrong. Please try again later.' },
+          setFormErrors,
+        );
       }
     } finally {
       setLoading(false);
@@ -255,6 +225,7 @@ const SignUp: React.FC = () => {
 
               <form onSubmit={submitForm}>
                 <div className="mb-4">
+                  {/* Username */}
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Username
                   </label>
@@ -263,7 +234,9 @@ const SignUp: React.FC = () => {
                       type="text"
                       name="username"
                       value={formValues.username}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your username"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -299,6 +272,7 @@ const SignUp: React.FC = () => {
 
                 <div className="flex flex-wrap -mx-3 mb-6">
                   <div className="w-full md:w-1/2 px-3 mb-6 md:mb-0">
+                    {/* First Name */}
                     <label
                       className="mb-2.5 block font-medium text-black dark:text-white"
                       htmlFor="grid-first-name"
@@ -311,7 +285,9 @@ const SignUp: React.FC = () => {
                       type="text"
                       name="first_name"
                       value={formValues.first_name}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your first name"
                     />
                     {formErrors.first_name && (
@@ -322,6 +298,7 @@ const SignUp: React.FC = () => {
                   </div>
 
                   <div className="w-full md:w-1/2 px-3">
+                    {/* Last Name */}
                     <label
                       className="mb-2.5 block font-medium text-black dark:text-white"
                       htmlFor="grid-last-name"
@@ -334,7 +311,9 @@ const SignUp: React.FC = () => {
                       type="text"
                       name="last_name"
                       value={formValues.last_name}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your last name"
                     />
                     {formErrors.last_name && (
@@ -346,6 +325,7 @@ const SignUp: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
+                  {/* Email */}
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Email
                   </label>
@@ -354,7 +334,9 @@ const SignUp: React.FC = () => {
                       type="email"
                       name="email"
                       value={formValues.email}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -385,6 +367,7 @@ const SignUp: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
+                  {/* Password1 */}
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Password
                   </label>
@@ -393,7 +376,9 @@ const SignUp: React.FC = () => {
                       type="password"
                       name="password1"
                       value={formValues.password1}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -428,6 +413,7 @@ const SignUp: React.FC = () => {
                 </div>
 
                 <div className="mb-6">
+                  {/* Password2 */}
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Re-type Password
                   </label>
@@ -436,7 +422,9 @@ const SignUp: React.FC = () => {
                       type="password"
                       name="password2"
                       value={formValues.password2}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Re-enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -463,11 +451,23 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.password2 && (
-                    <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.password2}
-                    </p>
-                  )}
+                  {formErrors.password2 &&
+                    (Array.isArray(formErrors.password2) ? (
+                      formErrors.password2.map(
+                        (error: string, index: number) => (
+                          <p
+                            key={index}
+                            className="text-red-500 font-medium text-sm italic mt-2"
+                          >
+                            {error}
+                          </p>
+                        ),
+                      )
+                    ) : (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {formErrors.password2}
+                      </p>
+                    ))}
                   {formErrors.signup && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {formErrors.signup}

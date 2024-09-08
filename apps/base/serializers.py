@@ -1,13 +1,15 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import Token
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
     """User Model Serializer"""
-    avatar_url = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
     class Meta:
         model = User
         fields = [
@@ -15,12 +17,12 @@ class UserSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
-            "avatar_url",
+            "avatar",
             "bio",
             "is_confirmed"
         ]
 
-    def get_avatar_url(self, user):
+    def get_avatar(self, user):
         request = self.context.get('request')
         if user.avatar and request:
             # returns the full URL for the avatar image
@@ -43,15 +45,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             'password1',
             'password2'
         ]
-    
+
     def validate_username(self, value):
         if User.objects.filter(username=value.lower()).exists():
-            raise serializers.ValidationError('User with this Username already exists.')
+            raise serializers.ValidationError('user with this username already exists.')
         return value.lower()
 
     def validate_email(self, value):
         if User.objects.filter(email=value.lower()).exists():
-            raise serializers.ValidationError('User with this Email already exists.')
+            raise serializers.ValidationError('user with this email already exists.')
         return value.lower()
 
     def validate_passwords(self, validated_data):

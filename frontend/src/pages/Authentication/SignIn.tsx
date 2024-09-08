@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAlert } from '../../contexts/AlertContext';
+import { Alert } from '../UiElements/Alert';
 import api from '../../api/axios';
 import { FormErrors, FormValues } from '../../types/form';
+import { handleInputChange, handleInputErrors } from '../../utils/form';
+import { setTokens } from '../../utils/auth';
 
 const SignIn: React.FC = () => {
+  const { alert } = useAlert();
+  const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>({
     email: '',
     password: '',
@@ -16,59 +21,27 @@ const SignIn: React.FC = () => {
     password: '',
     login: '',
   });
-  const [loading, setLoading] = useState(false);
-  const { setUser } = useAuth();
-  const navigate = useNavigate();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormValues({
-      ...formValues,
-      [name]: value,
-    });
-  };
-
-  const handleFieldErrors = (fieldErrors: FormErrors) => {
-    const resetErrors: FormErrors = { email: '', password: '', login: '' };
-    setFormErrors({
-      ...resetErrors,
-      ...fieldErrors,
-    });
-  };
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.get('/auth/get-csrf-token/');
-      const { csrfToken } = response.data;
-      const res = await api.post(
-        '/auth/login/',
-        {
-          ...formValues,
-        },
-        {
-          headers: {
-            'X-CSRFToken': csrfToken,
-          },
-        },
-      );
-      const { user } = res.data;
-      console.log(user);
-      setLoading(false);
-      setUser(user);
-      return navigate('/');
+      const res = await api.post('/auth/login/', {
+        ...formValues,
+      });
+      const { tokens } = res.data;
+      setTokens(tokens);
+      window.location.href = '/';
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
-        handleFieldErrors(err.response.data.errors);
+        handleInputErrors(err.response.data.errors, setFormErrors);
       } else {
-        setFormErrors({
-          ...formErrors,
-          login: 'Something went wrong. Please try again later.',
-        });
+        handleInputErrors(
+          { login: 'Something went wrong. Please try again later.' },
+          setFormErrors,
+        );
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -76,7 +49,7 @@ const SignIn: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Sign In" />
-
+      {alert && Alert({ ...alert })}
       <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
         <div className="flex flex-wrap items-center">
           <div className="hidden w-full xl:block xl:w-1/2">
@@ -230,7 +203,9 @@ const SignIn: React.FC = () => {
                       type="email"
                       name="email"
                       value={formValues.email}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -269,7 +244,9 @@ const SignIn: React.FC = () => {
                       type="password"
                       name="password"
                       value={formValues.password}
-                      onChange={handleInputChange}
+                      onChange={(e) =>
+                        handleInputChange(e, formValues, setFormValues)
+                      }
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />

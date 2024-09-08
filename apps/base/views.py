@@ -1,43 +1,29 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
-from django.contrib.auth import logout, authenticate, login
 from django.core.mail import send_mail
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import update_session_auth_hash
 from datetime import datetime, timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view
-from django.middleware.csrf import get_token
+from rest_framework.generics import RetrieveUpdateAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 import os
 from .models import User
-from .forms import UpdateUserForm, UpdatePasswordForm
-from .serializers import (UserSerializer,
-                          UserLoginSerializer,
-                          UserRegisterSerializer)
+from . import serializers
+from .utils import get_tokens_for_user
 from utils.tokens import Token
-
-
-@api_view(['GET'])
-def get_csrf_token(request):
-    """Returns the CSRF token that will be used in
-    form submission from the frontend."""
-    token = get_token(request)
-    return Response({'csrfToken': token}, status=status.HTTP_200_OK)
 
 
 class LoginView(APIView):
     """Handles User Login"""
     def post(self, request):
-        print(request.data)
-        serializer = UserLoginSerializer(data=request.data)
+        serializer = serializers.UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            login(request, user)
-            user_data = UserSerializer(user, context={'request': request}).data
-            return Response({'user': user_data},
+            tokens = get_tokens_for_user(request, user)
+            return Response({'tokens': tokens},
                              status=status.HTTP_200_OK)
         return Response({'errors': serializer.errors},
                         status=status.HTTP_400_BAD_REQUEST)
@@ -46,33 +32,74 @@ class LoginView(APIView):
 class SignUpView(APIView):
     """Handles User Registration"""
     def post(self, request):
-        serializer = UserRegisterSerializer(data=request.data)
+        serializer = serializers.UserRegisterSerializer(data=request.data)
 
         if serializer.is_valid():
             confirm_code = Token.generate_token_with_length(6)
             user = serializer.save()
             user.confirm_code = confirm_code
             user.save()
-            send_mail(
-                "Stocker Account Confirmation",
-                f"Account Confirmation Code: {confirm_code}",
-                os.getenv('EMAIL_HOST_USER'),
-                [user.email],
-                # fail_silently: A boolean. When it’s False, send_mail()
-                # will raise an smtplib.SMTPException if an error occurs.
-                fail_silently=False
-            )
+            # send_mail(
+            #     "Stocker Account Confirmation",
+            #     f"Account Confirmation Code: {confirm_code}",
+            #     os.getenv('EMAIL_HOST_USER'),
+            #     [user.email],
+            #     # fail_silently: A boolean. When it’s False, send_mail()
+            #     # will raise an smtplib.SMTPException if an error occurs.
+            #     fail_silently=False
+            # )
             return Response({'message': f'User has been registered'},
                               status=status.HTTP_201_CREATED)
         return Response({'errors': serializer.errors},
                          status=status.HTTP_400_BAD_REQUEST)
 
 
-@login_required(login_url="login")
-def userLogout(request):
-    """Logs out the request user"""
-    logout(request)
-    return redirect('login')
+class LogoutView(APIView):
+    """Handles User Logout"""
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        try:
+            refresh_token = request.data['refresh']
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({'message': 'User has successfully logged out.'},
+                            status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({'errors': e},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateUserView(RetrieveUpdateAPIView):
+    """Handles User Info Update"""
+    permission_classes = (IsAuthenticated,)
+    queryset = User.objects.all()
+    serializer_class = serializers.UserSerializer
+    lookup_field = 'id'
+
+    def patch(self, request, *args, **kwargs):
+        response = super().patch(request, *args, **kwargs)
+        return self.handle_token_refresh(request, response)
+
+    def put(self, request, *args, **kwargs):
+        response = super().put(request, *args, **kwargs)
+        return self.handle_token_refresh(request, response)
+
+    def handle_token_refresh(self, request, response):
+        try:
+            refresh_token = request.data.get('refresh')
+            if not refresh_token:
+                return Response({'errors': 'Refresh token is required.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            tokens = get_tokens_for_user(request, request.user)
+            response.data['tokens'] = tokens
+        except Exception as e:
+            return Response({'errors': e},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return response
 
 
 @login_required(login_url="login")
@@ -129,39 +156,3 @@ def userConfirmed(request, user):
         messages.info(request, 'You need to confirm your account to perform such action. \
                       Please take some few minutes to confirm your account!')
     return user.is_confirmed
-
-
-@login_required(login_url='login')
-def userProfile(request, user_id):
-    """User Profile"""
-    user = User.objects.get(id=user_id)
-    # checks if the request user account is confirmed
-    if not userConfirmed(request, user):
-        return redirect('confirm-account')
-
-    # check if request user is the same as the profile user
-    if request.user != user:
-        return HttpResponse('Unauthorized')
-
-    profile_form = UpdateUserForm(instance=user)
-    pwd_form = UpdatePasswordForm(user=user)
-
-    if request.method == 'POST':
-        if 'profile_form' in request.POST:
-            profile_form = UpdateUserForm(request.POST, request.FILES, instance=user, user=user)
-            if profile_form.is_valid():
-                profile_form.save()
-                messages.success(request, 'You have successfully updated your Profile Settings!')
-        elif 'pwd_form' in request.POST:
-            pwd_form = UpdatePasswordForm(user=user, data=request.POST)
-            if pwd_form.is_valid():
-                pwd_form.save()
-                update_session_auth_hash(request, pwd_form.user)  # Important for keeping the user logged in
-                messages.success(request, 'You have successfully updated your password!')
-    context = {
-        'title': user.username,
-        'user': user,
-        'profile_form': profile_form,
-        'pwd_form': pwd_form
-    }
-    return render(request, 'profile.html', context)
