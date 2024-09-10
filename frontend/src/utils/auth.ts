@@ -1,4 +1,4 @@
-import api from '../api/axios';
+import { api, refreshApi } from '../api/axios';
 
 export const getAccessToken = () => localStorage.getItem('access_token');
 export const setAccessToken = (token: string) =>
@@ -22,7 +22,7 @@ export const refreshAccessToken = async () => {
     throw new Error('No refresh token available');
   }
   try {
-    const res = await api.post('/auth/token/refresh/', {
+    const res = await refreshApi.post('/auth/token/refresh/', {
       refresh: refreshToken,
     });
     const newAccessToken = res.data.access;
@@ -38,14 +38,30 @@ export const logoutUser = async () => {
   if (!refreshToken) {
     throw new Error('No refresh token available');
   }
+  let accessToken = getAccessToken();
   try {
-    const res = await api.post('/auth/logout/', {
-      refresh: refreshToken,
-    });
+    if (accessToken) {
+      const userData = JSON.parse(atob(accessToken.split('.')[1]));
+      const tokenExpiryDate = new Date(userData.exp * 1000);
+      const dateNow = new Date(Date.now());
+      if (dateNow >= tokenExpiryDate) {
+        console.log('Access token expired or about to expire. Refreshing...');
+        accessToken = await refreshAccessToken();
+      }
+    }
+    const res = await api.post(
+      '/auth/logout/',
+      {
+        refresh: refreshToken,
+      },
+      {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      },
+    );
     const { message } = res.data;
     console.log(message);
   } catch (err) {
-    console.log('Error Logging the user out', err);
+    console.log('Error Logging the user out:', err);
   } finally {
     removeTokens();
     window.location.href = '/auth/signin';

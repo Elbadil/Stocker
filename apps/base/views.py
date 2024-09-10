@@ -8,10 +8,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 import os
 from .models import User
-from . import serializers
+from .serializers import (UserSerializer,
+                          UserLoginSerializer,
+                          UserRegisterSerializer)
 from .utils import get_tokens_for_user
 from utils.tokens import Token
 
@@ -19,7 +22,7 @@ from utils.tokens import Token
 class LoginView(APIView):
     """Handles User Login"""
     def post(self, request):
-        serializer = serializers.UserLoginSerializer(data=request.data)
+        serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
             tokens = get_tokens_for_user(request, user)
@@ -32,7 +35,7 @@ class LoginView(APIView):
 class SignUpView(APIView):
     """Handles User Registration"""
     def post(self, request):
-        serializer = serializers.UserRegisterSerializer(data=request.data)
+        serializer = UserRegisterSerializer(data=request.data)
 
         if serializer.is_valid():
             confirm_code = Token.generate_token_with_length(6)
@@ -70,36 +73,42 @@ class LogoutView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-class UpdateUserView(RetrieveUpdateAPIView):
+class GetUpdateUserView(RetrieveUpdateAPIView):
     """Handles User Info Update"""
     permission_classes = (IsAuthenticated,)
+    parser_classes = (FormParser, MultiPartParser,)
     queryset = User.objects.all()
-    serializer_class = serializers.UserSerializer
+    serializer_class = UserSerializer
     lookup_field = 'id'
 
-    def patch(self, request, *args, **kwargs):
-        response = super().patch(request, *args, **kwargs)
-        return self.handle_token_refresh(request, response)
-
     def put(self, request, *args, **kwargs):
-        response = super().put(request, *args, **kwargs)
-        return self.handle_token_refresh(request, response)
+        user = self.get_object()
+        print(request.data)
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            user = serializer.save();
+            if 'avatar_deleted' in request.data:
+                user.avatar = None
+            elif 'avatar' in request.FILES:
+                user.avatar = request.FILES.get('avatar');
+            user.save()
+            user_data = UserSerializer(user, context={'request': request}).data
+            try:
+                refresh_token = request.data.get('refresh')
+                if not refresh_token:
+                    return Response({'errors': 'Refresh token is required.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
 
-    def handle_token_refresh(self, request, response):
-        try:
-            refresh_token = request.data.get('refresh')
-            if not refresh_token:
-                return Response({'errors': 'Refresh token is required.'},
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                tokens = get_tokens_for_user(request, user)
+            except Exception as e:
+                return Response({'errors': str(e)},
                                 status=status.HTTP_400_BAD_REQUEST)
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            tokens = get_tokens_for_user(request, request.user)
-            response.data['tokens'] = tokens
-        except Exception as e:
-            return Response({'errors': e},
-                            status=status.HTTP_400_BAD_REQUEST)
-        return response
+            return Response({'user': user_data, 'tokens': tokens},
+                            status=status.HTTP_200_OK)
+        return Response({'errors': serializer.errors},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
 @login_required(login_url="login")

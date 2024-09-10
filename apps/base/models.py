@@ -45,6 +45,11 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+def user_avatar_path(user, filename):
+    """Determine upload path for user avatar."""
+    return f"base/images/user/{user.id}/{filename}"
+
+
 class User(AbstractUser):
     """Custom User Model"""
     id = models.UUIDField(default=Token.generate_uuid,
@@ -60,8 +65,7 @@ class User(AbstractUser):
     is_confirmed = models.BooleanField(default=False, null=True)
     # Additional Attributes
     bio = models.TextField(null=True, blank=True)
-    avatar = models.ImageField(null=True, default="base/images/pfp/default.jpg",
-                               upload_to="base/images/pfp/")
+    avatar = models.ImageField(null=True, upload_to=user_avatar_path)
     updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'email'

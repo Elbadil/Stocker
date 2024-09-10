@@ -1,11 +1,32 @@
+import { useEffect, useState } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import Loader from '../common/Loader';
+import { useAuth, UserProps } from '../contexts/AuthContext';
+import DefaultPfp from '../images/user/default.jpg';
+import { fetchUserData } from '../utils/user';
 
 const Profile = () => {
   const { user } = useAuth();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [userData, setUserData] = useState<UserProps | null>(null);
 
-  return (
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data: UserProps = await fetchUserData(user?.id);
+        setUserData({ ...data });
+        setLoading(false);
+      } catch (err) {
+        console.log('Error fetching user data:', err);
+      }
+    };
+    loadData();
+  }, []);
+
+  return loading ? (
+    <Loader />
+  ) : (
     <>
       <Breadcrumb pageName="Profile" />
 
@@ -15,17 +36,17 @@ const Profile = () => {
           <div className="relative z-30 mx-auto -mt-22 h-30 w-full max-w-30 rounded-full bg-white/20 p-1 backdrop-blur sm:h-44 sm:max-w-44 sm:p-3">
             <div className="relative drop-shadow-2">
               <img
-                src={user?.avatar}
-                className="rounded-full"
+                src={userData?.avatar || DefaultPfp}
+                className="object-cover rounded-full"
                 alt="profile"
               />
             </div>
           </div>
           <div className="mt-4">
             <h3 className="mb-1.5 text-2xl font-semibold text-black dark:text-white">
-              {user?.first_name} {user?.last_name}
+              {userData?.first_name} {userData?.last_name}
             </h3>
-            <p className="font-medium">@{user?.username}</p>
+            <p className="font-medium">@{userData?.username}</p>
             <div className="mx-auto mt-4.5 mb-5.5 grid max-w-94 grid-cols-3 rounded-md border border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
               <div className="flex flex-col items-center justify-center gap-1 border-r border-stroke px-4 dark:border-strokedark xsm:flex-row">
                 <span className="font-semibold text-black dark:text-white">
@@ -46,12 +67,12 @@ const Profile = () => {
                 <span className="text-sm">Following</span>
               </div>
             </div>
-            {user?.bio && (
+            {userData?.bio && (
               <div className="mx-auto max-w-180">
                 <h4 className="font-semibold text-black dark:text-white">
                   About Me
                 </h4>
-                <p className="mt-4.5">{user?.bio}</p>
+                <p className="mt-4.5">{userData?.bio}</p>
               </div>
             )}
 

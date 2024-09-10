@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
+import toast from 'react-hot-toast';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, UserProps } from '../contexts/AuthContext';
 import { FormErrors, FormValues } from '../types/form';
-import {
-  handleInputChange,
-  handleInputErrors,
-  removeBlankFields,
-} from '../utils/form';
-import api from '../api/axios';
+import { handleInputErrors, resetFormErrors } from '../utils/form';
+import { api } from '../api/axios';
+import { setTokens, getRefreshToken } from '../utils/auth';
+import DefaultPfp from '../images/user/default.jpg';
+import { fetchUserData } from '../utils/user';
+import Loader from '../common/Loader';
 
 const Settings = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState<boolean>(false);
+  const { user, setUser } = useAuth();
+  const [pageLoading, setPageLoading] = useState<boolean>(true);
+  const [submitLoading, setSubmitLoading] = useState<boolean>(false);
+  const [modified, setModified] = useState<boolean>(false);
+  const [pictureDeleted, setPictureDeleted] = useState<boolean>(false);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [initialUserData, setInitialUserData] = useState<FormValues | null>(
+    null,
+  );
   const [formValues, setFormValues] = useState<FormValues>({
     username: '',
     first_name: '',
@@ -27,14 +37,80 @@ const Settings = () => {
     updateInfo: '',
   });
 
-  const submitInfo = async (e: React.FormEvent) => {
+  const updateUserData = (userData: UserProps) => {
+    const updatedData = {
+      username: userData.username,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      bio: userData.bio,
+    };
+    setFormValues(updatedData);
+    setInitialUserData(updatedData);
+    setAvatar(userData.avatar);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const newPreviewAvatarUrl = URL.createObjectURL(file);
+      setPreviewAvatarUrl(newPreviewAvatarUrl);
+      setModified(true);
+      setPictureDeleted(false);
+    }
+  };
+
+  const handleFileClear = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setAvatar(null);
+    setPreviewAvatarUrl(null);
+    setModified(true);
+    setPictureDeleted(true);
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormValues({
+      ...formValues,
+      [name]: value,
+    });
+  };
+
+  const submitPersonalInfo = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    const cleanedValues: FormValues = removeBlankFields(formValues);
+    setSubmitLoading(true);
+    const refreshToken = getRefreshToken();
+    const formData = new FormData();
+    formData.append('username', formValues.username);
+    formData.append('first_name', formValues.first_name);
+    formData.append('last_name', formValues.last_name);
+    formData.append('bio', formValues.bio);
+    if (refreshToken) {
+      formData.append('refresh', refreshToken);
+    }
+    if (
+      fileInputRef.current &&
+      fileInputRef.current.files &&
+      fileInputRef.current.files[0]
+    ) {
+      formData.append('avatar', fileInputRef.current.files[0]);
+    } else if (pictureDeleted) {
+      formData.append('avatar_deleted', '');
+    }
     try {
-      const res = await api.put(`/users/${user?.id}/`, {
-        ...cleanedValues,
+      const res = await api.put(`/users/${user?.id}/`, formData, {
+        headers: { 'Content-type': 'multipart/form-data' },
       });
+      console.log(res.data);
+      const userData = res.data.user;
+      setUser(userData);
+      updateUserData(userData);
+      setTokens(res.data.tokens);
+      resetFormErrors(formErrors, setFormErrors);
+      toast.success('Your profile have been successfully updated!');
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
@@ -46,25 +122,53 @@ const Settings = () => {
         );
       }
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
-  return (
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const userData: UserProps = await fetchUserData(user?.id);
+        updateUserData(userData);
+        setPageLoading(false);
+      } catch (err) {
+        console.log('Error fetching user data:', err);
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewAvatarUrl) {
+        URL.revokeObjectURL(previewAvatarUrl);
+      }
+    };
+  }, [previewAvatarUrl]);
+
+  useEffect(() => {
+    setModified(JSON.stringify(formValues) !== JSON.stringify(initialUserData));
+  }, [formValues, initialUserData]);
+
+  return pageLoading ? (
+    <Loader />
+  ) : (
     <>
       <div className="mx-auto max-w-270">
         <Breadcrumb pageName="Settings" />
 
         <div className="grid grid-cols-5 gap-8">
+          {/* Personal Information */}
           <div className="col-span-5 xl:col-span-3">
-            <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+            <div className="w-full border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
               <div className="border-b border-stroke py-4 px-7 dark:border-strokedark">
                 <h3 className="font-medium text-black dark:text-white">
                   Personal Information
                 </h3>
               </div>
               <div className="p-7">
-                <form onSubmit={submitInfo}>
+                <form onSubmit={submitPersonalInfo}>
                   {/* Username */}
                   <div className="mb-5.5">
                     <label
@@ -104,10 +208,8 @@ const Settings = () => {
                         type="text"
                         name="username"
                         id="username"
-                        value={user?.username}
-                        onChange={(e) =>
-                          handleInputChange(e, formValues, setFormValues)
-                        }
+                        value={formValues.username}
+                        onChange={handleInputChange}
                       />
                     </div>
                     {formErrors.username && (
@@ -133,10 +235,8 @@ const Settings = () => {
                         type="text"
                         name="first_name"
                         id="first_name"
-                        value={user?.first_name}
-                        onChange={(e) =>
-                          handleInputChange(e, formValues, setFormValues)
-                        }
+                        value={formValues.first_name}
+                        onChange={handleInputChange}
                       />
                       {formErrors.fist_name && (
                         <p className="text-red-500 font-medium text-sm italic mt-2">
@@ -158,10 +258,8 @@ const Settings = () => {
                         type="text"
                         name="last_name"
                         id="last_name"
-                        value={user?.last_name}
-                        onChange={(e) =>
-                          handleInputChange(e, formValues, setFormValues)
-                        }
+                        value={formValues.last_name}
+                        onChange={handleInputChange}
                       />
                       {formErrors.last_name && (
                         <p className="text-red-500 font-medium text-sm italic mt-2">
@@ -214,10 +312,8 @@ const Settings = () => {
                         className="w-full rounded border border-stroke bg-gray py-3 pl-11.5 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         name="bio"
                         id="bio"
-                        value={user?.bio}
-                        onChange={(e) =>
-                          handleInputChange(e, formValues, setFormValues)
-                        }
+                        value={formValues.bio}
+                        onChange={handleInputChange}
                         rows={6}
                         placeholder="Write your bio here"
                       ></textarea>
@@ -228,48 +324,145 @@ const Settings = () => {
                       </p>
                     )}
                   </div>
-
+                  {/* Photo */}
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-5 block text-base font-medium text-black dark:text-white border-b border-stroke py-3 dark:border-strokedark"
+                      htmlFor="bio"
+                    >
+                      Your Photo
+                    </label>
+                    <div className="mb-4 flex items-center gap-3 ">
+                      <div className="h-14 w-14 rounded-full">
+                        {previewAvatarUrl ? (
+                          <img
+                            src={previewAvatarUrl}
+                            className="w-full h-full object-cover rounded-full"
+                            alt="User"
+                          />
+                        ) : (
+                          <img
+                            src={avatar || DefaultPfp}
+                            className="w-full h-full object-cover rounded-full"
+                            alt="User"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <span className="mb-1.5 text-black dark:text-white">
+                          Edit your photo
+                        </span>
+                        <span className="mt-2 flex gap-2.5">
+                          {(avatar || previewAvatarUrl) && (
+                            <button
+                              onClick={handleFileClear}
+                              type="button"
+                              className="bg-red-500 hover:bg-red-700 text-white text-sm font-bold py-1 px-3 rounded"
+                            >
+                              Delete
+                            </button>
+                          )}
+                          <input
+                            type="file"
+                            id="avatar"
+                            name="avatar"
+                            ref={fileInputRef}
+                            accept="image/*"
+                            className="text-sm font-bold rounded
+                                        cursor-pointer
+                                        file:me-2 file:py-1 file:px-4
+                                        file:cursor-pointer
+                                        file:border-0
+                                        file:bg-slate-500 file:text-white
+                                        hover:file:bg-slate-600
+                                        dark:file:bg-slate-500
+                                        dark:hover:file:bg-slate-600"
+                            onChange={handleFileChange}
+                          />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex justify-end gap-4.5">
                     <button
-                      className="flex justify-center rounded bg-primary py-2 px-6 font-medium text-gray hover:bg-opacity-90"
+                      className={
+                        'flex justify-center ' +
+                        (!modified ? 'cursor-not-allowed ' : ' ') +
+                        'rounded bg-primary py-2 px-6 font-medium text-gray hover:bg-opacity-90'
+                      }
                       type="submit"
+                      disabled={!modified}
                     >
-                      {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Save'}
+                      {submitLoading ? (
+                        <ClipLoader color="#ffffff" size={23} />
+                      ) : (
+                        'Save'
+                      )}
                     </button>
                   </div>
                 </form>
               </div>
             </div>
           </div>
+          {/* Reset Password */}
           <div className="col-span-5 xl:col-span-2">
             <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
               <div className="border-b border-stroke py-4 px-7 dark:border-strokedark">
                 <h3 className="font-medium text-black dark:text-white">
-                  Your Photo
+                  Reset Password
                 </h3>
               </div>
               <div className="p-7">
                 <form action="#">
-                  <div className="mb-4 flex items-center gap-3">
-                    <div className="h-14 w-14 rounded-full">
-                      <img
-                        src={user?.avatar}
-                        className="rounded-full"
-                        alt="User"
+                  {/* Old Password */}
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-3 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="Password"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                        type="text"
+                        name="password"
+                        id="password"
                       />
                     </div>
-                    <div>
-                      <span className="mb-1.5 text-black dark:text-white">
-                        Edit your photo
-                      </span>
-                      <span className="flex gap-2.5">
-                        <button className="text-sm hover:text-primary">
-                          Delete
-                        </button>
-                        <button className="text-sm hover:text-primary">
-                          Update
-                        </button>
-                      </span>
+                  </div>
+                  {/* New Password */}
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-3 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="newPassword"
+                    >
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                        type="text"
+                        name="newPassword"
+                        id="newPassword"
+                      />
+                    </div>
+                  </div>
+                  {/* Re-Type New Password */}
+                  <div className="mb-5.5">
+                    <label
+                      className="mb-3 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="newPassword2"
+                    >
+                      Re-Type New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                        type="text"
+                        name="newPassword2"
+                        id="newPassword2"
+                      />
                     </div>
                   </div>
 

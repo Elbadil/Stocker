@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ClickOutside from '../ClickOutside';
 import { useAuth } from '../../contexts/AuthContext';
 import { logoutUser } from '../../utils/auth';
+import DefaultPfp from '../../images/user/default.jpg';
 
 const DropdownUser = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -22,8 +23,8 @@ const DropdownUser = () => {
           <span className="block text-xs">@{user?.username}</span>
         </span>
 
-        <span className="h-12 w-12 rounded-full">
-          <img src={user?.avatar} className="rounded-full" alt="User" />
+        <span className="h-12 w-12 object-cover rounded-full">
+          <img src={user?.avatar || DefaultPfp} className="rounded-full" alt="User" />
         </span>
 
         <svg

@@ -36,3 +36,16 @@ export const removeBlankFields = (formValues: FormValues) => {
   }
   return cleanedValues;
 };
+
+export const resetFormErrors = (
+  formErrors: FormErrors,
+  setFormErrors: React.Dispatch<React.SetStateAction<FormErrors>>,
+) => {
+  const resetErrors: FormErrors = {};
+  for (const key in formErrors) {
+    resetErrors[key] = '';
+  }
+  setFormErrors({
+    ...resetErrors,
+  });
+};

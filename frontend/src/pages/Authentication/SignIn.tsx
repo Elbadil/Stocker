@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
 import { Alert } from '../UiElements/Alert';
-import api from '../../api/axios';
+import { api } from '../../api/axios';
 import { FormErrors, FormValues } from '../../types/form';
 import { handleInputChange, handleInputErrors } from '../../utils/form';
 import { setTokens } from '../../utils/auth';
 
 const SignIn: React.FC = () => {
   const { alert } = useAlert();
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [formLoading, setFormLoading] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>({
     email: '',
     password: '',
@@ -24,14 +25,14 @@ const SignIn: React.FC = () => {
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
     try {
       const res = await api.post('/auth/login/', {
         ...formValues,
       });
       const { tokens } = res.data;
       setTokens(tokens);
-      window.location.href = '/';
+      return navigate('/');
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
@@ -42,7 +43,7 @@ const SignIn: React.FC = () => {
           setFormErrors,
         );
       }
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -290,7 +291,7 @@ const SignIn: React.FC = () => {
                     type="submit"
                     className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90"
                   >
-                    {loading ? (
+                    {formLoading ? (
                       <ClipLoader color="#ffffff" size={30} />
                     ) : (
                       'Sign In'

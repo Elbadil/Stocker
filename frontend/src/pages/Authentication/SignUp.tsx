@@ -9,7 +9,7 @@ import {
   handleInputErrors,
   removeBlankFields,
 } from '../../utils/form';
-import api from '../../api/axios';
+import { api } from '../../api/axios';
 
 const SignUp: React.FC = () => {
   const navigate = useNavigate();

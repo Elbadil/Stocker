@@ -6,7 +6,11 @@ import {
   useContext,
 } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getAccessToken, refreshAccessToken, logoutUser } from '../utils/auth';
+import {
+  getAccessToken,
+  refreshAccessToken,
+  logoutUser,
+} from '../utils/auth';
 
 export interface UserProps {
   id: string;
@@ -14,7 +18,7 @@ export interface UserProps {
   first_name: string;
   last_name: string;
   email: string;
-  avatar: string;
+  avatar: string | null;
   bio: string;
   is_confirmed: boolean;
 }
@@ -23,6 +27,7 @@ interface AuthContextType {
   user: UserProps | null;
   setUser: (user: UserProps | null) => void;
   loading: boolean;
+  setLoading: (loading: boolean) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
@@ -35,7 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const { pathname } = useLocation();
   const nonAuthPaths = ['/auth/signin', '/auth/signup'];
   const [user, setUser] = useState<UserProps | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const checkAuth = async () => {
     setLoading(true);
@@ -46,7 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       return;
     }
 
-    const accessToken = getAccessToken();
+    let accessToken = getAccessToken();
     if (!accessToken) {
       console.log('No access token found.');
       setLoading(false);
@@ -79,7 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   }, [pathname]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading }}>
+    <AuthContext.Provider value={{ user, setUser, loading, setLoading }}>
       {children}
     </AuthContext.Provider>
   );
