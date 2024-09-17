@@ -1,13 +1,39 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ClickOutside from '../ClickOutside';
-import { useAuth } from '../../contexts/AuthContext';
-import { logoutUser } from '../../utils/auth';
+// import { useAuth } from '../../contexts/AuthContext';
+// import { logoutUser } from '../../utils/auth';
 import DefaultPfp from '../../images/user/default.jpg';
+import { api } from '../../api/axios';
+import { useSelector, useDispatch } from 'react-redux';
+import { clearUser } from '../../store/slices/authSlice';
+import { AppDispatch, RootState } from '../../store/store';
 
 const DropdownUser = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user } = useAuth();
+  const user = useSelector((state: RootState) => state.auth.user);
+  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
+  const logoutUser = async () => {
+    try {
+      const res = await api.post(
+        '/auth/logout/',
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      console.log(res.data.message);
+    } catch (err) {
+      console.log('Error during logging the user out:', err);
+    } finally {
+      dispatch(clearUser());
+      return navigate('/auth/signin');
+    }
+  };
 
   return (
     <ClickOutside onClick={() => setDropdownOpen(false)} className="relative">
@@ -24,7 +50,11 @@ const DropdownUser = () => {
         </span>
 
         <span className="h-12 w-12 object-cover rounded-full">
-          <img src={user?.avatar || DefaultPfp} className="rounded-full" alt="User" />
+          <img
+            src={user?.avatar || DefaultPfp}
+            className="rounded-full"
+            alt="User"
+          />
         </span>
 
         <svg

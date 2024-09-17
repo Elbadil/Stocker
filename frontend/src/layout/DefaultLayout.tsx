@@ -8,9 +8,9 @@ import Loader from '../common/Loader';
 
 const DefaultLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { loading } = useAuth();
+  const { isLoading } = useAuth();
 
-  return loading ? (
+  return isLoading ? (
     <Loader />
   ) : (
     <div className="dark:bg-boxdark-2 dark:text-bodydark">

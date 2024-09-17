@@ -10,13 +10,35 @@ from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 import os
 from .models import User
 from .serializers import (UserSerializer,
                           UserLoginSerializer,
-                          UserRegisterSerializer)
-from .utils import get_tokens_for_user
+                          UserRegisterSerializer,
+                          ChangePasswordSerializer)
 from utils.tokens import Token
+
+
+class CustomTokenRefreshView(APIView):
+    """Handles Token Refresh"""
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+        if not refresh_token:
+            return Response({'errors': 'No refresh_token found in cookies.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            refresh = RefreshToken(refresh_token)
+            new_access_token = str(refresh.access_token)
+            user_id = refresh.payload['user_id']
+            user = User.objects.get(id=user_id)
+            user_data = UserSerializer(user, context={'request': request}).data
+            return Response({'user': user_data,
+                             'access_token': new_access_token},
+                            status=status.HTTP_200_OK)
+        except TokenError as e:
+            return Response({'errors': str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(APIView):
@@ -25,9 +47,19 @@ class LoginView(APIView):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            tokens = get_tokens_for_user(request, user)
-            return Response({'tokens': tokens},
-                             status=status.HTTP_200_OK)
+            user_data = UserSerializer(user, context={'request': request}).data
+            refresh = RefreshToken.for_user(user)
+            response = Response({'access_token': str(refresh.access_token),
+                                 'user': user_data},
+                                status=status.HTTP_200_OK)
+            response.set_cookie(
+                key="refresh_token",
+                value=str(refresh),
+                httponly=True,
+                secure=True,
+                samesite='Lax'
+            )
+            return response
         return Response({'errors': serializer.errors},
                         status=status.HTTP_400_BAD_REQUEST)
 
@@ -63,14 +95,28 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            refresh_token = request.data['refresh']
+            refresh_token = request.COOKIES.get('refresh_token')
+            if not refresh_token:
+                return Response({'errors': 'No refresh token found.'},
+                                status=status.HTTP_400_BAD_REQUEST)
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({'message': 'User has successfully logged out.'},
-                            status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response({'errors': e},
+            response = Response({'message': 'User has successfully logged out.'},
+                                status=status.HTTP_205_RESET_CONTENT)
+            response.delete_cookie('refresh_token')
+            return response
+
+        except (InvalidToken, TokenError) as e:
+            response = Response({'errors': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
+            response.delete_cookie('refresh_token', None)
+            return response
+
+        except Exception as e:
+            response = Response({'errors': 'An unexpected error occurred.'},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            response.delete_cookie('refresh_token', None)
+            return response
 
 
 class GetUpdateUserView(RetrieveUpdateAPIView):
@@ -83,8 +129,7 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
 
     def put(self, request, *args, **kwargs):
         user = self.get_object()
-        print(request.data)
-        serializer = self.get_serializer(user, data=request.data, partial=True)
+        serializer = self.get_serializer(user, data=request.data)
         if serializer.is_valid():
             user = serializer.save();
             if 'avatar_deleted' in request.data:
@@ -93,22 +138,25 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
                 user.avatar = request.FILES.get('avatar');
             user.save()
             user_data = UserSerializer(user, context={'request': request}).data
-            try:
-                refresh_token = request.data.get('refresh')
-                if not refresh_token:
-                    return Response({'errors': 'Refresh token is required.'},
-                                    status=status.HTTP_400_BAD_REQUEST)
-
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-                tokens = get_tokens_for_user(request, user)
-            except Exception as e:
-                return Response({'errors': str(e)},
-                                status=status.HTTP_400_BAD_REQUEST)
-            return Response({'user': user_data, 'tokens': tokens},
+            return Response({'user': user_data},
                             status=status.HTTP_200_OK)
         return Response({'errors': serializer.errors},
                         status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordView(APIView):
+    """Handles User Password Update"""
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(user=request.user, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Password has been updated successfully'},
+                            status=status.HTTP_200_OK)
+        else:
+            return Response({'errors': serializer.errors},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 @login_required(login_url="login")

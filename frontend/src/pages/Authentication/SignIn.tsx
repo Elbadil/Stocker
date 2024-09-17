@@ -7,10 +7,13 @@ import { Alert } from '../UiElements/Alert';
 import { api } from '../../api/axios';
 import { FormErrors, FormValues } from '../../types/form';
 import { handleInputChange, handleInputErrors } from '../../utils/form';
-import { setTokens } from '../../utils/auth';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../store/slices/authSlice';
+// import { setTokens } from '../../utils/auth';
 
 const SignIn: React.FC = () => {
   const { alert } = useAlert();
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [formLoading, setFormLoading] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>({
@@ -30,8 +33,7 @@ const SignIn: React.FC = () => {
       const res = await api.post('/auth/login/', {
         ...formValues,
       });
-      const { tokens } = res.data;
-      setTokens(tokens);
+      dispatch(setUser(res.data));
       return navigate('/');
     } catch (err: any) {
       console.log('Error during form submission:', err);

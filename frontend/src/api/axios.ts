@@ -1,44 +1,49 @@
 import axios from 'axios';
-import { getAccessToken, refreshAccessToken, logoutUser } from '../utils/auth';
+import { clearUser, setUser } from '../store/slices/authSlice';
+import { store } from '../store/store';
+
+// import { getAccessToken, refreshAccessToken, logoutUser } from '../utils/auth';
 
 export const api = axios.create({
   baseURL: 'http://localhost:8000/api/',
   headers: { 'Content-Type': 'application/json' },
-});
-
-export const refreshApi = axios.create({
-  baseURL: 'http://localhost:8000/api/',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  withCredentials: true,
 });
 
 api.interceptors.request.use(async function (config) {
   console.log('Interceptor working.. URL:', config.url);
-  const accessToken = getAccessToken();
+  const nonAuthorizedEndpoints = [
+    '/auth/token/verify/',
+    '/auth/token/refresh/',
+    '/auth/login/',
+    '/auth/signup/',
+  ];
+  if (config.url && nonAuthorizedEndpoints.includes(config.url)) {
+    return config;
+  }
+  const state = store.getState();
+  const accessToken = state.auth.accessToken;
   if (accessToken) {
-    const userData = JSON.parse(atob(accessToken.split('.')[1]));
-    const tokenExpiryDate = new Date(userData.exp * 1000);
-    const dateNow = new Date(Date.now());
-    if (dateNow >= tokenExpiryDate) {
-      try {
-        console.log('Attempting to refresh from axios.')
-        const newAccessToken = await refreshAccessToken();
-        config.headers.Authorization = `Bearer ${newAccessToken}`;
-        console.log('refreshed from axios');
-      } catch (err) {
-        console.log(
-          'Axios Interceptor: Error refreshing the access token',
-          err,
-        );
-        console.log('Lets log out the user');
-        await logoutUser();
-        return Promise.reject(err);
-      }
-    } else {
+    try {
+      await api.post('/auth/token/verify/', {
+        token: accessToken,
+      });
       config.headers.Authorization = `Bearer ${accessToken}`;
+      return config;
+    } catch (err) {
+      console.log('Error verifying the access token:', err);
     }
   }
-
+  try {
+    const res = await api.post('/auth/token/refresh/');
+    const newAccessToken = res.data.access_token;
+    store.dispatch(setUser(res.data));
+    config.headers.Authorization = `Bearer ${newAccessToken}`;
+  } catch (err) {
+    console.log('Error refreshing the access token:', err);
+    store.dispatch(clearUser());
+    window.location.href = '/auth/signin';
+    return Promise.reject(err);
+  }
   return config;
 });

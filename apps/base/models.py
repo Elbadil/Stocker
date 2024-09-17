@@ -1,7 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from datetime import timedelta
 from utils.tokens import Token
+from utils.models import BaseModel
+
 
 
 class UserManager(BaseUserManager):

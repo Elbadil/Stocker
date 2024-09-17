@@ -1,9 +1,7 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from rest_framework_simplejwt.tokens import Token
 from .models import User
 
 
@@ -29,6 +27,11 @@ class UserSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(user.avatar.url)
         return None
 
+    def validate_username(self, value):
+        if User.objects.filter(username=value.lower()).exists():
+            raise serializers.ValidationError('user with this username already exists.')
+        return value.lower()
+    
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     """User Sign Up Serializer"""
@@ -104,3 +107,44 @@ class UserLoginSerializer(serializers.Serializer):
                 {"login": "Login Unsuccessful. Please check your email and password"})
         validated_data['user'] = user
         return validated_data
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """User Password Change Serializer"""
+    old_password = serializers.CharField(write_only=True)
+    new_password1 = serializers.CharField(write_only=True)
+    new_password2 = serializers.CharField(write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        self.user : User = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def validate_old_password(self, value):
+        if not self.user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect.")
+        return value
+
+    def validate(self, validated_data):
+        old_password = validated_data['old_password']
+        new_password1 = validated_data['new_password1']
+        new_password2 = validated_data['new_password2']
+        if new_password1 != new_password2:
+            raise serializers.ValidationError(
+                {'new_password2': 'The two new password fields do not match.'})
+
+        if new_password1 == old_password:
+            raise serializers.ValidationError(
+                {'new_password2': 'New password cannot be the same as the old password.'})
+
+        try:
+            validate_password(new_password1, user=self.user)
+        except ValidationError as err:
+            raise serializers.ValidationError({'new_password2': err.messages})
+
+        return validated_data
+
+    def save(self, **kwargs):
+        new_password1 = self.validated_data['new_password1']
+        self.user.set_password(new_password1)
+        self.user.save()
+        return self.user

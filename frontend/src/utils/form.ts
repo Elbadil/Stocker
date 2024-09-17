@@ -49,3 +49,20 @@ export const resetFormErrors = (
     ...resetErrors,
   });
 };
+
+export const resetFormValues = (
+  formValues: FormValues,
+  setFormValues: React.Dispatch<React.SetStateAction<FormValues>>,
+) => {
+  const resetValues: FormValues = {};
+  for (const key in formValues) {
+    resetValues[key] = '';
+  }
+  setFormValues({
+    ...resetValues,
+  });
+};
+
+export const areFieldsFilled = (fields: FormValues) => {
+  return Object.values(fields).every(value => value.trim() !== '');
+};
