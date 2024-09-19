@@ -1,8 +1,7 @@
-from django.shortcuts import render, redirect
-from django.core.mail import send_mail
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from datetime import datetime, timezone
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,8 +15,8 @@ from .models import User
 from .serializers import (UserSerializer,
                           UserLoginSerializer,
                           UserRegisterSerializer,
-                          ChangePasswordSerializer)
-from utils.tokens import Token
+                          ChangePasswordSerializer,
+                          ResetPasswordSerializer)
 
 
 class CustomTokenRefreshView(APIView):
@@ -70,19 +69,16 @@ class SignUpView(APIView):
         serializer = UserRegisterSerializer(data=request.data)
 
         if serializer.is_valid():
-            confirm_code = Token.generate_token_with_length(6)
             user = serializer.save()
-            user.confirm_code = confirm_code
-            user.save()
-            # send_mail(
-            #     "Stocker Account Confirmation",
-            #     f"Account Confirmation Code: {confirm_code}",
-            #     os.getenv('EMAIL_HOST_USER'),
-            #     [user.email],
-            #     # fail_silently: A boolean. When it’s False, send_mail()
-            #     # will raise an smtplib.SMTPException if an error occurs.
-            #     fail_silently=False
-            # )
+            send_mail(
+                "Stocker Account Confirmation",
+                f"Welcome to Stocker! You have Successfully Created A Stocker Account.",
+                os.getenv('EMAIL_HOST_USER'),
+                [user.email],
+                # fail_silently: A boolean. When it’s False, send_mail()
+                # will raise an smtplib.SMTPException if an error occurs.
+                fail_silently=False
+            )
             return Response({'message': f'User has been registered'},
                               status=status.HTTP_201_CREATED)
         return Response({'errors': serializer.errors},
@@ -159,57 +155,53 @@ class ChangePasswordView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
 
-@login_required(login_url="login")
-def confirmAccount(request):
-    """Confirm Account"""
-    user = request.user
-    if user.is_confirmed:
-        return redirect('index')
-    context = {'title': 'Confirm Account'}
-    # To handle Send Code text
-    referring_url = request.META.get('HTTP_REFERER')
-    if referring_url and 'signup' in referring_url:
-        context['from_signup'] = True
-    if request.method == 'POST':
-        confirm_code = request.POST.get('confirm_code')
-        confirm_code_is_valid = Token.validation(user.confirm_code_created_at, 3)
-        if user.confirm_code == confirm_code and confirm_code_is_valid:
-            user.is_confirmed = True
-            user.save()
-            messages.success(request, 'You have successfully confirmed your account!')
-            next_page = request.GET.get('next')
-            return redirect(next_page) if next_page else redirect('index')
+class RequestPasswordReset(APIView):
+    """Handles Requests For Password Reset"""
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'errors': 'This field is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            token_generator = PasswordResetTokenGenerator()
+            token = token_generator.make_token(user)
+            user_uidb64 = urlsafe_base64_encode(force_bytes(user.id))
+            reset_url = f"http://localhost:5173/auth/password-reset/{user_uidb64}/{token}/"
+            subject = "Stocker Password Reset"
+            from_email = os.getenv('EMAIL_HOST_USER')
+            to_email = [user.email]
+            text_content = f"You can reset your password here: {reset_url}"
+            html_content = f"You can reset your password here <a href='{reset_url}'>{reset_url}</a>."
+            # Supports HTML Content
+            email = EmailMultiAlternatives(subject, text_content, from_email, to_email)
+            # add an HTML version of the email content if email clients accepts html
+            email.attach_alternative(html_content, "text/html")
+            email.send(fail_silently=False)
+        return Response({'message': 'If the email is associated with an account, a reset link has been sent.'},
+                        status=status.HTTP_200_OK)
+
+
+class ResetPassword(APIView):
+    """Handles Password Reset"""
+    def post(self, request, uidb64, token):
+        try:
+            user_id = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=user_id)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        print(user.username)
+        if user and PasswordResetTokenGenerator().check_token(user, token):
+            serializer = ResetPasswordSerializer(user=user, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'message': 'User password has been successfully reset.'},
+                                status=status.HTTP_200_OK)
+            else:
+                return Response({'errors': serializer.errors},
+                                status=status.HTTP_400_BAD_REQUEST)
         else:
-            context['confirm_code'] = confirm_code
-            messages.error(request, 'Invalid Confirmation Code. Please request another code!')
-            return render(request, 'confirm_account.html', context)
-    return render(request, 'confirm_account.html', context)
-
-
-@login_required(login_url='login')
-def resendConfirmCode(request):
-    """Resend a new confirmation code"""
-    user = request.user
-    if user.is_confirmed:
-        return redirect('index')
-    new_confirm_code = Token.generate(6)
-    user.confirm_code = new_confirm_code
-    user.confirm_code_created_at = datetime.now(timezone.utc)
-    user.save()
-    send_mail(
-        "Stocker Account Confirmation",
-        f"Account Confirmation Code: {new_confirm_code}",
-        os.getenv('EMAIL_HOST_USER'),
-        [user.email],
-        fail_silently=False
-    )
-    messages.success(request, 'A new confirmation code has been sent to you via email!')
-    return redirect('confirm-account')
-
-
-def userConfirmed(request, user):
-    """Checks if the request user is confirmed"""
-    if not user.is_confirmed:
-        messages.info(request, 'You need to confirm your account to perform such action. \
-                      Please take some few minutes to confirm your account!')
-    return user.is_confirmed
+            return Response({'errors':
+                             {'detail': 'Something went wrong. Please request another password reset.'}},
+                             status=status.HTTP_400_BAD_REQUEST)

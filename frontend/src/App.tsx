@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
+import RequestPasswordReset from './pages/Authentication/RequestPasswordReset';
 import Calendar from './pages/Calendar';
 import Chart from './pages/Chart';
 import ECommerce from './pages/Dashboard/ECommerce';
@@ -15,6 +16,7 @@ import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
 import { AuthProvider } from './contexts/AuthContext';
+import ResetPassword from './pages/Authentication/ResetPassword';
 
 function App() {
   const { pathname } = useLocation();
@@ -132,6 +134,24 @@ function App() {
               <>
                 <PageTitle title="Signup | Stocker" />
                 <SignUp />
+              </>
+            }
+          />
+          <Route
+            path="/auth/password-reset/request"
+            element={
+              <>
+                <PageTitle title="Request Password Reset | Stocker" />
+                <RequestPasswordReset />
+              </>
+            }
+          />
+          <Route
+            path="/auth/password-reset/:uidb64/:token"
+            element={
+              <>
+                <PageTitle title="Reset Password | Stocker" />
+                <ResetPassword />
               </>
             }
           />

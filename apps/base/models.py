@@ -62,10 +62,6 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=200, null=False, blank=False)
     last_name = models.CharField(max_length=200, null=False, blank=False)
     email = models.EmailField(unique=True, blank=False)
-    # User Account Confirmation
-    confirm_code = models.CharField(max_length=6, null=True, blank=True)
-    confirm_code_created_at = models.DateTimeField(auto_now_add=True, null=True)
-    is_confirmed = models.BooleanField(default=False, null=True)
     # Additional Attributes
     bio = models.TextField(null=True, blank=True)
     avatar = models.ImageField(null=True, upload_to=user_avatar_path)

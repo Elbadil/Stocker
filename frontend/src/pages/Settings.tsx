@@ -124,7 +124,9 @@ const Settings = () => {
       const userData = res.data.user;
       updateUserData(userData);
       resetFormErrors(formErrors, setFormErrors);
-      toast.success('Your profile have been successfully updated!');
+      toast.success('Your profile have been successfully updated!', {
+        duration: 5000,
+      });
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
@@ -149,7 +151,9 @@ const Settings = () => {
         ...cleanedValues,
       });
       console.log(res);
-      toast.success('Your password has been successfully changed!');
+      toast.success('Your password has been successfully changed!', {
+        duration: 5000,
+      });
       resetFormValues(pwdFormValues, setPwdFormValues);
       resetFormErrors(pwdFormErrors, setPwdFormErrors);
     } catch (err: any) {

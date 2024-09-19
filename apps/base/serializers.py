@@ -17,7 +17,6 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "avatar",
             "bio",
-            "is_confirmed"
         ]
 
     def get_avatar(self, user):
@@ -28,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def validate_username(self, value):
-        if User.objects.filter(username=value.lower()).exists():
+        if User.objects.filter(username=value.lower()).exclude(id=self.instance.id).exists():
             raise serializers.ValidationError('user with this username already exists.')
         return value.lower()
     
@@ -135,6 +134,37 @@ class ChangePasswordSerializer(serializers.Serializer):
         if new_password1 == old_password:
             raise serializers.ValidationError(
                 {'new_password2': 'New password cannot be the same as the old password.'})
+
+        try:
+            validate_password(new_password1, user=self.user)
+        except ValidationError as err:
+            raise serializers.ValidationError({'new_password2': err.messages})
+
+        return validated_data
+
+    def save(self, **kwargs):
+        new_password1 = self.validated_data['new_password1']
+        self.user.set_password(new_password1)
+        self.user.save()
+        return self.user
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    """User Password Reset Serializer"""
+    new_password1 = serializers.CharField(write_only=True)
+    new_password2 = serializers.CharField(write_only=True)
+
+    def __init__(self, *args, **kwargs):
+        self.user: User = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+    def validate(self, validated_data):
+        new_password1 = validated_data['new_password1']
+        new_password2 = validated_data['new_password2']
+
+        if new_password1 != new_password2:
+            raise serializers.ValidationError(
+                {'new_password2': 'The two new password fields do not match.'})
 
         try:
             validate_password(new_password1, user=self.user)

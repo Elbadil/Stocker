@@ -2,8 +2,6 @@ import axios from 'axios';
 import { clearUser, setUser } from '../store/slices/authSlice';
 import { store } from '../store/store';
 
-// import { getAccessToken, refreshAccessToken, logoutUser } from '../utils/auth';
-
 export const api = axios.create({
   baseURL: 'http://localhost:8000/api/',
   headers: { 'Content-Type': 'application/json' },
@@ -12,13 +10,7 @@ export const api = axios.create({
 
 api.interceptors.request.use(async function (config) {
   console.log('Interceptor working.. URL:', config.url);
-  const nonAuthorizedEndpoints = [
-    '/auth/token/verify/',
-    '/auth/token/refresh/',
-    '/auth/login/',
-    '/auth/signup/',
-  ];
-  if (config.url && nonAuthorizedEndpoints.includes(config.url)) {
+  if (config.url && config.url.startsWith('/auth')) {
     return config;
   }
   const state = store.getState();

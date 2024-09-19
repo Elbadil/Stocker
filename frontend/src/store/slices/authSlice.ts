@@ -9,7 +9,6 @@ export interface UserProps {
   last_name: string;
   avatar: string | null;
   bio: string;
-  is_confirmed: boolean;
 }
 
 export interface AuthState {
@@ -29,7 +28,7 @@ const initialState: AuthState = {
   accessToken: null,
   user: null,
   isAuthenticated: false,
-  loading: true,
+  loading: false,
   error: null,
 };
 
