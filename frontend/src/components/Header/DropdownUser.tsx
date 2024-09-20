@@ -14,17 +14,10 @@ const DropdownUser = () => {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const user = useSelector((state: RootState) => state.auth.user);
-  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const logoutUser = async () => {
     try {
       const res = await api.post(
         '/auth/logout/',
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
       );
       console.log(res.data.message);
     } catch (err) {

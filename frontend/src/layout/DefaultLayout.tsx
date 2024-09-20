@@ -2,7 +2,6 @@ import React, { useState, ReactNode } from 'react';
 import { Toaster } from 'react-hot-toast';
 import Header from '../components/Header/index';
 import Sidebar from '../components/Sidebar/index';
-import { AlertProvider } from '../contexts/AlertContext';
 import { useAuth } from '../contexts/AuthContext';
 import Loader from '../common/Loader';
 
@@ -29,10 +28,8 @@ const DefaultLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
           {/* <!-- ===== Main Content Start ===== --> */}
           <main>
             <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10">
-              <AlertProvider>
-                <Toaster />
-                {children}
-              </AlertProvider>
+              <Toaster />
+              {children}
             </div>
           </main>
           {/* <!-- ===== Main Content End ===== --> */}

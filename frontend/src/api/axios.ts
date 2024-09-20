@@ -10,7 +10,16 @@ export const api = axios.create({
 
 api.interceptors.request.use(async function (config) {
   console.log('Interceptor working.. URL:', config.url);
-  if (config.url && config.url.startsWith('/auth')) {
+  const requireAuthPaths = [
+    '/auth/user/',
+    '/auth/logout/',
+    '/auth/user/change-password/',
+  ];
+  if (
+    config.url &&
+    config.url.startsWith('/auth') &&
+    !requireAuthPaths.includes(config.url)
+  ) {
     return config;
   }
   const state = store.getState();

@@ -38,7 +38,7 @@ const ResetPassword = () => {
       setAlert({
         type: 'success',
         title: 'Password Reset Successfully',
-        description: 'You can now log in using your new email!',
+        description: 'You can now log in using your new password!',
       });
       return navigate('/auth/signin');
     } catch (err: any) {

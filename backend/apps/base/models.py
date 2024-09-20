@@ -65,6 +65,7 @@ class User(AbstractUser):
     # Additional Attributes
     bio = models.TextField(null=True, blank=True)
     avatar = models.ImageField(null=True, upload_to=user_avatar_path)
+    token_version = models.IntegerField(default=1)
     updated_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = 'email'

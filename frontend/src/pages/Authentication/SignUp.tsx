@@ -9,10 +9,14 @@ import {
   handleInputErrors,
   removeBlankFields,
 } from '../../utils/form';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../store/slices/authSlice';
 import { api } from '../../api/axios';
+import { AppDispatch } from '../../store/store';
 
 const SignUp: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { setAlert } = useAlert();
   const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<FormValues>({
@@ -39,21 +43,10 @@ const SignUp: React.FC = () => {
     setLoading(true);
     const cleanedValues = removeBlankFields(formValues);
     try {
-      const response = await api.get('/auth/get-csrf-token/');
-      const { csrfToken } = response.data;
-      const res = await api.post(
-        '/auth/signup/',
-        {
-          ...cleanedValues,
-        },
-        {
-          headers: {
-            'X-CSRFToken': csrfToken,
-          },
-        },
-      );
-      const { message } = res.data;
-      console.log(message);
+      const res = await api.post('/auth/signup/', {
+        ...cleanedValues,
+      });
+      dispatch(setUser(res.data))
       setLoading(false);
       setAlert({
         type: 'success',
@@ -482,7 +475,7 @@ const SignUp: React.FC = () => {
                     disabled={loading}
                   >
                     {loading ? (
-                      <ClipLoader color="#ffffff" size={30} />
+                      <ClipLoader color="#ffffff" size={27} />
                     ) : (
                       'Create account'
                     )}

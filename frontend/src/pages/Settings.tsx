@@ -117,14 +117,14 @@ const Settings = () => {
       formData.append('avatar_deleted', '');
     }
     try {
-      const res = await api.put(`/users/${user?.id}/`, formData, {
+      const res = await api.put(`/auth/user/`, formData, {
         headers: { 'Content-type': 'multipart/form-data' },
       });
       dispatch(setUser(res.data));
       const userData = res.data.user;
       updateUserData(userData);
       resetFormErrors(formErrors, setFormErrors);
-      toast.success('Your profile have been successfully updated!', {
+      toast.success('Your profile has been successfully updated!', {
         duration: 5000,
       });
     } catch (err: any) {
@@ -147,10 +147,10 @@ const Settings = () => {
     setSubmitPwdLoading(true);
     const cleanedValues: FormValues = removeBlankFields(pwdFormValues);
     try {
-      const res = await api.post('/user/change-password/', {
+      const res = await api.post('/auth/user/change-password/', {
         ...cleanedValues,
       });
-      console.log(res);
+      dispatch(setUser(res.data))
       toast.success('Your password has been successfully changed!', {
         duration: 5000,
       });
@@ -422,6 +422,14 @@ const Settings = () => {
                         </span>
                       </div>
                     </div>
+                    
+                  </div>
+                  <div className="text-center mb-3">
+                  {formErrors.updateInfo && (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {formErrors.updateInfo}
+                      </p>
+                  )}
                   </div>
                   <div className="flex justify-end gap-4.5">
                     <button

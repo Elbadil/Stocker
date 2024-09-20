@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { validateTokenAndSetUserAsync } from '../store/slices/authSlice';
 import { AppDispatch } from '../store/store';
+import { useAlert } from './AlertContext';
 
 interface AuthContextType {
   loading: boolean;
@@ -23,6 +24,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { setAlert } = useAlert();
   const [loading, setLoading] = useState<boolean>(false);
   const dispatch = useDispatch<AppDispatch>();
 
@@ -31,16 +33,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     console.log('Hi from authContext, pathname:', pathname);
     if (pathname.startsWith('/auth')) {
       setLoading(false);
-      return;
-    }
-    const resultAction = await dispatch(validateTokenAndSetUserAsync());
-    if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
-      console.log('User is authenticated.');
-      setLoading(false);
     } else {
-      console.log('User is not authenticated.');
-      setLoading(false);
-      return navigate('/auth/signin');
+      const resultAction = await dispatch(validateTokenAndSetUserAsync());
+      if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
+        console.log('User is authenticated.');
+        setLoading(false);
+      } else {
+        console.log('User is not authenticated.');
+        setAlert({
+          type: 'warning',
+          title: 'Session Expired',
+          description:
+            'Oops! It looks like your session has expired or you are not logged in. Please log in again to continue.',
+        });
+        setLoading(false);
+        navigate('/auth/signin');
+      }
     }
   };
 

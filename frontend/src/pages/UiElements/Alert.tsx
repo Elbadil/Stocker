@@ -15,7 +15,9 @@ export const Alert = ({ type, title, description }: AlertProps) => {
 
   const closeAlert = () => {
     setOpen(false);
-    setAlert(null);
+    setTimeout(() => {
+      setAlert(null);
+    }, 2000);
   };
 
   return (

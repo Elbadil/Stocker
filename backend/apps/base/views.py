@@ -10,6 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+import jwt
+from django.conf import settings
 import os
 from .models import User
 from .serializers import (UserSerializer,
@@ -17,6 +19,8 @@ from .serializers import (UserSerializer,
                           UserRegisterSerializer,
                           ChangePasswordSerializer,
                           ResetPasswordSerializer)
+from .auth import TokenVersionAuthentication
+from .utils import get_tokens_for_user
 
 
 class CustomTokenRefreshView(APIView):
@@ -25,17 +29,27 @@ class CustomTokenRefreshView(APIView):
         refresh_token = request.COOKIES.get('refresh_token')
         if not refresh_token:
             return Response({'errors': 'No refresh_token found in cookies.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+                            status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_token)
-            new_access_token = str(refresh.access_token)
             user_id = refresh.payload['user_id']
+            refresh_version = refresh.payload['token_version']
             user = User.objects.get(id=user_id)
+            if user.token_version != refresh_version:
+                return Response({'errors': 'Invalid or expired token.'},
+                                status=status.HTTP_403_FORBIDDEN)
+            new_access_token = str(refresh.access_token)
             user_data = UserSerializer(user, context={'request': request}).data
             return Response({'user': user_data,
                              'access_token': new_access_token},
                             status=status.HTTP_200_OK)
-        except TokenError as e:
+        except TokenError:
+            return Response({'errors': 'Invalid refresh token.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        except User.DoesNotExist:
+            return Response({'errors': 'User not found.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
             return Response({'errors': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
 
@@ -47,13 +61,13 @@ class LoginView(APIView):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             user_data = UserSerializer(user, context={'request': request}).data
-            refresh = RefreshToken.for_user(user)
-            response = Response({'access_token': str(refresh.access_token),
+            token = get_tokens_for_user(user)
+            response = Response({'access_token': token['access'],
                                  'user': user_data},
-                                status=status.HTTP_200_OK)
+                                 status=status.HTTP_200_OK)
             response.set_cookie(
                 key="refresh_token",
-                value=str(refresh),
+                value=token['refresh'],
                 httponly=True,
                 secure=True,
                 samesite='Lax'
@@ -71,16 +85,27 @@ class SignUpView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             send_mail(
-                "Stocker Account Confirmation",
-                f"Welcome to Stocker! You have Successfully Created A Stocker Account.",
+                "Welcome to Stocker",
+                f"You have Successfully Created A Stocker Account.",
                 os.getenv('EMAIL_HOST_USER'),
                 [user.email],
                 # fail_silently: A boolean. When it’s False, send_mail()
                 # will raise an smtplib.SMTPException if an error occurs.
                 fail_silently=False
             )
-            return Response({'message': f'User has been registered'},
-                              status=status.HTTP_201_CREATED)
+            user_data = UserSerializer(user).data
+            token = get_tokens_for_user(user)
+            response = Response({'access_token': token['access'],
+                                 'user': user_data},
+                                 status=status.HTTP_200_OK)
+            response.set_cookie(
+                key="refresh_token",
+                value=token['refresh'],
+                httponly=True,
+                secure=True,
+                samesite='Lax'
+            )
+            return response
         return Response({'errors': serializer.errors},
                          status=status.HTTP_400_BAD_REQUEST)
 
@@ -108,23 +133,17 @@ class LogoutView(APIView):
             response.delete_cookie('refresh_token', None)
             return response
 
-        except Exception as e:
-            response = Response({'errors': 'An unexpected error occurred.'},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            response.delete_cookie('refresh_token', None)
-            return response
-
 
 class GetUpdateUserView(RetrieveUpdateAPIView):
     """Handles User Info Update"""
+    authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     parser_classes = (FormParser, MultiPartParser,)
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    lookup_field = 'id'
 
     def put(self, request, *args, **kwargs):
-        user = self.get_object()
+        user = self.request.user
         serializer = self.get_serializer(user, data=request.data)
         if serializer.is_valid():
             user = serializer.save();
@@ -142,14 +161,26 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
 
 class ChangePasswordView(APIView):
     """Handles User Password Update"""
+    authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         serializer = ChangePasswordSerializer(user=request.user, data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Password has been updated successfully'},
+            user = serializer.save()
+            user.token_version += 1
+            user.save()
+            new_token = get_tokens_for_user(user)
+            response = Response({'access_token': new_token['access']},
                             status=status.HTTP_200_OK)
+            response.set_cookie(
+                key="refresh_token",
+                value=new_token['refresh'],
+                httponly=True,
+                secure=True,
+                samesite='Lax'
+            )
+            return response
         else:
             return Response({'errors': serializer.errors},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -191,11 +222,12 @@ class ResetPassword(APIView):
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
 
-        print(user.username)
         if user and PasswordResetTokenGenerator().check_token(user, token):
             serializer = ResetPasswordSerializer(user=user, data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                user = serializer.save()
+                user.token_version += 1
+                user.save()
                 return Response({'message': 'User password has been successfully reset.'},
                                 status=status.HTTP_200_OK)
             else:
