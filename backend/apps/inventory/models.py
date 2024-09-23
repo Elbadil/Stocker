@@ -9,7 +9,9 @@ class Category(BaseModel):
     name = models.CharField(max_length=200, blank=False)
 
     def __str__(self) -> str:
-        return f'Category: -{self.name}- Added by -{self.user.username}-'
+        if self.user:
+            return f'Category: -{self.name}- Added by -{self.user.username}-'
+        return self.name
 
 
 class Supplier(BaseModel):
@@ -19,20 +21,27 @@ class Supplier(BaseModel):
     phone_number = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self) -> str:
-        return f'Supplier: -{self.name}- Added by -{self.user.username}-'
+        if self.user:
+            return f'Supplier: -{self.name}- Added by -{self.user.username}-'
+        return self.name
 
 
 class Variant(BaseModel):
     """Item's Variants"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
 
     class Meta:
         db_table = 'inventory_variant'
 
     def __str__(self) -> str:
-        return f'Variant: -{self.name}- Added by -{self.user.username}-'
+        if self.user:
+            return f'Variant: -{self.name}- Added by -{self.user.username}-'
+        return self.name
 
+
+def item_picture_path(item, filename):
+    return f"inventory/images/{item.user.id}/{item.id}/{filename}"
 
 class Item(BaseModel):
     """Item Model"""
@@ -42,7 +51,7 @@ class Item(BaseModel):
     name = models.CharField(max_length=300, blank=False)
     quantity = models.IntegerField(blank=False)
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
-    picture = models.ImageField(null=True, upload_to='inventory/images/', blank=True)
+    picture = models.ImageField(null=True, upload_to=item_picture_path, blank=True)
     variants = models.ManyToManyField(Variant, related_name='variants', blank=True)
     updated = models.BooleanField(default=False)
 
@@ -55,17 +64,19 @@ class Item(BaseModel):
         return self.quantity * self.price
 
     def __str__(self) -> str:
-        return f'{self.name} added by - {self.user.username} -'
+        if self.user:
+            return f'{self.name} added by - {self.user.username} -'
+        return self.name
 
 
-class VariantOptions(BaseModel):
+class VariantOption(BaseModel):
     """Item's Variant Description"""
     item = models.ForeignKey(Item, on_delete=models.CASCADE, null=True)
     variant = models.ForeignKey(Variant, on_delete=models.CASCADE, null=True)
     body = models.CharField(max_length=300)
 
     class Meta:
-        db_table = 'inventory_variant_options'
+        db_table = 'inventory_variant_option'
 
     def __str__(self) -> str:
         return f'{self.item.name} added by - {self.item.user.username} - is available on {self.variant.name}: {self.body}'

@@ -1,18 +1,12 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useLayoutEffect,
-  useState,
-} from 'react';
+import { createContext, ReactNode, useContext, useLayoutEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { validateTokenAndSetUserAsync } from '../store/slices/authSlice';
-import { AppDispatch } from '../store/store';
+import { AppDispatch, RootState } from '../store/store';
 import { useAlert } from './AlertContext';
 
 interface AuthContextType {
-  loading: boolean;
+  isLoading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
@@ -25,19 +19,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { setAlert } = useAlert();
-  const [loading, setLoading] = useState<boolean>(false);
+  const isLoading = useSelector((state: RootState) => state.auth.loading);
   const dispatch = useDispatch<AppDispatch>();
 
   const checkAuth = async () => {
-    setLoading(true);
     console.log('Hi from authContext, pathname:', pathname);
     if (pathname.startsWith('/auth')) {
-      setLoading(false);
     } else {
       const resultAction = await dispatch(validateTokenAndSetUserAsync());
       if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
         console.log('User is authenticated.');
-        setLoading(false);
       } else {
         console.log('User is not authenticated.');
         setAlert({
@@ -46,7 +37,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           description:
             'Oops! It looks like your session has expired or you are not logged in. Please log in again to continue.',
         });
-        setLoading(false);
         navigate('/auth/signin');
       }
     }
@@ -57,7 +47,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   }, [pathname]);
 
   return (
-    <AuthContext.Provider value={{ loading }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ isLoading }}>
+      {children}
+    </AuthContext.Provider>
   );
 };
 

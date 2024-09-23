@@ -7,7 +7,6 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     """User Model Serializer"""
-    avatar = serializers.SerializerMethodField()
     class Meta:
         model = User
         fields = [
@@ -19,18 +18,11 @@ class UserSerializer(serializers.ModelSerializer):
             "bio",
         ]
 
-    def get_avatar(self, user):
-        request = self.context.get('request')
-        if user.avatar and request:
-            # returns the full URL for the avatar image
-            return request.build_absolute_uri(user.avatar.url)
-        return None
-
     def validate_username(self, value):
         if User.objects.filter(username=value.lower()).exclude(id=self.instance.id).exists():
             raise serializers.ValidationError('user with this username already exists.')
         return value.lower()
-    
+
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     """User Sign Up Serializer"""

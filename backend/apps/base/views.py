@@ -10,8 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-import jwt
-from django.conf import settings
 import os
 from .models import User
 from .serializers import (UserSerializer,
@@ -139,11 +137,13 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     parser_classes = (FormParser, MultiPartParser,)
-    queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def get_object(self):
+        return self.request.user
+
     def put(self, request, *args, **kwargs):
-        user = self.request.user
+        user = self.get_object()
         serializer = self.get_serializer(user, data=request.data)
         if serializer.is_valid():
             user = serializer.save();

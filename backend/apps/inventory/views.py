@@ -3,15 +3,51 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from ..base.auth import TokenVersionAuthentication
+from . import serializers
 from urllib.parse import urlencode
 from .forms import ItemRegisterForm, CategoryRegisterForm, SupplierRegisterForm
-from .models import Item, Category, Supplier, VariantOptions
+from .models import Item, Category, Supplier, VariantOption
 from .utils import (user_items_data,
                     get_or_create_custom_fields,
                     add_item_variants,
                     add_category_supplier_to_items,
                     set_items_table_display_data)
 import json
+
+
+class CreateItem(generics.CreateAPIView):
+    """Handles Item's Creation"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.ItemSerializer
+
+
+class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
+    """Handles Item's Retrieval Update and Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = Item.objects.all()
+    serializer_class = serializers.ItemSerializer
+    lookup_field = 'id'
+
+
+class CreateCategory(generics.CreateAPIView):
+    """Handles Item's Category Retrieval Update and Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.CategorySerializer
+
+
+class GetUpdateDeleteCategory(generics.RetrieveUpdateDestroyAPIView):
+    """Handles Item's Category Retrieval Update and Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = Category.objects.all()
+    serializer_class = serializers.CategorySerializer
+    lookup_field = 'id'
 
 
 @login_required(login_url='login')
@@ -108,7 +144,7 @@ def editItem(request, item_id):
             # Handling Item's Variants
             # Clearing old variants and options
             item.variants.clear()
-            VariantOptions.objects.filter(item=item).delete()
+            VariantOption.objects.filter(item=item).delete()
             variants_num = request.POST.get('variants_num')
             # Adding new variants if any
             if variants_num:

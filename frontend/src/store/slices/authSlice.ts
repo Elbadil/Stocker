@@ -28,7 +28,7 @@ const initialState: AuthState = {
   accessToken: null,
   user: null,
   isAuthenticated: false,
-  loading: false,
+  loading: true,
   error: null,
 };
 

@@ -1,4 +1,4 @@
-from .models import User, Item, Category, Supplier, Variant, VariantOptions
+from .models import User, Item, Category, Supplier, Variant, VariantOption
 from typing import Union, List
 import json
 
@@ -52,7 +52,7 @@ def add_item_variants(user: User, item: Item, variants_num: int, request_post_da
         variant_opts = request_post_data.get(f'variant-opt-{i}').split(',')
         print(f'Variant Options: {variant_opts}, {variant_opts}')
         for option in variant_opts:
-            VariantOptions.objects.create(
+            VariantOption.objects.create(
                 item=item,
                 variant=variant,
                 body=option.strip()

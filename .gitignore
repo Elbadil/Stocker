@@ -1,17 +1,5 @@
+# Env 
 .env
-stockerenv
-
-# Django #
-*.log
-*.pot
-*.pyc
-static/*/images
-
-# Bootstrap
-starter_bootstrap
 
 # vs code
 .vscode
-
-# node_modules
-node_modules
