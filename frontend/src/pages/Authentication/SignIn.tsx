@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SubmitHandler, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
 import { Alert } from '../UiElements/Alert';
 import { api } from '../../api/axios';
-import { FormErrors, FormValues } from '../../types/form';
-import { handleInputChange, handleInputErrors } from '../../utils/form';
+import {
+  requiredStringField
+} from '../../utils/form';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
 
@@ -14,37 +18,43 @@ const SignIn: React.FC = () => {
   const { alert } = useAlert();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [formLoading, setFormLoading] = useState(false);
-  const [formValues, setFormValues] = useState<FormValues>({
-    email: '',
-    password: '',
-  });
-  const [formErrors, setFormErrors] = useState<FormErrors>({
-    email: '',
-    password: '',
-    login: '',
+
+  const schema = z.object({
+    email: requiredStringField("Email").email(),
+    password: requiredStringField("Password"),
   });
 
-  const submitForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormLoading(true);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit: SubmitHandler<z.infer<typeof schema>> = async (data) => {
     try {
       const res = await api.post('/auth/login/', {
-        ...formValues,
+        ...data,
       });
       dispatch(setUser(res.data));
       return navigate('/');
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
-        handleInputErrors(err.response.data.errors, setFormErrors);
+        (
+          Object.keys(err.response.data) as Array<keyof z.infer<typeof schema>>
+        ).forEach((field) => {
+          setError(field, {
+            message: err.response.data[field],
+          });
+        });
       } else {
-        handleInputErrors(
-          { login: 'Something went wrong. Please try again later.' },
-          setFormErrors,
-        );
+        setError('root', {
+          message: 'Something went wrong. Please try again later.',
+        });
       }
-      setFormLoading(false);
     }
   };
 
@@ -195,7 +205,7 @@ const SignIn: React.FC = () => {
                 Sign In to Stocker
               </h2>
 
-              <form onSubmit={submitForm}>
+              <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="mb-4">
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
                     Email
@@ -203,11 +213,7 @@ const SignIn: React.FC = () => {
                   <div className="relative">
                     <input
                       type="email"
-                      name="email"
-                      value={formValues.email}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('email')}
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -230,9 +236,9 @@ const SignIn: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.email && (
+                  {errors.email && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.email}
+                      {errors.email.message}
                     </p>
                   )}
                 </div>
@@ -244,11 +250,7 @@ const SignIn: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
-                      name="password"
-                      value={formValues.password}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('password')}
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -275,14 +277,14 @@ const SignIn: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.password && (
+                  {errors.password && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.password}
+                      {errors.password.message}
                     </p>
                   )}
-                  {formErrors.login && (
+                  {errors.root && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.login}
+                      {errors.root.message}
                     </p>
                   )}
                 </div>
@@ -291,8 +293,9 @@ const SignIn: React.FC = () => {
                   <button
                     type="submit"
                     className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90"
+                    disabled={isSubmitting}
                   >
-                    {formLoading ? (
+                    {isSubmitting ? (
                       <ClipLoader color="#ffffff" size={27} />
                     ) : (
                       'Sign In'

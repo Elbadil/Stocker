@@ -95,7 +95,7 @@ class UserLoginSerializer(serializers.Serializer):
                             password=validated_data['password'])
         if not user:
             raise serializers.ValidationError(
-                {"login": "Login Unsuccessful. Please check your email and password"})
+                {"password": "Login Unsuccessful. Please check your email and password."})
         validated_data['user'] = user
         return validated_data
 

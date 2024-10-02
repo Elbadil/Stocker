@@ -71,7 +71,7 @@ class LoginView(APIView):
                 samesite='Lax'
             )
             return response
-        return Response({'errors': serializer.errors},
+        return Response(serializer.errors,
                         status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -104,8 +104,8 @@ class SignUpView(APIView):
                 samesite='Lax'
             )
             return response
-        return Response({'errors': serializer.errors},
-                         status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors,
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(APIView):
@@ -155,7 +155,7 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
             user_data = UserSerializer(user, context={'request': request}).data
             return Response({'user': user_data},
                             status=status.HTTP_200_OK)
-        return Response({'errors': serializer.errors},
+        return Response(serializer.errors,
                         status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -182,7 +182,7 @@ class ChangePasswordView(APIView):
             )
             return response
         else:
-            return Response({'errors': serializer.errors},
+            return Response(serializer.errors,
                             status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -231,9 +231,7 @@ class ResetPassword(APIView):
                 return Response({'message': 'User password has been successfully reset.'},
                                 status=status.HTTP_200_OK)
             else:
-                return Response({'errors': serializer.errors},
+                return Response(serializer.errors,
                                 status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response({'errors':
-                             {'detail': 'Something went wrong. Please request another password reset.'}},
-                             status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_401_UNAUTHORIZED)

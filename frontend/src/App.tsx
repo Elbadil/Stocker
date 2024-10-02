@@ -16,6 +16,7 @@ import Tables from './pages/Tables';
 import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
+import AddItem from './pages/Inventory/AddItem';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 
@@ -38,6 +39,15 @@ function App() {
                 <>
                   <PageTitle title="eCommerce Dashboard | Stocker" />
                   <ECommerce />
+                </>
+              }
+            />
+            <Route
+              path="inventory/item/create"
+              element={
+                <>
+                  <PageTitle title="Add Item - Inventory | Stocker" />
+                  <AddItem />
                 </>
               }
             />

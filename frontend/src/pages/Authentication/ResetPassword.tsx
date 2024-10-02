@@ -42,9 +42,9 @@ const ResetPassword = () => {
       });
       return navigate('/auth/signin');
     } catch (err: any) {
-      if (err.response && err.response.data.errors) {
+      if (err.response && err.response.status === 400) {
         console.log(err);
-        handleInputErrors(err.response.data.errors, setFormErrors);
+        handleInputErrors(err.response.data, setFormErrors);
       } else {
         handleInputErrors(
           {

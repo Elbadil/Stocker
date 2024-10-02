@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SubmitHandler, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
-import { FormValues, FormErrors } from '../../types/form';
-import {
-  handleInputChange,
-  handleInputErrors,
-  removeBlankFields,
-} from '../../utils/form';
+import { requiredStringField, removeBlankFields } from '../../utils/form';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
 import { api } from '../../api/axios';
@@ -18,36 +16,35 @@ const SignUp: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert } = useAlert();
-  const [loading, setLoading] = useState(false);
-  const [formValues, setFormValues] = useState<FormValues>({
-    username: '',
-    first_name: '',
-    last_name: '',
-    email: '',
-    password1: '',
-    password2: '',
-  });
 
-  const [formErrors, setFormErrors] = useState<FormErrors>({
-    username: '',
-    first_name: '',
-    last_name: '',
-    email: '',
-    password1: '',
-    password2: '',
-    signup: '',
-  });
+  const schema = z
+    .object({
+      username: requiredStringField("Username"),
+      first_name: requiredStringField("First Name"),
+      last_name: requiredStringField("Last Name"),
+      email: requiredStringField("Email").email(),
+      password1: requiredStringField("Password"),
+      password2: requiredStringField("Password Confirmation"),
+    })
+    .refine((data) => data.password1 === data.password2, {
+      message: 'The two password fields do not match',
+      path: ['password2'],
+    });
 
-  const submitForm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const cleanedValues = removeBlankFields(formValues);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+
+  const onSubmit: SubmitHandler<z.infer<typeof schema>> = async (data) => {
+    const cleanedValues = removeBlankFields(data);
     try {
       const res = await api.post('/auth/signup/', {
         ...cleanedValues,
       });
-      dispatch(setUser(res.data))
-      setLoading(false);
+      dispatch(setUser(res.data));
       setAlert({
         type: 'success',
         title: 'Welcome to Stocker',
@@ -57,15 +54,18 @@ const SignUp: React.FC = () => {
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
-        handleInputErrors(err.response.data.errors, setFormErrors);
+        (
+          Object.keys(err.response.data) as Array<keyof z.infer<typeof schema>>
+        ).forEach((field) => {
+          setError(field, {
+            message: err.response.data[field],
+          });
+        });
       } else {
-        handleInputErrors(
-          { signup: 'Something went wrong. Please try again later.' },
-          setFormErrors,
-        );
+        setError('root', {
+          message: 'Something went wrong. Please try again later.',
+        });
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -216,7 +216,7 @@ const SignUp: React.FC = () => {
                 Sign Up to Stocker
               </h2>
 
-              <form onSubmit={submitForm}>
+              <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="mb-4">
                   {/* Username */}
                   <label className="mb-2.5 block font-medium text-black dark:text-white">
@@ -225,11 +225,7 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
-                      name="username"
-                      value={formValues.username}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('username')}
                       placeholder="Enter your username"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -256,14 +252,14 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.username && (
+                  {errors.username && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.username}
+                      {errors.username.message}
                     </p>
                   )}
                 </div>
 
-                <div className="flex flex-wrap -mx-3 mb-6">
+                <div className="flex flex-wrap -mx-3 mb-4">
                   <div className="w-full md:w-1/2 px-3 mb-6 md:mb-0">
                     {/* First Name */}
                     <label
@@ -273,19 +269,14 @@ const SignUp: React.FC = () => {
                       First Name
                     </label>
                     <input
-                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
-                      id="grid-first-name"
                       type="text"
-                      name="first_name"
-                      value={formValues.first_name}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                      {...register('first_name')}
                       placeholder="Enter your first name"
                     />
-                    {formErrors.first_name && (
+                    {errors.first_name && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.first_name}
+                        {errors.first_name.message}
                       </p>
                     )}
                   </div>
@@ -299,19 +290,14 @@ const SignUp: React.FC = () => {
                       Last Name
                     </label>
                     <input
-                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
-                      id="grid-last-name"
                       type="text"
-                      name="last_name"
-                      value={formValues.last_name}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                      {...register('last_name')}
                       placeholder="Enter your last name"
                     />
-                    {formErrors.last_name && (
+                    {errors.last_name && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.last_name}
+                        {errors.last_name.message}
                       </p>
                     )}
                   </div>
@@ -325,11 +311,7 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="email"
-                      name="email"
-                      value={formValues.email}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('email')}
                       placeholder="Enter your email"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -352,9 +334,9 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.email && (
+                  {errors.email && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.email}
+                      {errors.email.message}
                     </p>
                   )}
                 </div>
@@ -367,11 +349,7 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
-                      name="password1"
-                      value={formValues.password1}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('password1')}
                       placeholder="Enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -398,9 +376,9 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.password1 && (
+                  {errors.password1 && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.password1}
+                      {errors.password1.message}
                     </p>
                   )}
                 </div>
@@ -413,11 +391,7 @@ const SignUp: React.FC = () => {
                   <div className="relative">
                     <input
                       type="password"
-                      name="password2"
-                      value={formValues.password2}
-                      onChange={(e) =>
-                        handleInputChange(e, formValues, setFormValues)
-                      }
+                      {...register('password2')}
                       placeholder="Re-enter your password"
                       className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                     />
@@ -444,27 +418,25 @@ const SignUp: React.FC = () => {
                       </svg>
                     </span>
                   </div>
-                  {formErrors.password2 &&
-                    (Array.isArray(formErrors.password2) ? (
-                      formErrors.password2.map(
-                        (error: string, index: number) => (
-                          <p
-                            key={index}
-                            className="text-red-500 font-medium text-sm italic mt-2"
-                          >
-                            {error}
-                          </p>
-                        ),
-                      )
-                    ) : (
-                      <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.password2}
-                      </p>
-                    ))}
-                  {formErrors.signup && (
-                    <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.signup}
-                    </p>
+                  {errors.password2 && (
+                    <div>
+                      {Array.isArray(errors.password2.message) ? (
+                        errors.password2.message.map(
+                          (errorMessage: string, index: number) => (
+                            <p
+                              key={index}
+                              className="text-red-500 font-medium text-sm italic mt-2"
+                            >
+                              {errorMessage}
+                            </p>
+                          ),
+                        )
+                      ) : (
+                        <p className="text-red-500 font-medium text-sm italic mt-2">
+                          {errors.password2.message}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -472,9 +444,9 @@ const SignUp: React.FC = () => {
                   <button
                     type="submit"
                     className="w-full cursor-pointer rounded-lg border border-primary bg-primary p-4 text-white transition hover:bg-opacity-90 flex items-center justify-center"
-                    disabled={loading}
+                    disabled={isSubmitting}
                   >
-                    {loading ? (
+                    {isSubmitting ? (
                       <ClipLoader color="#ffffff" size={27} />
                     ) : (
                       'Create account'

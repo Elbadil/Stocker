@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import ValidationError
+import json
 from typing import Union
 from ..base.models import User
 from .models import Item, Category, Supplier, Variant, VariantOption
@@ -41,7 +42,6 @@ class VariantSerializer(serializers.ModelSerializer):
         model = Variant
         fields = "__all__"
 
-
     def create(self, validated_data):
         variant_options = validated_data.pop('options', [])
         variant, created = Variant.objects.get_or_create(
@@ -65,7 +65,7 @@ class ItemSerializer(serializers.ModelSerializer):
     category = serializers.CharField(allow_blank=True, required=False)
     supplier = serializers.CharField(allow_blank=True, required=False)
     price = serializers.FloatField()
-    variants = VariantSerializer(many=True, required=False)
+    variants = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = Item
@@ -103,14 +103,69 @@ class ItemSerializer(serializers.ModelSerializer):
             raise ValidationError('Item with this name already exists.')
         return value
 
-    def _get_or_create(self, user: User, model: Union[Category, Supplier], value):
+    def _get_or_create_category_supplier(
+        self, 
+        user: User, 
+        model: Union[Category, Supplier],
+        value: str
+    ) -> Union[None, Category, Supplier]:
         if value:
             obj, created = model.objects.get_or_create(
                 user=user,
-                name=value,
+                name__iexact=value,
                 defaults={'name': value})
             return obj
         return None
+
+    def validate_variants(self, value):
+        try:
+            variants = json.loads(value) if isinstance(value, str) else value
+            # Ensuring it's a list of dictionaries
+            if not isinstance(variants, list):
+                raise serializers.ValidationError("Variants must be a list.")
+
+            # Validating each variant object
+            for variant in variants:
+                if not isinstance(variant, dict):
+                    raise serializers.ValidationError(
+                        "Each variant must be an object with 'name' and 'options' as properties.")
+                # Checking required keys: 'name' and 'options'
+                if 'name' not in variant:
+                    raise serializers.ValidationError("Each variant must have a 'name'.")
+                if 'options' not in variant or not isinstance(variant['options'], list):
+                    raise serializers.ValidationError("Each variant must have an 'options' list.")
+
+            return variants
+        except json.JSONDecodeError:
+            raise serializers.ValidationError("Invalid JSON format for variants.")
+
+    def _get_or_create_variants_with_options(
+        self, 
+        item: Item, 
+        user: User, 
+        variants: list
+    ) -> None:
+        for variant_data in variants:
+            variant_name = variant_data.get('name')
+            options = variant_data.get('options', [])
+            print(f"Processing variant: {variant_name} with options: {options}")
+            # Getting or creating variant
+            variant, created = Variant.objects.get_or_create(
+                name__iexact=variant_name,
+                defaults={'name': variant_name},
+                user=user
+            )
+            # Adding variant to item's variants
+            item.variants.add(variant)
+            
+            # Creating variant options
+            for option in options:
+                VariantOption.objects.create(
+                    item=item,
+                    variant=variant,
+                    body=option
+                )
+
 
     @transaction.atomic
     def create(self, validated_data):
@@ -123,24 +178,12 @@ class ItemSerializer(serializers.ModelSerializer):
         item = Item.objects.create(user=user, **validated_data)
 
         # Creating Item's category and supplier
-        item.category = self._get_or_create(user, Category, category_name)
-        item.supplier = self._get_or_create(user, Supplier, supplier_name)
+        item.category = self._get_or_create_category_supplier(user, Category, category_name)
+        item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
         item.save()
 
-        # Creating Item's variants
-        errors = []
-        for variant_data in variants:
-            variant_data['user_id'] = user.id
-            variant_serializer = VariantSerializer(data=variant_data,
-                                                   context={'item': item})
-            if variant_serializer.is_valid():
-                variant = variant_serializer.save()
-                item.variants.add(variant)
-            else:
-                errors.append(variant_serializer.errors)
-        if errors:
-            raise serializers.ValidationError(errors)
-
+        # Creating and Adding Item's variants with options
+        self._get_or_create_variants_with_options(item, user, variants)
         return item
 
     @transaction.atomic
@@ -154,25 +197,14 @@ class ItemSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
 
         # Updating Item's category and supplier
-        item.category = self._get_or_create(user, Category, category_name)
-        item.supplier = self._get_or_create(user, Supplier, supplier_name)
+        item.category = self._get_or_create_category_supplier(user, Category, category_name)
+        item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
         item.save()
 
         # Updating Item's variants
         item.variants.clear()
         VariantOption.objects.filter(item=item).delete()
-        errors = []
-        for variant_data in variants:
-            variant_data['user_id'] = user.id
-            variant_serializer = VariantSerializer(data=variant_data,
-                                                   context={'item': item})
-            if variant_serializer.is_valid():
-                variant = variant_serializer.save()
-                item.variants.add(variant)
-            else:
-                errors.append(variant_serializer.errors)
-        if errors:
-            raise serializers.ValidationError(errors)
+        self._get_or_create_variants_with_options(item, user, variants)
 
         return item
 

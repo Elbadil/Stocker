@@ -41,7 +41,7 @@ class Variant(BaseModel):
 
 
 def item_picture_path(item, filename):
-    return f"inventory/images/{item.user.id}/{item.id}/{filename}"
+    return f"inventory/images/{item.user.id}/{filename}"
 
 class Item(BaseModel):
     """Item Model"""
