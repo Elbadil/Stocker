@@ -1,5 +1,6 @@
 import React from 'react';
 import { z } from 'zod';
+import { CSSObject } from '@emotion/react';
 import { FormErrors, FormValues } from '../types/form';
 
 export const handleInputChange = (
@@ -116,3 +117,35 @@ export const fileField = () => {
       { message: 'Picture size must be less than or equal to 2MB' },
     );
 };
+
+export const customSelectStyles = (isDarkMode: boolean) => ({
+  control: (provided: CSSObject, state: any) => ({
+    ...provided,
+    backgroundColor: isDarkMode ? '#313d4a' : '#eff4fb',  // Background changes based on mode
+    padding: '0.26rem 0.6rem',
+    borderColor: state.isFocused ? '#3c50e0' : isDarkMode ? '#5a6b7f' : '#e2e8f0',  // Border changes on focus or mode
+    boxShadow: state.isFocused ? '0 0 0 1px #3c50e0' : 'none',  // Add focus styling
+    '&:hover': {
+      borderColor: state.isFocused ? '#3c50e0' : isDarkMode ? '#5a6b7f' : '#2e3a47',  // Hover state
+    },
+  }),
+  menu: (provided: CSSObject) => ({
+    ...provided,
+    backgroundColor: isDarkMode ? '#313d4a' : '#ffffff',  // Dark mode for menu background
+    color: isDarkMode ? '#ffffff' : '#000000',
+  }),
+  singleValue: (provided: CSSObject) => ({
+    ...provided,
+    color: isDarkMode ? '#ffffff' : '#000000',  // Text color based on mode
+  }),
+  option: (provided: CSSObject, state: any) => ({
+    ...provided,
+    backgroundColor: state.isSelected
+      ? (isDarkMode ? '#3c50e0' : '#eff4fb')  // Highlight selected option
+      : (state.isFocused ? (isDarkMode ? '#425b70' : '#ebf2fa') : 'transparent'),
+    color: isDarkMode ? '#ffffff' : '#000000',
+    '&:hover': {
+      backgroundColor: isDarkMode ? '#425b70' : '#ebf2fa',  // Hover state
+    },
+  }),
+});

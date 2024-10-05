@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ClickOutside from '../ClickOutside';
-// import { useAuth } from '../../contexts/AuthContext';
-// import { logoutUser } from '../../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 import DefaultPfp from '../../images/user/default.jpg';
 import { api } from '../../api/axios';
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { clearUser } from '../../store/slices/authSlice';
-import { AppDispatch, RootState } from '../../store/store';
+import { AppDispatch } from '../../store/store';
 
 const DropdownUser = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user } = useAuth();
+
   const logoutUser = async () => {
     try {
       const res = await api.post(

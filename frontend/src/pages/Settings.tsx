@@ -14,13 +14,15 @@ import {
 } from '../utils/form';
 import { api } from '../api/axios';
 import DefaultPfp from '../images/user/default.jpg';
-import { useSelector, useDispatch } from 'react-redux';
-import { AppDispatch, RootState } from '../store/store';
+import { useAuth } from '../contexts/AuthContext';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../store/store';
 import { setUser } from '../store/slices/authSlice';
+
 
 const Settings = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user } = useAuth();
   const [submitInfoLoading, setSubmitInfoLoading] = useState<boolean>(false);
   const [submitPwdLoading, setSubmitPwdLoading] = useState<boolean>(false);
   const [modified, setModified] = useState<boolean>(false);

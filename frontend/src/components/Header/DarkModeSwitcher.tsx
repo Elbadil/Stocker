@@ -1,7 +1,9 @@
 import useColorMode from '../../hooks/useColorMode';
+import { useAlert } from '../../contexts/AlertContext';
 
 const DarkModeSwitcher = () => {
   const [colorMode, setColorMode] = useColorMode();
+  const { setIsDarkMode } = useAlert();
 
   return (
     <li>
@@ -15,6 +17,7 @@ const DarkModeSwitcher = () => {
           onChange={() => {
             if (typeof setColorMode === 'function') {
               setColorMode(colorMode === 'light' ? 'dark' : 'light');
+              setIsDarkMode(colorMode === 'light')
             }
           }}
           className="dur absolute top-0 z-50 m-0 h-full w-full cursor-pointer opacity-0"

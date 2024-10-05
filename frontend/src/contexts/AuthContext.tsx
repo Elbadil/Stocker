@@ -4,8 +4,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { validateTokenAndSetUserAsync } from '../store/slices/authSlice';
 import { AppDispatch, RootState } from '../store/store';
 import { useAlert } from './AlertContext';
+import { UserProps } from '../store/slices/authSlice';
 
 interface AuthContextType {
+  user: UserProps | null;
   isLoading: boolean;
 }
 
@@ -19,6 +21,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { setAlert } = useAlert();
+  const user = useSelector((state: RootState) => state.auth.user);
   const isLoading = useSelector((state: RootState) => state.auth.loading);
   const dispatch = useDispatch<AppDispatch>();
 
@@ -47,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   }, [pathname]);
 
   return (
-    <AuthContext.Provider value={{ isLoading }}>
+    <AuthContext.Provider value={{ isLoading, user }}>
       {children}
     </AuthContext.Provider>
   );

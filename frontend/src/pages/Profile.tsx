@@ -1,11 +1,10 @@
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { Link } from 'react-router-dom';
 import DefaultPfp from '../images/user/default.jpg';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store/store';
+import { useAuth } from '../contexts/AuthContext';
 
 const Profile = () => {
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user } = useAuth();
 
   return (
     <>

@@ -7,7 +7,7 @@ from django.utils.datastructures import MultiValueDict
 import json
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
-from .models import Item, Category, Supplier
+from .models import Item, Category, Supplier, Variant
 
 
 class CreateItem(generics.CreateAPIView):
@@ -45,6 +45,28 @@ class ListUserItems(generics.GenericAPIView):
                          'categories': total_categories,
                          'suppliers': total_suppliers,
                          'items': items},
+                         status=status.HTTP_200_OK)
+
+
+class GetUserInventoryData(generics.GenericAPIView):
+    """Returns necessary data related to user's inventory"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        categories = {
+            'count': Category.objects.filter(user=user).count(),
+            'names': list(Category.objects.filter(user=user).values_list('name', flat=True))
+        }
+        suppliers = {
+            'count': Supplier.objects.filter(user=user).count(),
+            'names': list(Supplier.objects.filter(user=user).values_list('name', flat=True))
+        }
+        variants = list(Variant.objects.filter(user=user).values_list('name', flat=True))
+        return Response({'categories': categories,
+                         'suppliers': suppliers,
+                         'variants': variants},
                          status=status.HTTP_200_OK)
 
 

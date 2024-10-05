@@ -210,6 +210,18 @@ span.flatpickr-weekday,
   background-image: url(./images/icon/icon-arrow-down.svg);
 }
 
+.react-select__control {
+  @apply w-full rounded border border-stroke bg-gray py-1.5 pl-3 pr-4 text-black focus:border-primary dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary;
+}
+
+.react-select__menu {
+  @apply rounded bg-white dark:bg-meta-4;
+}
+
+.react-select__option {
+  @apply text-black dark:text-white hover:bg-primary hover:text-white;
+}
+
 [x-cloak] {
   display: none !important;
 }
