@@ -199,6 +199,7 @@ class ItemSerializer(serializers.ModelSerializer):
         # Updating Item's category and supplier
         item.category = self._get_or_create_category_supplier(user, Category, category_name)
         item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
+        item.updated = True
         item.save()
 
         # Updating Item's variants

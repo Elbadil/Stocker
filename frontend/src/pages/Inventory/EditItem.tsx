@@ -1,12 +1,12 @@
 import ClipLoader from 'react-spinners/ClipLoader';
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   SubmitHandler,
   useForm,
   useFieldArray,
   Controller,
 } from 'react-hook-form';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import CreatableSelect from 'react-select/creatable';
 import ProductionQuantityLimitsOutlinedIcon from '@mui/icons-material/ProductionQuantityLimitsOutlined';
@@ -16,54 +16,16 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import Loader from '../../common/Loader';
-import {
-  requiredStringField,
-  requiredPositiveNumberField,
-  nonBlankField,
-  customSelectStyles,
-} from '../../utils/form';
+import { customSelectStyles } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAlert } from '../../contexts/AlertContext';
+import { schema } from './AddItem';
+import { ItemSchema } from './AddItem';
 
-export const schema = z.object({
-  name: requiredStringField('Name'),
-  price: requiredPositiveNumberField('Price'),
-  quantity: requiredPositiveNumberField('Quantity'),
-  category: z.string().optional().nullable(),
-  supplier: z.string().optional().nullable(),
-  picture: z.instanceof(FileList).optional(),
-  variants: z
-    .array(
-      z.object({
-        name: nonBlankField('Attribute'),
-        options: nonBlankField('Options').transform((val) =>
-          val.length > 0 ? val.split(',').map((option) => option.trim()) : val,
-        ),
-      }),
-    )
-    .superRefine((variants, ctx) => {
-      // Collect all variant names
-      const varAttrNames = variants.map((attribute) => attribute.name);
-      const nameCount: { [key: string]: number } = {};
-      varAttrNames.forEach((name: string, index: number) => {
-        const nameLower = name.toLowerCase().trim();
-        nameCount[nameLower] = (nameCount[nameLower] || 0) + 1;
-        if (nameCount[nameLower] > 1) {
-          ctx.addIssue({
-            code: 'custom',
-            path: [index, 'name'], // Point to the specific field in the array
-            message: `Attribute "${name.trim()}" has already been selected.`,
-          });
-        }
-      });
-    }),
-});
-
-export type ItemSchema = z.infer<typeof schema>;
-
-const AddItem = () => {
+const EditItem = () => {
+  const { id } = useParams();
   const { isDarkMode } = useAlert();
   const {
     register,
@@ -72,7 +34,9 @@ const AddItem = () => {
     setValue,
     clearErrors,
     control,
-    formState: { errors, isSubmitting },
+    reset,
+    watch,
+    formState: { errors, dirtyFields, isSubmitting },
   } = useForm<ItemSchema>({
     resolver: zodResolver(schema),
   });
@@ -97,18 +61,29 @@ const AddItem = () => {
     label: name,
   }));
 
+  const [itemPicture, setItemPicture] = useState<string | null>(null);
+  const [itemLoading, setItemLoading] = useState<boolean>(false);
+  const [pictureModified, setPictureModified] = useState<boolean>(false);
   const [hasVariants, setHasVariants] = useState<boolean>(false);
   const [previewPictureUrl, setPreviewPictureUrl] = useState<string | null>(
     null,
   );
+  const [initialValues, setInitialValues] = useState(null);
+  const currentValues = watch();
+  const currentTextValues = { ...currentValues };
+  delete currentTextValues.picture;
 
   const handleFileClear = () => {
     setValue('picture', undefined);
     clearErrors('picture');
     setPreviewPictureUrl(null);
+    setItemPicture(null);
+    setPictureModified(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setItemPicture(null);
+    setPictureModified(true);
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
@@ -149,7 +124,7 @@ const AddItem = () => {
   };
 
   const removeVariantFields = (index: number) => {
-    if (index === 0) {
+    if (index === 0 && fields.length <= 1) {
       setHasVariants(false);
       remove();
     } else {
@@ -172,8 +147,11 @@ const AddItem = () => {
     if (data.picture && data.picture?.length > 0) {
       formData.append('picture', data.picture[0]);
     }
+    if (!data.picture && !itemPicture) {
+      formData.append('empty_picture', '');
+    }
     try {
-      const res = await api.post('/inventory/items/', formData, {
+      const res = await api.put(`/inventory/items/${id}/`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -196,6 +174,57 @@ const AddItem = () => {
   };
 
   useEffect(() => {
+    //  Loading Item's data
+    async function loadData() {
+      setItemLoading(true);
+      try {
+        const res = await api.get(`/inventory/items/${id}/`);
+        if (res.data.variants) setHasVariants(true);
+        if (res.data.picture) setItemPicture(res.data.picture);
+        const manipulatedData = {
+          ...res.data,
+          variants: res.data.variants
+            ? res.data.variants.map(
+                (variant: { name: string; options: string[] }) => ({
+                  name: variant.name,
+                  options: variant.options.join(', '),
+                }),
+              )
+            : [],
+        };
+        delete manipulatedData.picture;
+        setInitialValues(manipulatedData);
+        reset(manipulatedData);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('root', {
+          message: 'Something went wrong. Please try again later.',
+        });
+      } finally {
+        setItemLoading(false);
+      }
+    }
+
+    loadData();
+  }, [id, reset]);
+
+  const itemHasChanges = () => {
+    if (pictureModified) return true;
+    if (!initialValues || !currentTextValues) return false;
+    return (Object.keys(dirtyFields) as Array<keyof ItemSchema>).some((key) => {
+      // Deep comparison for variants
+      if (key === 'variants') {
+        return (
+          JSON.stringify(initialValues[key]) !==
+          JSON.stringify(currentTextValues[key])
+        );
+      }
+      // Regular comparison for other fields
+      return initialValues[key] !== currentTextValues[key];
+    });
+  };
+
+  useEffect(() => {
     return () => {
       if (previewPictureUrl) {
         URL.revokeObjectURL(previewPictureUrl);
@@ -203,13 +232,17 @@ const AddItem = () => {
     };
   }, [previewPictureUrl]);
 
+  useEffect(() => {
+    itemHasChanges();
+  }, [initialValues, currentValues, pictureModified]);
+
   return (
     <>
       <div className="mx-auto max-w-3xl">
-        <Breadcrumb main="Inventory" pageName="Add Item" />
+        <Breadcrumb main="Inventory" pageName="Edit Item" />
         <div className="col-span-5 xl:col-span-3">
           {' '}
-          {loading ? (
+          {loading || itemLoading ? (
             <Loader />
           ) : (
             <div className="w-full border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
@@ -528,7 +561,7 @@ const AddItem = () => {
                           />
                         ) : (
                           <img
-                            src={Default}
+                            src={itemPicture || Default}
                             className="w-full h-full object-cover rounded-full"
                             alt="User"
                           />
@@ -536,12 +569,12 @@ const AddItem = () => {
                       </div>
                       <div>
                         <span className="mb-1.5 text-black dark:text-white">
-                          {previewPictureUrl
+                          {previewPictureUrl || itemPicture
                             ? 'Edit Picture'
                             : 'Select Picture'}
                         </span>
                         <span className="mt-2 flex gap-2.5">
-                          {previewPictureUrl && (
+                          {(previewPictureUrl || itemPicture) && (
                             <button
                               onClick={handleFileClear}
                               type="button"
@@ -582,9 +615,15 @@ const AddItem = () => {
                   </div>
                   <div className="flex justify-end gap-4.5">
                     <button
-                      className="flex justify-center bg-primary hover:bg-opacity-90 rounded py-2 px-6 font-medium text-gray"
+                      className={
+                        'flex justify-center ' +
+                        (!itemHasChanges()
+                          ? 'cursor-not-allowed bg-blue-400 '
+                          : 'bg-primary hover:bg-opacity-90 ') +
+                        'rounded py-2 px-6 font-medium text-gray'
+                      }
                       type="submit"
-                      disabled={isSubmitting}
+                      disabled={!itemHasChanges()}
                     >
                       {isSubmitting ? (
                         <ClipLoader color="#ffffff" size={23} />
@@ -603,4 +642,4 @@ const AddItem = () => {
   );
 };
 
-export default AddItem;
+export default EditItem;

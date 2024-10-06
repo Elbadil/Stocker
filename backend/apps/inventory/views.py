@@ -24,7 +24,15 @@ class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (IsAuthenticated,)
     queryset = Item.objects.all()
     serializer_class = serializers.ItemSerializer
+    parser_classes = (FormParser, MultiPartParser)
     lookup_field = 'id'
+
+    def put(self, request, *args, **kwargs):
+        item = self.get_object()
+        if 'empty_picture' in request.data:
+            item.picture = None
+            item.save()
+        return super().put(request, *args, **kwargs)
 
 
 class ListUserItems(generics.GenericAPIView):
