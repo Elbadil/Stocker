@@ -1,4 +1,9 @@
-import { createContext, ReactNode, useContext, useLayoutEffect } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { validateTokenAndSetUserAsync } from '../store/slices/authSlice';
@@ -8,7 +13,7 @@ import { UserProps } from '../store/slices/authSlice';
 
 interface AuthContextType {
   user: UserProps | null;
-  isLoading: boolean;
+  loading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(
@@ -22,13 +27,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const navigate = useNavigate();
   const { setAlert } = useAlert();
   const user = useSelector((state: RootState) => state.auth.user);
-  const isLoading = useSelector((state: RootState) => state.auth.loading);
+  const loading = useSelector((state: RootState) => state.auth.loading);
+  // const [loading, setLoading] = useState<boolean>(false);
   const dispatch = useDispatch<AppDispatch>();
 
   const checkAuth = async () => {
     console.log('Hi from authContext, pathname:', pathname);
-    if (pathname.startsWith('/auth')) {
-    } else {
+    if (!pathname.startsWith('/auth')) {
       const resultAction = await dispatch(validateTokenAndSetUserAsync());
       if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
         console.log('User is authenticated.');
@@ -43,14 +48,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         navigate('/auth/signin');
       }
     }
+    // setLoading(false);
   };
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     checkAuth();
   }, [pathname]);
 
   return (
-    <AuthContext.Provider value={{ isLoading, user }}>
+    <AuthContext.Provider value={{ loading, user }}>
       {children}
     </AuthContext.Provider>
   );

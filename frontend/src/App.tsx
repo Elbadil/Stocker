@@ -16,6 +16,7 @@ import Tables from './pages/Tables';
 import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
+import Items from './pages/Inventory/Items';
 import AddItem from './pages/Inventory/AddItem';
 import EditItem from './pages/Inventory/EditItem';
 import { AuthProvider } from './contexts/AuthContext';
@@ -27,7 +28,6 @@ function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    console.log(pathname);
   }, [pathname]);
 
   return (
@@ -46,6 +46,15 @@ function App() {
                 }
               />
               {/* Inventory */}
+              <Route
+                path="inventory/items"
+                element={
+                  <>
+                    <PageTitle title="Inventory | Stocker" />
+                    <Items />
+                  </>
+                }
+              />
               <Route
                 path="inventory/item/create"
                 element={

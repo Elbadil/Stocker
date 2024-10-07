@@ -35,7 +35,7 @@ class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
         return super().put(request, *args, **kwargs)
 
 
-class ListUserItems(generics.GenericAPIView):
+class ListUserItems(generics.ListAPIView):
     """Handles User Items Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -44,16 +44,16 @@ class ListUserItems(generics.GenericAPIView):
     def get_queryset(self):
         return Item.objects.filter(user=self.request.user)
 
-    def get(self, request, *args, **kwargs):
-        query_set = self.get_queryset()
-        total_categories = Category.objects.filter(item__in=query_set).distinct().count()
-        total_suppliers = Supplier.objects.filter(item__in=query_set).distinct().count()
-        items = self.get_serializer(query_set, many=True).data
-        return Response({'total': query_set.count(),
-                         'categories': total_categories,
-                         'suppliers': total_suppliers,
-                         'items': items},
-                         status=status.HTTP_200_OK)
+    # def get(self, request, *args, **kwargs):
+    #     query_set = self.get_queryset()
+    #     total_categories = Category.objects.filter(item__in=query_set).distinct().count()
+    #     total_suppliers = Supplier.objects.filter(item__in=query_set).distinct().count()
+    #     items = self.get_serializer(query_set, many=True).data
+    #     return Response({'total': query_set.count(),
+    #                      'categories': total_categories,
+    #                      'suppliers': total_suppliers,
+    #                      'items': items},
+    #                      status=status.HTTP_200_OK)
 
 
 class GetUserInventoryData(generics.GenericAPIView):

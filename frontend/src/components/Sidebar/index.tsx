@@ -199,7 +199,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
               {/* <!-- Menu Item Inventory --> */}
               <li>
                 <NavLink
-                  to="/inventory/item/create"
+                  to="/inventory/items"
                   className={`group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 ${
                     pathname.includes('inventory') &&
                     'bg-graydark dark:bg-meta-4'
