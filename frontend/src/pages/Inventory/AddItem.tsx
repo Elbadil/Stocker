@@ -1,5 +1,6 @@
 import ClipLoader from 'react-spinners/ClipLoader';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   SubmitHandler,
   useForm,
@@ -64,7 +65,8 @@ export const schema = z.object({
 export type ItemSchema = z.infer<typeof schema>;
 
 const AddItem = () => {
-  const { isDarkMode } = useAlert();
+  const navigate = useNavigate()
+  const { setAlert, isDarkMode } = useAlert();
   const {
     register,
     handleSubmit,
@@ -178,6 +180,12 @@ const AddItem = () => {
           'Content-Type': 'multipart/form-data',
         },
       });
+      setAlert({
+        type: 'success',
+        title: 'New item added',
+        description: `Item ${data.name} has been successfully added to your inventory.`,
+      });
+      navigate('/inventory/items')
       console.log(res.data);
     } catch (error: any) {
       console.log('Error during form submission:', error);

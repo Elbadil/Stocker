@@ -44,17 +44,6 @@ class ListUserItems(generics.ListAPIView):
     def get_queryset(self):
         return Item.objects.filter(user=self.request.user)
 
-    # def get(self, request, *args, **kwargs):
-    #     query_set = self.get_queryset()
-    #     total_categories = Category.objects.filter(item__in=query_set).distinct().count()
-    #     total_suppliers = Supplier.objects.filter(item__in=query_set).distinct().count()
-    #     items = self.get_serializer(query_set, many=True).data
-    #     return Response({'total': query_set.count(),
-    #                      'categories': total_categories,
-    #                      'suppliers': total_suppliers,
-    #                      'items': items},
-    #                      status=status.HTTP_200_OK)
-
 
 class GetUserInventoryData(generics.GenericAPIView):
     """Returns necessary data related to user's inventory"""
@@ -72,7 +61,14 @@ class GetUserInventoryData(generics.GenericAPIView):
             'names': list(Supplier.objects.filter(user=user).values_list('name', flat=True))
         }
         variants = list(Variant.objects.filter(user=user).values_list('name', flat=True))
-        return Response({'categories': categories,
+        user_items = Item.objects.filter(user=user)
+        total_items = user_items.count()
+        total_value = sum([item.total_price for item in user_items])
+        total_quantity = sum(list(user_items.values_list('quantity', flat=True)))
+        return Response({'total_items': total_items,
+                         'total_value': total_value,
+                         'total_quantity': total_quantity,
+                         'categories': categories,
                          'suppliers': suppliers,
                          'variants': variants},
                          status=status.HTTP_200_OK)

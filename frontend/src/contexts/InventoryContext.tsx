@@ -13,15 +13,16 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pathname } = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const loading = useSelector((state: RootState) => state.inventory.loading);
-  const error = useSelector((state: RootState) => state.inventory.error);
-  const categories = useSelector(
-    (state: RootState) => state.inventory.categories,
-  );
-  const suppliers = useSelector(
-    (state: RootState) => state.inventory.suppliers,
-  );
-  const variants = useSelector((state: RootState) => state.inventory.variants);
+  const {
+    loading,
+    error,
+    categories,
+    suppliers,
+    variants,
+    totalItems,
+    totalValue,
+    totalQuantity,
+  } = useSelector((state: RootState) => state.inventory);
 
   useEffect(() => {
     if (pathname.startsWith('/inventory/')) {
@@ -31,7 +32,16 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
 
   return (
     <InventoryContext.Provider
-      value={{ loading, categories, suppliers, variants, error }}
+      value={{
+        loading,
+        categories,
+        suppliers,
+        variants,
+        error,
+        totalItems,
+        totalValue,
+        totalQuantity,
+      }}
     >
       {children}
     </InventoryContext.Provider>

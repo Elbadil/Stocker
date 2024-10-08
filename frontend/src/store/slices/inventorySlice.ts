@@ -2,6 +2,9 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../../api/axios';
 
 export interface inventoryState {
+  totalValue: number;
+  totalQuantity: number;
+  totalItems: number;
   categories: { count: number; names: string[] };
   suppliers: { count: number; names: string[] };
   variants: string[];
@@ -9,7 +12,17 @@ export interface inventoryState {
   error: string | Array<string> | null;
 }
 
+export interface inventoryApiResponse
+  extends Omit<inventoryState, 'totalValue' | 'totalQuantity' | 'totalItems'> {
+  total_value: number;
+  total_quantity: number;
+  total_items: number;
+}
+
 const initialState: inventoryState = {
+  totalValue: 0,
+  totalQuantity: 0,
+  totalItems: 0,
   categories: { count: 0, names: [] },
   suppliers: { count: 0, names: [] },
   variants: [],
@@ -17,7 +30,7 @@ const initialState: inventoryState = {
   error: null,
 };
 
-export const getInventoryData = createAsyncThunk<inventoryState, void>(
+export const getInventoryData = createAsyncThunk<inventoryApiResponse, void>(
   'inventory/getInventoryData',
   async () => {
     try {
@@ -44,6 +57,9 @@ const inventorySlice = createSlice({
         names: payload.suppliers.names,
       };
       state.variants = payload.variants;
+      state.totalItems = payload.total_items;
+      state.totalValue = payload.total_value;
+      state.totalQuantity = payload.total_quantity;
     },
   },
   extraReducers: (builder) => {
@@ -61,6 +77,9 @@ const inventorySlice = createSlice({
           names: payload.suppliers.names,
         };
         state.variants = payload.variants;
+        state.totalItems = payload.total_items;
+        state.totalValue = payload.total_value;
+        state.totalQuantity = payload.total_quantity;
         state.loading = false;
       })
       .addCase(getInventoryData.rejected, (state, action) => {

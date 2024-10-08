@@ -1,12 +1,15 @@
 import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import Loader from '../../common/Loader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAlert } from '../../contexts/AlertContext';
+import { Alert } from '../UiElements/Alert';
 import {
   ColDef,
   GridOptions,
@@ -31,9 +34,14 @@ export interface Item {
 }
 
 const Items = () => {
-  const { loading } = useInventory();
-  const { isDarkMode } = useAlert();
+  const { loading, totalItems, totalQuantity, totalValue } = useInventory();
+  const { alert, isDarkMode } = useAlert();
   const [itemsLoading, setItemsLoading] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
 
   const VariantsRenderer = (props: CustomCellRendererProps) => {
     const variants = props.value;
@@ -67,7 +75,7 @@ const Items = () => {
     );
   };
 
-  const filterParams: IDateFilterParams = {
+  const dateFilterParams: IDateFilterParams = {
     comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
       var dateAsString = cellValue;
       if (dateAsString == null) return -1;
@@ -106,6 +114,7 @@ const Items = () => {
     {
       field: 'price',
       valueFormatter: (params) => params.value.toFixed(2),
+      getQuickFilterText: (params) => params.value.toFixed(2),
       flex: 1.5,
       minWidth: 115,
     },
@@ -113,6 +122,7 @@ const Items = () => {
       field: 'total_price',
       headerName: 'T. Price',
       valueFormatter: (params) => params.value.toFixed(2),
+      getQuickFilterText: (params) => params.value.toFixed(2),
       flex: 1.5,
       minWidth: 120,
     },
@@ -138,6 +148,7 @@ const Items = () => {
     {
       field: 'picture',
       cellRenderer: PictureRenderer,
+      getQuickFilterText: () => '',
       minWidth: 120,
       flex: 1.5,
       filter: false,
@@ -148,7 +159,7 @@ const Items = () => {
       field: 'created_at',
       headerName: 'Created',
       filter: 'agDateColumnFilter',
-      filterParams: filterParams,
+      filterParams: dateFilterParams,
       minWidth: 120,
       flex: 1,
     },
@@ -157,7 +168,7 @@ const Items = () => {
       headerName: 'Updated',
       valueFormatter: (params) => (params.data?.updated ? params.value : ''),
       filter: 'agDateColumnFilter',
-      filterParams: filterParams,
+      filterParams: dateFilterParams,
       minWidth: 120,
       flex: 1,
       resizable: false,
@@ -184,6 +195,9 @@ const Items = () => {
   >(() => {
     return {
       mode: 'multiRow',
+      selectAll: 'currentPage',
+      enableSelectionWithoutKeys: true,
+      enableClickSelection: true,
     };
   }, []);
 
@@ -214,26 +228,106 @@ const Items = () => {
     <>
       <div className="mx-auto max-w-full">
         <Breadcrumb main="Inventory" pageName="Items" />
-        <div className="col-span-5 xl:col-span-3">
-          {loading || itemsLoading ? (
-            <Loader />
-          ) : (
-            <div
-              className={`ag-theme-${
-                isDarkMode ? 'quartz-dark' : 'quartz'
-              } w-full h-full font-satoshi`}
-              style={{ height: 500 }}
-            >
-              <AgGridReact
-                rowData={rowData}
-                columnDefs={colDefs}
-                rowSelection={rowSelection}
-                defaultColDef={defaultColDef}
-                gridOptions={gridOptions}
-              />
+        {loading || itemsLoading ? (
+          <Loader />
+        ) : (
+          <>
+            {alert && <Alert {...alert} />}
+            <div className="col-span-5 xl:col-span-3">
+              <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+                <div className="p-5 flex-grow">
+                  {/* Search | Add Item */}
+                  <div className="flex justify-between items-center">
+                    {/* Search */}
+                    <div className="max-w-md">
+                      <label
+                        htmlFor="default-search"
+                        className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white"
+                      >
+                        Search
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                          <SearchRoundedIcon />
+                        </div>
+                        <input
+                          id="default-search"
+                          value={searchTerm}
+                          onChange={handleSearchInputChange}
+                          className="block w-full p-3 ps-11 text-sm text-black border border-stroke rounded-lg bg-white focus:border-blue-500 focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:placeholder-slate-300 dark:text-white dark:focus:border-primary"
+                          placeholder="Search Items..."
+                          required
+                        />
+                        {searchTerm && (
+                          <button
+                            type="button"
+                            className="absolute inset-y-0 end-1 flex items-center pr-3"
+                            onClick={() => setSearchTerm('')}
+                          >
+                            <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
+                              ✖
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* Add Item */}
+                    <div>
+                      <Link
+                        to="/inventory/item/create"
+                        className="inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-5 text-center font-medium text-white hover:bg-opacity-90 lg:px-5 xl:px-5"
+                      >
+                        Add Item
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Inventory Info: Items | Quantity | Value */}
+                  <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-3 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-stroke px-4 dark:border-strokedark xsm:flex-row">
+                      <span className="text-base font-medium">Items:</span>
+                      <span className="font-semibold text-black dark:text-white">
+                        {totalItems}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-stroke px-4 dark:border-strokedark xsm:flex-row">
+                      <span className="text-base font-medium">
+                        Total Quantity:
+                      </span>
+                      <span className="font-semibold text-black dark:text-white">
+                        {totalQuantity}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1 xsm:flex-row">
+                      <span className="text-base font-medium">
+                        Total Value:
+                      </span>
+                      <span className="font-semibold text-black dark:text-white">
+                        {totalValue.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* AG Grid DataTable */}
+                  <div
+                    className={`ag-theme-${
+                      isDarkMode ? 'quartz-dark' : 'quartz'
+                    } w-full flex-grow font-satoshi`}
+                  >
+                    <AgGridReact
+                      rowData={rowData}
+                      columnDefs={colDefs}
+                      rowSelection={rowSelection}
+                      defaultColDef={defaultColDef}
+                      gridOptions={gridOptions}
+                      quickFilterText={searchTerm}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </>
   );

@@ -3,6 +3,7 @@ import {
   ReactNode,
   useContext,
   useEffect,
+  useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -27,8 +28,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const navigate = useNavigate();
   const { setAlert } = useAlert();
   const user = useSelector((state: RootState) => state.auth.user);
-  const loading = useSelector((state: RootState) => state.auth.loading);
-  // const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const dispatch = useDispatch<AppDispatch>();
 
   const checkAuth = async () => {
@@ -37,8 +37,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const resultAction = await dispatch(validateTokenAndSetUserAsync());
       if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
         console.log('User is authenticated.');
+        setLoading(false);
       } else {
         console.log('User is not authenticated.');
+        setLoading(false);
         setAlert({
           type: 'warning',
           title: 'Session Expired',
@@ -48,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         navigate('/auth/signin');
       }
     }
-    // setLoading(false);
+    setLoading(false);
   };
 
   useEffect(() => {

@@ -18,7 +18,7 @@ from .serializers import (UserSerializer,
                           ChangePasswordSerializer,
                           ResetPasswordSerializer)
 from .auth import TokenVersionAuthentication
-from .utils import get_tokens_for_user
+from .utils import get_tokens_for_user, set_refresh_token
 
 
 class CustomTokenRefreshView(APIView):
@@ -63,13 +63,7 @@ class LoginView(APIView):
             response = Response({'access_token': token['access'],
                                  'user': user_data},
                                  status=status.HTTP_200_OK)
-            response.set_cookie(
-                key="refresh_token",
-                value=token['refresh'],
-                httponly=True,
-                secure=True,
-                samesite='Lax'
-            )
+            set_refresh_token(response, token['refresh'], token['refresh_payload'])
             return response
         return Response(serializer.errors,
                         status=status.HTTP_400_BAD_REQUEST)
@@ -96,13 +90,8 @@ class SignUpView(APIView):
             response = Response({'access_token': token['access'],
                                  'user': user_data},
                                  status=status.HTTP_200_OK)
-            response.set_cookie(
-                key="refresh_token",
-                value=token['refresh'],
-                httponly=True,
-                secure=True,
-                samesite='Lax'
-            )
+
+            set_refresh_token(response, token['refresh'], token['refresh_payload'])
             return response
         return Response(serializer.errors,
                         status=status.HTTP_400_BAD_REQUEST)
@@ -173,13 +162,11 @@ class ChangePasswordView(APIView):
             new_token = get_tokens_for_user(user)
             response = Response({'access_token': new_token['access']},
                             status=status.HTTP_200_OK)
-            response.set_cookie(
-                key="refresh_token",
-                value=new_token['refresh'],
-                httponly=True,
-                secure=True,
-                samesite='Lax'
-            )
+
+            set_refresh_token(response,
+                              new_token['refresh'],
+                              new_token['refresh_payload'])
+
             return response
         else:
             return Response(serializer.errors,
