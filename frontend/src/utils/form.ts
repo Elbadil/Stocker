@@ -122,7 +122,7 @@ export const customSelectStyles = (isDarkMode: boolean) => ({
   control: (provided: CSSObject, state: any) => ({
     ...provided,
     backgroundColor: isDarkMode ? '#313d4a' : '#eff4fb',  // Background changes based on mode
-    padding: '0.26rem 0.6rem',
+    padding: '0.12rem 0.3rem',
     borderColor: state.isFocused ? '#3c50e0' : isDarkMode ? '#5a6b7f' : '#e2e8f0',  // Border changes on focus or mode
     boxShadow: state.isFocused ? '0 0 0 1px #3c50e0' : 'none',  // Add focus styling
     '&:hover': {
@@ -147,5 +147,9 @@ export const customSelectStyles = (isDarkMode: boolean) => ({
     '&:hover': {
       backgroundColor: isDarkMode ? '#425b70' : '#ebf2fa',  // Hover state
     },
+  }),
+  placeholder: (provided: CSSObject) => ({
+    ...provided,
+    color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(148 163 184)',  // Placeholder color based on mode
   }),
 });

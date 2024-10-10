@@ -1,10 +1,13 @@
 import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
-import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+// import { Link } from 'react-router-dom';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import AddItem from './AddItem';
+// import EditItem from './EditItem';
 import Loader from '../../common/Loader';
+import ModalOverlay from '../../components/ModalOverlay';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -38,6 +41,7 @@ const Items = () => {
   const { alert, isDarkMode } = useAlert();
   const [itemsLoading, setItemsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [openAddItem, setOpenAddItem] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -99,6 +103,7 @@ const Items = () => {
     inRangeFloatingFilterDateFormat: 'Do MMM YYYY',
   };
 
+  const gridRef = useRef(null);
   const [rowData, setRowData] = useState<Item[]>([]);
   const [colDefs] = useState<ColDef<Item>[]>([
     {
@@ -208,6 +213,11 @@ const Items = () => {
     enableCellTextSelection: true,
   };
 
+  // const getSelectRows = () => {
+  //   const selectNodes = gridRef.current?.api.getSelectedRows();
+  //   console.log('Select Rows', selectNodes);
+  // };
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -227,26 +237,27 @@ const Items = () => {
   return (
     <>
       <div className="mx-auto max-w-full">
+        {/* <button onClick={getSelectRows}>Get Selected rows</button> */}
         <Breadcrumb main="Inventory" pageName="Items" />
         {loading || itemsLoading ? (
           <Loader />
         ) : (
           <>
             {alert && <Alert {...alert} />}
-            <div className="col-span-5 xl:col-span-3">
+            <div className="col-span-5 xl:col-span-3 relative">
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
                   {/* Search | Add Item */}
                   <div className="flex justify-between items-center">
                     {/* Search */}
-                    <div className="max-w-md">
+                    <div className="max-w-md relative">
                       <label
                         htmlFor="default-search"
                         className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white"
                       >
                         Search
                       </label>
-                      <div className="relative">
+                      <div>
                         <div className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
                           <SearchRoundedIcon />
                         </div>
@@ -273,12 +284,19 @@ const Items = () => {
                     </div>
                     {/* Add Item */}
                     <div>
-                      <Link
-                        to="/inventory/item/create"
+                      <button
                         className="inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-5 text-center font-medium text-white hover:bg-opacity-90 lg:px-5 xl:px-5"
+                        onClick={() => setOpenAddItem(true)}
+                        aria-hidden={true}
                       >
                         Add Item
-                      </Link>
+                      </button>
+                      <ModalOverlay
+                        isOpen={openAddItem}
+                        onClose={() => setOpenAddItem(false)}
+                      >
+                        <AddItem setOpen={setOpenAddItem}/>
+                      </ModalOverlay>
                     </div>
                   </div>
 
@@ -315,6 +333,7 @@ const Items = () => {
                     } w-full flex-grow font-satoshi`}
                   >
                     <AgGridReact
+                      ref={gridRef}
                       rowData={rowData}
                       columnDefs={colDefs}
                       rowSelection={rowSelection}
