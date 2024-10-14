@@ -1,11 +1,19 @@
 import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-// import { Link } from 'react-router-dom';
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+} from 'react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
+import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import AddItem from './AddItem';
-// import EditItem from './EditItem';
+import EditItem from './EditItem';
 import Loader from '../../common/Loader';
 import ModalOverlay from '../../components/ModalOverlay';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -20,17 +28,19 @@ import {
   IDateFilterParams,
   ITextFilterParams,
   INumberFilterParams,
+  GetRowIdParams,
 } from 'ag-grid-community';
 
 export interface Item {
+  id: string;
   name: string;
   quantity: number;
   price: number;
   total_price: number;
-  category: string | null;
-  supplier: string | null;
-  variants: { name: string; options: string[] }[] | null;
-  picture: string | null;
+  category?: string;
+  supplier?: string;
+  variants?: { name: string; options: string[] }[];
+  picture?: string;
   created_at: string;
   updated_at: string;
   updated: boolean;
@@ -42,6 +52,7 @@ const Items = () => {
   const [itemsLoading, setItemsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [openAddItem, setOpenAddItem] = useState<boolean>(false);
+  const [openEditItem, setOpenEditItem] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -103,8 +114,11 @@ const Items = () => {
     inRangeFloatingFilterDateFormat: 'Do MMM YYYY',
   };
 
-  const gridRef = useRef(null);
+  const gridRef = useRef<AgGridReact>(null);
   const [rowData, setRowData] = useState<Item[]>([]);
+  const [selectedRows, setSelectedRows] = useState<Item[] | undefined>(
+    undefined,
+  );
   const [colDefs] = useState<ColDef<Item>[]>([
     {
       field: 'name',
@@ -213,16 +227,30 @@ const Items = () => {
     enableCellTextSelection: true,
   };
 
-  // const getSelectRows = () => {
-  //   const selectNodes = gridRef.current?.api.getSelectedRows();
-  //   console.log('Select Rows', selectNodes);
-  // };
+  const getAndSetSelectRows = () => {
+    console.log('Lets set selected rows');
+    const selectNodes: Item[] | undefined =
+      gridRef.current?.api.getSelectedRows();
+    setSelectedRows(selectNodes);
+  };
+
+  const getRowNode = (rowId: string) => {
+    return gridRef.current?.api.getRowNode(rowId);
+  };
+
+  const getRowId = useCallback(
+    (params: GetRowIdParams) => String(params.data.id),
+    [],
+  );
+
+  useEffect(() => {
+    getAndSetSelectRows();
+  }, [openEditItem]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const res = await api.get('/inventory/user/items/');
-        console.log(res.data);
         setRowData(res.data);
       } catch (err) {
         console.log('Error getting user items', err);
@@ -237,7 +265,8 @@ const Items = () => {
   return (
     <>
       <div className="mx-auto max-w-full">
-        {/* <button onClick={getSelectRows}>Get Selected rows</button> */}
+        {/* <button onClick={() => console.log(rowData)}>Get Rows</button>
+        <button onClick={getAndSetSelectRows}>Get Selected Rows</button> */}
         <Breadcrumb main="Inventory" pageName="Items" />
         {loading || itemsLoading ? (
           <Loader />
@@ -247,7 +276,7 @@ const Items = () => {
             <div className="col-span-5 xl:col-span-3 relative">
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
-                  {/* Search | Add Item */}
+                  {/* Search | Item CRUD */}
                   <div className="flex justify-between items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
@@ -265,7 +294,7 @@ const Items = () => {
                           id="default-search"
                           value={searchTerm}
                           onChange={handleSearchInputChange}
-                          className="block w-full p-3 ps-11 text-sm text-black border border-stroke rounded-lg bg-white focus:border-blue-500 focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:placeholder-slate-300 dark:text-white dark:focus:border-primary"
+                          className="block max-w-sm p-3 ps-11 text-sm text-black border border-stroke rounded-lg bg-white focus:border-blue-500 focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:placeholder-slate-300 dark:text-white dark:focus:border-primary"
                           placeholder="Search Items..."
                           required
                         />
@@ -282,20 +311,64 @@ const Items = () => {
                         )}
                       </div>
                     </div>
-                    {/* Add Item */}
+                    {/* Add | Edit | Delete Item */}
                     <div>
+                      {/* Delete item(s) */}
                       <button
-                        className="inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-5 text-center font-medium text-white hover:bg-opacity-90 lg:px-5 xl:px-5"
-                        onClick={() => setOpenAddItem(true)}
-                        aria-hidden={true}
+                        type="button"
+                        className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
+                          !selectedRows || selectedRows.length < 1
+                            ? 'text-slate-400 bg-gray dark:bg-meta-4'
+                            : 'bg-red-500 text-white'
+                        } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
+                        onClick={() => console.log('Delete')}
+                        disabled={!selectedRows || selectedRows.length < 1}
                       >
-                        Add Item
+                        <DeleteOutlinedIcon />
+                      </button>
+                      {/* Edit item */}
+                      <button
+                        type="button"
+                        className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
+                          selectedRows && selectedRows.length === 1
+                            ? 'bg-primary text-white'
+                            : 'text-slate-400 bg-gray dark:bg-meta-4'
+                        } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
+                        onClick={() => setOpenEditItem(true)}
+                        disabled={!selectedRows || selectedRows.length !== 1}
+                      >
+                        <ModeEditOutlineOutlinedIcon />
+                      </button>
+                      {selectedRows && selectedRows[0] && (
+                        <ModalOverlay
+                          isOpen={openEditItem}
+                          onClose={() => setOpenEditItem(false)}
+                        >
+                          <EditItem
+                            open={openEditItem}
+                            setOpen={setOpenEditItem}
+                            rowNode={getRowNode(selectedRows[0].id)}
+                            item={selectedRows[0]}
+                          />
+                        </ModalOverlay>
+                      )}
+                      {/* Add item */}
+                      <button
+                        className="inline-flex items-center justify-center rounded-full bg-meta-3 py-2 px-3 text-center font-medium text-white hover:bg-opacity-90 lg:px-3 xl:px-3"
+                        onClick={() => setOpenAddItem(true)}
+                        aria-hidden={false}
+                      >
+                        <AddCircleOutlinedIcon sx={{ marginRight: '3px' }} />
+                        New
                       </button>
                       <ModalOverlay
                         isOpen={openAddItem}
                         onClose={() => setOpenAddItem(false)}
                       >
-                        <AddItem setOpen={setOpenAddItem}/>
+                        <AddItem
+                          setOpen={setOpenAddItem}
+                          setRowData={setRowData}
+                        />
                       </ModalOverlay>
                     </div>
                   </div>
@@ -337,9 +410,11 @@ const Items = () => {
                       rowData={rowData}
                       columnDefs={colDefs}
                       rowSelection={rowSelection}
+                      onRowSelected={getAndSetSelectRows}
                       defaultColDef={defaultColDef}
                       gridOptions={gridOptions}
                       quickFilterText={searchTerm}
+                      getRowId={getRowId}
                     />
                   </div>
                 </div>

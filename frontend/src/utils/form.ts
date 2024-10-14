@@ -2,6 +2,7 @@ import React from 'react';
 import { z } from 'zod';
 import { CSSObject } from '@emotion/react';
 import { FormErrors, FormValues } from '../types/form';
+import { Item } from '../pages/Inventory/Items';
 
 export const handleInputChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -121,35 +122,114 @@ export const fileField = () => {
 export const customSelectStyles = (isDarkMode: boolean) => ({
   control: (provided: CSSObject, state: any) => ({
     ...provided,
-    backgroundColor: isDarkMode ? '#313d4a' : '#eff4fb',  // Background changes based on mode
+    backgroundColor: isDarkMode ? '#313d4a' : '#eff4fb', // Background changes based on mode
     padding: '0.12rem 0.3rem',
-    borderColor: state.isFocused ? '#3c50e0' : isDarkMode ? '#5a6b7f' : '#e2e8f0',  // Border changes on focus or mode
-    boxShadow: state.isFocused ? '0 0 0 1px #3c50e0' : 'none',  // Add focus styling
+    borderColor: state.isFocused
+      ? '#3c50e0'
+      : isDarkMode
+      ? '#5a6b7f'
+      : '#e2e8f0', // Border changes on focus or mode
+    boxShadow: state.isFocused ? '0 0 0 1px #3c50e0' : 'none', // Add focus styling
     '&:hover': {
-      borderColor: state.isFocused ? '#3c50e0' : isDarkMode ? '#5a6b7f' : '#2e3a47',  // Hover state
+      borderColor: state.isFocused
+        ? '#3c50e0'
+        : isDarkMode
+        ? '#5a6b7f'
+        : '#2e3a47', // Hover state
     },
   }),
   menu: (provided: CSSObject) => ({
     ...provided,
-    backgroundColor: isDarkMode ? '#313d4a' : '#ffffff',  // Dark mode for menu background
+    backgroundColor: isDarkMode ? '#313d4a' : '#ffffff', // Dark mode for menu background
     color: isDarkMode ? '#ffffff' : '#000000',
   }),
   singleValue: (provided: CSSObject) => ({
     ...provided,
-    color: isDarkMode ? '#ffffff' : '#000000',  // Text color based on mode
+    color: isDarkMode ? '#ffffff' : '#000000', // Text color based on mode
   }),
   option: (provided: CSSObject, state: any) => ({
     ...provided,
     backgroundColor: state.isSelected
-      ? (isDarkMode ? '#3c50e0' : '#eff4fb')  // Highlight selected option
-      : (state.isFocused ? (isDarkMode ? '#425b70' : '#ebf2fa') : 'transparent'),
+      ? isDarkMode
+        ? '#3c50e0'
+        : '#eff4fb' // Highlight selected option
+      : state.isFocused
+      ? isDarkMode
+        ? '#425b70'
+        : '#ebf2fa'
+      : 'transparent',
     color: isDarkMode ? '#ffffff' : '#000000',
     '&:hover': {
-      backgroundColor: isDarkMode ? '#425b70' : '#ebf2fa',  // Hover state
+      backgroundColor: isDarkMode ? '#425b70' : '#ebf2fa', // Hover state
     },
   }),
   placeholder: (provided: CSSObject) => ({
     ...provided,
-    color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(148 163 184)',  // Placeholder color based on mode
+    color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(148 163 184)', // Placeholder color based on mode
   }),
 });
+
+export const getUpdatedInventory = (
+  type: 'add' | 'update',
+  newItemData: Item,
+  categories: string[],
+  suppliers: string[],
+  variants: string[],
+  totalItems: number,
+  totalValue: number,
+  totalQuantity: number,
+  OldItemData?: Item,
+) => {
+  const newVariants = newItemData.variants
+    ? newItemData.variants.map(
+        (variant: { name: string; options: string[] }) => variant.name,
+      )
+    : null;
+  const updateNames = (list: string[], entry: string | undefined) => {
+    return entry && !list.includes(entry) ? [...list, entry] : list;
+  };
+
+  const updateQuantityOrValue = (
+    prop: number,
+    newItemProp: number,
+    oldItemProp: number,
+  ) => {
+    if (oldItemProp === newItemProp) return prop;
+    return oldItemProp > newItemProp
+      ? prop - (oldItemProp - newItemProp)
+      : prop + (newItemProp - oldItemProp);
+  };
+
+  const updatedCategories = updateNames(categories, newItemData.category);
+  const updatedSuppliers = updateNames(suppliers, newItemData.supplier);
+  const updatedVariants = newVariants
+    ? Array.from(new Set(variants.concat(newVariants)))
+    : variants;
+
+  if (type === 'update' && OldItemData) {
+    return {
+      categories: { names: updatedCategories },
+      suppliers: { names: updatedSuppliers },
+      variants: updatedVariants,
+      totalItems,
+      totalQuantity: updateQuantityOrValue(
+        totalQuantity,
+        newItemData.quantity,
+        OldItemData.quantity,
+      ),
+      totalValue: updateQuantityOrValue(
+        totalValue,
+        newItemData.total_price,
+        OldItemData.total_price,
+      ),
+    };
+  }
+  return {
+    categories: { names: updatedCategories },
+    suppliers: { names: updatedSuppliers },
+    variants: updatedVariants,
+    totalItems: totalItems + 1,
+    totalQuantity: totalQuantity + newItemData.quantity,
+    totalValue: totalValue + newItemData.total_price,
+  };
+};

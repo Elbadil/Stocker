@@ -57,9 +57,9 @@ const inventorySlice = createSlice({
         names: payload.suppliers.names,
       };
       state.variants = payload.variants;
-      state.totalItems = payload.total_items;
-      state.totalValue = payload.total_value;
-      state.totalQuantity = payload.total_quantity;
+      state.totalItems = payload.totalItems;
+      state.totalValue = payload.totalValue;
+      state.totalQuantity = payload.totalQuantity;
     },
   },
   extraReducers: (builder) => {

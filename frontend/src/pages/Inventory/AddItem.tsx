@@ -1,6 +1,5 @@
 import ClipLoader from 'react-spinners/ClipLoader';
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   SubmitHandler,
   useForm,
@@ -18,18 +17,23 @@ import {
   requiredPositiveNumberField,
   nonBlankField,
   customSelectStyles,
+  getUpdatedInventory,
 } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
+import { setInventory } from '../../store/slices/inventorySlice';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
+import { Item } from './Items';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
   price: requiredPositiveNumberField('Price'),
   quantity: requiredPositiveNumberField('Quantity'),
-  category: z.string().optional().nullable(),
-  supplier: z.string().optional().nullable(),
+  category: z.string().optional(),
+  supplier: z.string().optional(),
   picture: z.instanceof(FileList).optional(),
   variants: z
     .array(
@@ -62,10 +66,11 @@ export type ItemSchema = z.infer<typeof schema>;
 
 interface AddItemProps {
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setRowData: React.Dispatch<React.SetStateAction<Item[]>>;
 }
 
-const AddItem = ({ setOpen }: AddItemProps) => {
-  const navigate = useNavigate();
+const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
+  const dispatch = useDispatch<AppDispatch>();
   const { setAlert, isDarkMode } = useAlert();
   const {
     register,
@@ -74,6 +79,7 @@ const AddItem = ({ setOpen }: AddItemProps) => {
     setValue,
     clearErrors,
     control,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ItemSchema>({
     resolver: zodResolver(schema),
@@ -84,7 +90,15 @@ const AddItem = ({ setOpen }: AddItemProps) => {
     control,
   });
 
-  const { loading, categories, suppliers, variants } = useInventory();
+  const {
+    loading,
+    categories,
+    suppliers,
+    variants,
+    totalItems,
+    totalQuantity,
+    totalValue,
+  } = useInventory();
   const categoryOptions = categories.names.map((name) => ({
     value: name,
     label: name,
@@ -180,14 +194,31 @@ const AddItem = ({ setOpen }: AddItemProps) => {
           'Content-Type': 'multipart/form-data',
         },
       });
+      const newItem = res.data;
+      const inventoryPlusNewItem = getUpdatedInventory(
+        'add',
+        newItem,
+        categories.names,
+        suppliers.names,
+        variants,
+        totalItems,
+        totalValue,
+        totalQuantity,
+      );
+      setRowData((prev) => [newItem, ...prev]);
+      dispatch(setInventory(inventoryPlusNewItem));
+      setOpen(false);
       setAlert({
         type: 'success',
         title: 'New item added',
-        description: `Item ${data.name} has been successfully added to your inventory.`,
+        description: `Item ${newItem.name} has been successfully added to your inventory.`,
       });
-      setOpen(false);
-      navigate('/inventory/items');
-      console.log(res.data);
+      setTimeout(() => {
+        reset();
+        setHasVariants(false);
+        setPreviewPictureUrl(null);
+      }, 1000);
+      console.log(newItem);
     } catch (error: any) {
       console.log('Error during form submission:', error);
       if (error.response && error.response.status === 400) {
@@ -224,7 +255,11 @@ const AddItem = ({ setOpen }: AddItemProps) => {
               Create New Item
             </h3>
             <div>
-              <button type="button" onClick={() => setOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-hidden={false}
+              >
                 <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
                   ✖
                 </span>
@@ -325,7 +360,7 @@ const AddItem = ({ setOpen }: AddItemProps) => {
                               ? categoryOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : null
+                              : undefined
                           }
                           onChange={(option) => onChange(option?.value || null)}
                           options={categoryOptions}
@@ -364,7 +399,7 @@ const AddItem = ({ setOpen }: AddItemProps) => {
                               ? supplierOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : null
+                              : undefined
                           }
                           onChange={(option) => onChange(option?.value || null)}
                           options={supplierOptions}
@@ -441,7 +476,7 @@ const AddItem = ({ setOpen }: AddItemProps) => {
                                         ? variantsOptions.find(
                                             (option) => option.value === value,
                                           )
-                                        : null
+                                        : undefined
                                     }
                                     onChange={(option) =>
                                       onChange(option?.value || '')
