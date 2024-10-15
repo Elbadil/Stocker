@@ -17,8 +17,6 @@ import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
 import Items from './pages/Inventory/Items';
-import AddItem from './pages/Inventory/AddItem';
-import EditItem from './pages/Inventory/EditItem';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
@@ -52,24 +50,6 @@ function App() {
                   <>
                     <PageTitle title="Inventory | Stocker" />
                     <Items />
-                  </>
-                }
-              />
-              <Route
-                path="inventory/item/create"
-                element={
-                  <>
-                    <PageTitle title="Add Item - Inventory | Stocker" />
-                    <AddItem />
-                  </>
-                }
-              />
-              <Route
-                path="inventory/item/edit/:id"
-                element={
-                  <>
-                    <PageTitle title="Edit Item - Inventory | Stocker" />
-                    <EditItem />
                   </>
                 }
               />

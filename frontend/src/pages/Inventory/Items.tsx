@@ -14,6 +14,7 @@ import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutl
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import AddItem from './AddItem';
 import EditItem from './EditItem';
+import DeleteItem from './DeleteItem';
 import Loader from '../../common/Loader';
 import ModalOverlay from '../../components/ModalOverlay';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -37,10 +38,10 @@ export interface Item {
   quantity: number;
   price: number;
   total_price: number;
-  category?: string;
-  supplier?: string;
-  variants?: { name: string; options: string[] }[];
-  picture?: string;
+  category: string | null;
+  supplier: string | null;
+  variants: { name: string; options: string[] }[] | null;
+  picture: string | null;
   created_at: string;
   updated_at: string;
   updated: boolean;
@@ -53,6 +54,7 @@ const Items = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [openAddItem, setOpenAddItem] = useState<boolean>(false);
   const [openEditItem, setOpenEditItem] = useState<boolean>(false);
+  const [openDeleteItem, setOpenDeleteItem] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -229,9 +231,9 @@ const Items = () => {
 
   const getAndSetSelectRows = () => {
     console.log('Lets set selected rows');
-    const selectNodes: Item[] | undefined =
+    const selectedItems: Item[] | undefined =
       gridRef.current?.api.getSelectedRows();
-    setSelectedRows(selectNodes);
+    setSelectedRows(selectedItems);
   };
 
   const getRowNode = (rowId: string) => {
@@ -321,11 +323,25 @@ const Items = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-red-500 text-white'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => console.log('Delete')}
+                        onClick={() => setOpenDeleteItem(true)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <DeleteOutlinedIcon />
                       </button>
+                      {selectedRows && selectedRows.length >= 1 && (
+                        <ModalOverlay
+                          isOpen={openDeleteItem}
+                          onClose={() => setOpenDeleteItem(false)}
+                        >
+                          <DeleteItem
+                            items={selectedRows}
+                            open={openDeleteItem}
+                            setOpen={setOpenDeleteItem}
+                            rowData={rowData}
+                            setRowData={setRowData}
+                          />
+                        </ModalOverlay>
+                      )}
                       {/* Edit item */}
                       <button
                         type="button"
@@ -366,6 +382,7 @@ const Items = () => {
                         onClose={() => setOpenAddItem(false)}
                       >
                         <AddItem
+                          open={openAddItem}
                           setOpen={setOpenAddItem}
                           setRowData={setRowData}
                         />

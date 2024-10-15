@@ -35,10 +35,10 @@ interface ItemFormDisplay {
   name: string;
   quantity: number;
   price: number;
-  category?: string;
-  supplier?: string;
-  variants?: { name: string; options: string }[];
-  picture?: string;
+  category: string | null;
+  supplier: string | null;
+  variants: { name: string; options: string }[] | null;
+  picture: string | undefined;
 }
 
 const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
@@ -197,7 +197,15 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
         item,
       );
       setOpen(false);
-      dispatch(setInventory(inventoryUpdate));
+      dispatch((dispatch, getState) => {
+        const { inventory } = getState();
+        dispatch(
+          setInventory({
+            ...inventory,  
+            ...inventoryUpdate,
+          })
+        );
+      });
       setAlert({
         type: 'success',
         title: 'Item updated',
@@ -239,8 +247,12 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
           : [],
         category: item.category,
         supplier: item.supplier,
-        picture: typeof item.picture === 'string' ? undefined : item.picture,
+        picture:
+          typeof item.picture === 'string' || !item.picture
+            ? undefined
+            : item.picture,
       };
+      console.log('loaded data', formData);
       setInitialValues(formData);
       setPictureModified(false);
       reset(formData);
@@ -298,7 +310,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-hidden={false}
+                aria-hidden={true}
               >
                 <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
                   ✖
@@ -386,7 +398,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                   >
                     Category
                   </label>
-                  <div className="relative">
+                  {open && (
                     <Controller
                       name="category"
                       control={control}
@@ -400,16 +412,18 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                               ? categoryOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : undefined
+                              : null
                           }
-                          onChange={(option) => onChange(option?.value || null)}
+                          onChange={(option) =>
+                            onChange(option?.value || null)
+                          }
                           options={categoryOptions}
                           styles={customSelectStyles(isDarkMode)}
                           placeholder={<div>Create or Select...</div>}
                         />
                       )}
                     />
-                  </div>
+                  )}
                   {errors.category && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {errors.category.message}
@@ -425,7 +439,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                   >
                     Supplier
                   </label>
-                  <div className="relative">
+                  {open && (
                     <Controller
                       name="supplier"
                       control={control}
@@ -439,16 +453,19 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                               ? supplierOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : undefined
+                              : null
                           }
-                          onChange={(option) => onChange(option?.value || null)}
+                          onChange={(option) =>
+                            onChange(option?.value || null)
+                          }
                           options={supplierOptions}
                           styles={customSelectStyles(isDarkMode)}
                           placeholder={<div>Create or Select...</div>}
                         />
                       )}
                     />
-                  </div>
+                  )}
+
                   {errors.supplier && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {errors.supplier.message}
@@ -516,7 +533,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                                         ? variantsOptions.find(
                                             (option) => option.value === value,
                                           )
-                                        : undefined
+                                        : null
                                     }
                                     onChange={(option) =>
                                       onChange(option?.value || '')

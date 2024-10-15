@@ -185,7 +185,7 @@ export const getUpdatedInventory = (
         (variant: { name: string; options: string[] }) => variant.name,
       )
     : null;
-  const updateNames = (list: string[], entry: string | undefined) => {
+  const updateNames = (list: string[], entry: string | null) => {
     return entry && !list.includes(entry) ? [...list, entry] : list;
   };
 

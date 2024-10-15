@@ -1,4 +1,5 @@
 from rest_framework import generics
+from rest_framework import mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
@@ -43,6 +44,21 @@ class ListUserItems(generics.ListAPIView):
 
     def get_queryset(self):
         return Item.objects.filter(user=self.request.user)
+
+
+class ItemsBulkDelete(generics.GenericAPIView):
+    """Handles Items Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "No IDs provided."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        delete_count, _ = Item.objects.filter(id__in=ids).delete()
+        return Response({'message': f'{delete_count} items deleted'},
+                         status=status.HTTP_200_OK)
 
 
 class GetUserInventoryData(generics.GenericAPIView):

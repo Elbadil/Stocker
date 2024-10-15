@@ -32,8 +32,8 @@ export const schema = z.object({
   name: requiredStringField('Name'),
   price: requiredPositiveNumberField('Price'),
   quantity: requiredPositiveNumberField('Quantity'),
-  category: z.string().optional(),
-  supplier: z.string().optional(),
+  category: z.string().optional().nullable(),
+  supplier: z.string().optional().nullable(),
   picture: z.instanceof(FileList).optional(),
   variants: z
     .array(
@@ -65,11 +65,12 @@ export const schema = z.object({
 export type ItemSchema = z.infer<typeof schema>;
 
 interface AddItemProps {
+  open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setRowData: React.Dispatch<React.SetStateAction<Item[]>>;
 }
 
-const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
+const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert, isDarkMode } = useAlert();
   const {
@@ -206,18 +207,21 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
         totalQuantity,
       );
       setRowData((prev) => [newItem, ...prev]);
-      dispatch(setInventory(inventoryPlusNewItem));
+      dispatch((dispatch, getState) => {
+        const { inventory } = getState();
+        dispatch(
+          setInventory({
+            ...inventory,  
+            ...inventoryPlusNewItem,
+          })
+        );
+      });
       setOpen(false);
       setAlert({
         type: 'success',
         title: 'New item added',
         description: `Item ${newItem.name} has been successfully added to your inventory.`,
       });
-      setTimeout(() => {
-        reset();
-        setHasVariants(false);
-        setPreviewPictureUrl(null);
-      }, 1000);
       console.log(newItem);
     } catch (error: any) {
       console.log('Error during form submission:', error);
@@ -243,6 +247,17 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
     };
   }, [previewPictureUrl]);
 
+  useEffect(() => {
+    if (open) {
+      reset();
+      setHasVariants(false);
+      setValue('variants', []);
+      setValue('category', null);
+      setValue('supplier', null);
+      setPreviewPictureUrl(null);
+    }
+  }, [open]);
+
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
       {loading ? (
@@ -258,7 +273,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-hidden={false}
+                aria-hidden={true}
               >
                 <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
                   ✖
@@ -346,7 +361,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                   >
                     Category
                   </label>
-                  <div className="relative">
+                  {open && (
                     <Controller
                       name="category"
                       control={control}
@@ -360,7 +375,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                               ? categoryOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : undefined
+                              : null
                           }
                           onChange={(option) => onChange(option?.value || null)}
                           options={categoryOptions}
@@ -369,7 +384,8 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                         />
                       )}
                     />
-                  </div>
+                  )}
+
                   {errors.category && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {errors.category.message}
@@ -385,7 +401,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                   >
                     Supplier
                   </label>
-                  <div className="relative">
+                  {open && (
                     <Controller
                       name="supplier"
                       control={control}
@@ -399,7 +415,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                               ? supplierOptions.find(
                                   (option) => option.value === value,
                                 )
-                              : undefined
+                              : null
                           }
                           onChange={(option) => onChange(option?.value || null)}
                           options={supplierOptions}
@@ -408,7 +424,8 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                         />
                       )}
                     />
-                  </div>
+                  )}
+
                   {errors.supplier && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {errors.supplier.message}
@@ -476,7 +493,7 @@ const AddItem = ({ setOpen, setRowData }: AddItemProps) => {
                                         ? variantsOptions.find(
                                             (option) => option.value === value,
                                           )
-                                        : undefined
+                                        : null
                                     }
                                     onChange={(option) =>
                                       onChange(option?.value || '')
