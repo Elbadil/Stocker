@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
-import { Item } from './Items';
+import { ItemProps } from './Item';
 import { api } from '../../api/axios';
 import { useDispatch } from 'react-redux';
 import { setInventory } from '../../store/slices/inventorySlice';
@@ -8,11 +8,12 @@ import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
 
 export interface DeleteItemProps {
-  items: Item[];
+  items: ItemProps[];
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  rowData: Item[];
-  setRowData: React.Dispatch<React.SetStateAction<Item[]>>;
+  rowData: ItemProps[];
+  setRowData: React.Dispatch<React.SetStateAction<ItemProps[]>>;
+  setItemOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const DeleteItem = ({
@@ -21,6 +22,7 @@ const DeleteItem = ({
   setOpen,
   rowData,
   setRowData,
+  setItemOpen,
 }: DeleteItemProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert } = useAlert();
@@ -41,7 +43,9 @@ const DeleteItem = ({
 
   const removeDeletedRows = () => {
     const itemsIds = new Set(itemsSummary.ids);
-    const filteredRows = rowData.filter((item: Item) => !itemsIds.has(item.id));
+    const filteredRows = rowData.filter(
+      (item: ItemProps) => !itemsIds.has(item.id),
+    );
     setRowData(filteredRows);
   };
 
@@ -75,7 +79,6 @@ const DeleteItem = ({
         );
       });
       removeDeletedRows();
-      // setTimeout(() => {
       setAlert({
         type: 'success',
         title:
@@ -86,7 +89,7 @@ const DeleteItem = ({
             : `You have successfully deleted ${items[0].name} from your inventory.`,
       });
       setOpen(false);
-      // }, 1000);
+      if (setItemOpen) setItemOpen(false);
     } catch (err) {
       console.log('Error deleting items', err);
       setDeleteErrors('Something went wrong. Please try again later.');
@@ -119,7 +122,7 @@ const DeleteItem = ({
         </div>
       </div>
       {/* Form Content */}
-      <div className="max-w-full overflow-y-auto max-h-[80vh] text-black dark:text-white flex flex-col">
+      <div className="max-w-full overflow-y-auto max-h-[85vh] text-black dark:text-white flex flex-col">
         <div className="p-5">
           <div className="mb-3  font-medium">
             Are you sure you want to delete:

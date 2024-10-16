@@ -12,6 +12,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
+import Item, { ItemProps } from './Item';
 import AddItem from './AddItem';
 import EditItem from './EditItem';
 import DeleteItem from './DeleteItem';
@@ -32,32 +33,33 @@ import {
   GetRowIdParams,
 } from 'ag-grid-community';
 
-export interface Item {
-  id: string;
-  name: string;
-  quantity: number;
-  price: number;
-  total_price: number;
-  category: string | null;
-  supplier: string | null;
-  variants: { name: string; options: string[] }[] | null;
-  picture: string | null;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
-
 const Items = () => {
   const { loading, totalItems, totalQuantity, totalValue } = useInventory();
   const { alert, isDarkMode } = useAlert();
   const [itemsLoading, setItemsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedItem, setSelectedItem] = useState<ItemProps | null>(null);
+  const [openItem, setOpenItem] = useState<boolean>(false);
   const [openAddItem, setOpenAddItem] = useState<boolean>(false);
   const [openEditItem, setOpenEditItem] = useState<boolean>(false);
   const [openDeleteItem, setOpenDeleteItem] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
+  };
+
+  const NameRenderer = (props: CustomCellRendererProps) => {
+    return (
+      <button
+        className="hover:underline"
+        onClick={() => {
+          setOpenItem(true);
+          setSelectedItem(props.data);
+        }}
+      >
+        {props.value}
+      </button>
+    );
   };
 
   const VariantsRenderer = (props: CustomCellRendererProps) => {
@@ -117,13 +119,14 @@ const Items = () => {
   };
 
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<Item[]>([]);
-  const [selectedRows, setSelectedRows] = useState<Item[] | undefined>(
+  const [rowData, setRowData] = useState<ItemProps[]>([]);
+  const [selectedRows, setSelectedRows] = useState<ItemProps[] | undefined>(
     undefined,
   );
-  const [colDefs] = useState<ColDef<Item>[]>([
+  const [colDefs] = useState<ColDef<ItemProps>[]>([
     {
       field: 'name',
+      cellRenderer: NameRenderer,
       flex: 3,
       minWidth: 150,
     },
@@ -218,11 +221,11 @@ const Items = () => {
       mode: 'multiRow',
       selectAll: 'currentPage',
       enableSelectionWithoutKeys: true,
-      enableClickSelection: true,
+      // enableClickSelection: true,
     };
   }, []);
 
-  const gridOptions: GridOptions<Item> = {
+  const gridOptions: GridOptions<ItemProps> = {
     domLayout: 'autoHeight',
     pagination: true,
     paginationPageSize: 20,
@@ -230,8 +233,7 @@ const Items = () => {
   };
 
   const getAndSetSelectRows = () => {
-    console.log('Lets set selected rows');
-    const selectedItems: Item[] | undefined =
+    const selectedItems: ItemProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
     setSelectedRows(selectedItems);
   };
@@ -267,9 +269,7 @@ const Items = () => {
   return (
     <>
       <div className="mx-auto max-w-full">
-        {/* <button onClick={() => console.log(rowData)}>Get Rows</button>
-        <button onClick={getAndSetSelectRows}>Get Selected Rows</button> */}
-        <Breadcrumb main="Inventory" pageName="Items" />
+        <Breadcrumb main="Inventory" pageName="Inventory Items" />
         {loading || itemsLoading ? (
           <Loader />
         ) : (
@@ -313,8 +313,24 @@ const Items = () => {
                         )}
                       </div>
                     </div>
-                    {/* Add | Edit | Delete Item */}
+                    {/* Read Add | Edit | Delete Item */}
                     <div>
+                      {/* Read Item Modal */}
+                      {selectedItem && (
+                        <ModalOverlay
+                          isOpen={openItem}
+                          onClose={() => setOpenItem(false)}
+                        >
+                          <Item
+                            item={selectedItem}
+                            setItem={setSelectedItem}
+                            itemRowNode={getRowNode(selectedItem.id)}
+                            setOpen={setOpenItem}
+                            rowData={rowData}
+                            setRowData={setRowData}
+                          />
+                        </ModalOverlay>
+                      )}
                       {/* Delete item(s) */}
                       <button
                         type="button"

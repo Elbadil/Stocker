@@ -26,7 +26,7 @@ import { setInventory } from '../../store/slices/inventorySlice';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
-import { Item } from './Items';
+import { ItemProps } from './Item';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
@@ -67,7 +67,7 @@ export type ItemSchema = z.infer<typeof schema>;
 interface AddItemProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRowData: React.Dispatch<React.SetStateAction<Item[]>>;
+  setRowData: React.Dispatch<React.SetStateAction<ItemProps[]>>;
 }
 
 const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {

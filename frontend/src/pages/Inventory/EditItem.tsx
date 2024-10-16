@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import toast from 'react-hot-toast';
 import Loader from '../../common/Loader';
 import { customSelectStyles, getUpdatedInventory } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
@@ -18,17 +19,18 @@ import { useInventory } from '../../contexts/InventoryContext';
 import { useAlert } from '../../contexts/AlertContext';
 import { schema } from './AddItem';
 import { ItemSchema } from './AddItem';
-import { Item } from './Items';
+import { ItemProps } from './Item';
 import { IRowNode } from 'ag-grid-community';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { setInventory } from '../../store/slices/inventorySlice';
 
 export interface EditItemProps {
-  item: Item;
+  item: ItemProps;
+  setItem?: React.Dispatch<React.SetStateAction<ItemProps | null>>;
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  rowNode?: IRowNode<Item>;
+  rowNode?: IRowNode<ItemProps>;
 }
 
 interface ItemFormDisplay {
@@ -41,7 +43,7 @@ interface ItemFormDisplay {
   picture: string | undefined;
 }
 
-const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
+const EditItem = ({ item, setItem, open, setOpen, rowNode }: EditItemProps) => {
   const { setAlert, isDarkMode } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
   const {
@@ -184,6 +186,12 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
       });
       const itemUpdate = res.data;
       console.log(itemUpdate);
+      if (setItem) {
+        setItem(itemUpdate);
+        toast.success('Your item has been successfully updated!', {
+          duration: 5000,
+        });
+      };
       rowNode?.setData(itemUpdate);
       const inventoryUpdate = getUpdatedInventory(
         'update',
@@ -201,9 +209,9 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
         const { inventory } = getState();
         dispatch(
           setInventory({
-            ...inventory,  
+            ...inventory,
             ...inventoryUpdate,
-          })
+          }),
         );
       });
       setAlert({
@@ -312,7 +320,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                 onClick={() => setOpen(false)}
                 aria-hidden={true}
               >
-                <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
+                <span className="ml-3 text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
                   ✖
                 </span>
               </button>
@@ -414,9 +422,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                                 )
                               : null
                           }
-                          onChange={(option) =>
-                            onChange(option?.value || null)
-                          }
+                          onChange={(option) => onChange(option?.value || null)}
                           options={categoryOptions}
                           styles={customSelectStyles(isDarkMode)}
                           placeholder={<div>Create or Select...</div>}
@@ -455,9 +461,7 @@ const EditItem = ({ item, open, setOpen, rowNode }: EditItemProps) => {
                                 )
                               : null
                           }
-                          onChange={(option) =>
-                            onChange(option?.value || null)
-                          }
+                          onChange={(option) => onChange(option?.value || null)}
                           options={supplierOptions}
                           styles={customSelectStyles(isDarkMode)}
                           placeholder={<div>Create or Select...</div>}

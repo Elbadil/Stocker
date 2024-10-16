@@ -216,5 +216,5 @@ class ItemSerializer(serializers.ModelSerializer):
         representation['supplier'] = instance.supplier.name if instance.supplier else None
         representation['variants'] = self.get_variants(instance)
         representation['created_at'] = instance.created_at.strftime('%d/%m/%Y')
-        representation['updated_at'] = instance.created_at.strftime('%d/%m/%Y')
+        representation['updated_at'] = instance.updated_at.strftime('%d/%m/%Y')
         return representation
