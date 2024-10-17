@@ -1,13 +1,16 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { IRowNode } from 'ag-grid-community';
 import { useState } from 'react';
 import EditItem from './EditItem';
 import DeleteItem from './DeleteItem';
 import ModalOverlay from '../../components/ModalOverlay';
+import { handleItemExport } from './utils';
 
 export interface ItemProps {
   id: string;
+  user: string;
   name: string;
   quantity: number;
   price: number;
@@ -64,9 +67,17 @@ const Item = ({
       </div>
       {/* Item Details */}
       <div className="max-w-full overflow-y-auto max-h-[80vh] flex flex-col">
-        {/* Edit | Delete Buttons */}
+        {/* Export | Edit | Delete Buttons */}
         <div className="flex justify-end items-center">
           <div className="px-2.5 pt-2.5">
+            {/* Export Item */}
+            <button
+              type="button"
+              className="mr-1.5 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark bg-gray dark:bg-meta-4 text-slate-500 dark:text-white h-10 w-10.5 text-center font-medium hover:text-black dark:hover:text-black hover:bg-slate-200 dark:hover:bg-slate-200"
+              onClick={() => handleItemExport([item])}
+            >
+              <FileDownloadOutlinedIcon />
+            </button>
             {/* Edit Item */}
             <button
               type="button"
@@ -110,7 +121,7 @@ const Item = ({
             </ModalOverlay>
           </div>
         </div>
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 pt-2">
           {/* Picture */}
           {item.picture && (
             <div className="mb-3 flex justify-center items-center">

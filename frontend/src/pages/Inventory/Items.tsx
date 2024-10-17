@@ -12,6 +12,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import Item, { ItemProps } from './Item';
 import AddItem from './AddItem';
 import EditItem from './EditItem';
@@ -32,6 +33,7 @@ import {
   INumberFilterParams,
   GetRowIdParams,
 } from 'ag-grid-community';
+import { handleItemExport, handleBulkExport } from './utils';
 
 const Items = () => {
   const { loading, totalItems, totalQuantity, totalValue } = useInventory();
@@ -279,7 +281,7 @@ const Items = () => {
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
                   {/* Search | Item CRUD */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col gap-3 sm:flex-row justify-between items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
                       <label
@@ -313,7 +315,17 @@ const Items = () => {
                         )}
                       </div>
                     </div>
-                    {/* Read Add | Edit | Delete Item */}
+                    {/* Bulk Export */}
+                    <div>
+                      <button
+                        className="flex font-medium items-center hover:text-primary"
+                        onClick={handleBulkExport}
+                      >
+                        <FileDownloadOutlinedIcon sx={{ marginRight: '2px' }} />
+                        Bulk Export
+                      </button>
+                    </div>
+                    {/* Read Add | Edit | Delete | Export Item */}
                     <div>
                       {/* Read Item Modal */}
                       {selectedItem && (
@@ -331,6 +343,20 @@ const Items = () => {
                           />
                         </ModalOverlay>
                       )}
+                      {/* Export item(s) */}
+                      <button
+                        type="button"
+                        className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
+                          !selectedRows || selectedRows.length < 1
+                            ? 'text-slate-400 bg-gray dark:bg-meta-4'
+                            : 'bg-slate-200 text-black'
+                        } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
+                        onClick={() => handleItemExport(selectedRows)}
+                        disabled={!selectedRows || selectedRows.length < 1}
+                      >
+                        <FileDownloadOutlinedIcon />
+                      </button>
+
                       {/* Delete item(s) */}
                       <button
                         type="button"
@@ -408,13 +434,13 @@ const Items = () => {
 
                   {/* Inventory Info: Items | Quantity | Value */}
                   <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-3 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
-                    <div className="flex flex-col items-center justify-center gap-1 border-r border-stroke px-4 dark:border-strokedark xsm:flex-row">
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Items:</span>
                       <span className="font-semibold text-black dark:text-white">
                         {totalItems}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center justify-center gap-1 border-r border-stroke px-4 dark:border-strokedark xsm:flex-row">
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">
                         Total Quantity:
                       </span>

@@ -2,7 +2,7 @@ import React from 'react';
 import { z } from 'zod';
 import { CSSObject } from '@emotion/react';
 import { FormErrors, FormValues } from '../types/form';
-import { Item } from '../pages/Inventory/Items';
+import { ItemProps } from '../pages/Inventory/Item';
 
 export const handleInputChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -171,14 +171,14 @@ export const customSelectStyles = (isDarkMode: boolean) => ({
 
 export const getUpdatedInventory = (
   type: 'add' | 'update',
-  newItemData: Item,
+  newItemData: ItemProps,
   categories: string[],
   suppliers: string[],
   variants: string[],
   totalItems: number,
   totalValue: number,
   totalQuantity: number,
-  OldItemData?: Item,
+  OldItemData?: ItemProps,
 ) => {
   const newVariants = newItemData.variants
     ? newItemData.variants.map(
