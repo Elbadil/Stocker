@@ -12,7 +12,7 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import toast from 'react-hot-toast';
 import Loader from '../../common/Loader';
-import { customSelectStyles, getUpdatedInventory } from '../../utils/form';
+import { customSelectStyles } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -24,6 +24,7 @@ import { IRowNode } from 'ag-grid-community';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { setInventory } from '../../store/slices/inventorySlice';
+import { getUpdatedInventory } from './utils';
 
 export interface EditItemProps {
   item: ItemProps;

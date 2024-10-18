@@ -25,7 +25,7 @@ const initialState: inventoryState = {
   totalItems: 0,
   categories: { count: 0, names: [] },
   suppliers: { count: 0, names: [] },
-  variants: [],
+  variants: ['Color', 'Size', 'Weight'],
   loading: true,
   error: null,
 };
@@ -56,7 +56,9 @@ const inventorySlice = createSlice({
         count: payload.suppliers.count,
         names: payload.suppliers.names,
       };
-      state.variants = payload.variants;
+      state.variants = Array.from(
+        new Set(state.variants.concat(payload.variants)),
+      );
       state.totalItems = payload.totalItems;
       state.totalValue = payload.totalValue;
       state.totalQuantity = payload.totalQuantity;
@@ -76,7 +78,9 @@ const inventorySlice = createSlice({
           count: payload.suppliers.count,
           names: payload.suppliers.names,
         };
-        state.variants = payload.variants;
+        state.variants = Array.from(
+          new Set(state.variants.concat(payload.variants)),
+        );
         state.totalItems = payload.total_items;
         state.totalValue = payload.total_value;
         state.totalQuantity = payload.total_quantity;

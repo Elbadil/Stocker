@@ -17,7 +17,6 @@ import {
   requiredPositiveNumberField,
   nonBlankField,
   customSelectStyles,
-  getUpdatedInventory,
 } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
@@ -27,6 +26,7 @@ import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
 import { ItemProps } from './Item';
+import { getUpdatedInventory } from './utils';
 
 export const schema = z.object({
   name: requiredStringField('Name'),

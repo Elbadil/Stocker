@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.base',
     'apps.inventory',
+    'apps.client_orders',
     'django_extensions',
     'rest_framework',
     'rest_framework_simplejwt',

@@ -281,7 +281,7 @@ const Items = () => {
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
                   {/* Search | Item CRUD */}
-                  <div className="flex flex-col gap-3 sm:flex-row justify-between items-center">
+                  <div className="flex flex-col gap-3 sm:flex-row justify-between sm:items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
                       <label

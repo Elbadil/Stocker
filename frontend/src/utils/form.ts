@@ -2,7 +2,6 @@ import React from 'react';
 import { z } from 'zod';
 import { CSSObject } from '@emotion/react';
 import { FormErrors, FormValues } from '../types/form';
-import { ItemProps } from '../pages/Inventory/Item';
 
 export const handleInputChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -168,68 +167,3 @@ export const customSelectStyles = (isDarkMode: boolean) => ({
     color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(148 163 184)', // Placeholder color based on mode
   }),
 });
-
-export const getUpdatedInventory = (
-  type: 'add' | 'update',
-  newItemData: ItemProps,
-  categories: string[],
-  suppliers: string[],
-  variants: string[],
-  totalItems: number,
-  totalValue: number,
-  totalQuantity: number,
-  OldItemData?: ItemProps,
-) => {
-  const newVariants = newItemData.variants
-    ? newItemData.variants.map(
-        (variant: { name: string; options: string[] }) => variant.name,
-      )
-    : null;
-  const updateNames = (list: string[], entry: string | null) => {
-    return entry && !list.includes(entry) ? [...list, entry] : list;
-  };
-
-  const updateQuantityOrValue = (
-    prop: number,
-    newItemProp: number,
-    oldItemProp: number,
-  ) => {
-    if (oldItemProp === newItemProp) return prop;
-    return oldItemProp > newItemProp
-      ? prop - (oldItemProp - newItemProp)
-      : prop + (newItemProp - oldItemProp);
-  };
-
-  const updatedCategories = updateNames(categories, newItemData.category);
-  const updatedSuppliers = updateNames(suppliers, newItemData.supplier);
-  const updatedVariants = newVariants
-    ? Array.from(new Set(variants.concat(newVariants)))
-    : variants;
-
-  if (type === 'update' && OldItemData) {
-    return {
-      categories: { names: updatedCategories },
-      suppliers: { names: updatedSuppliers },
-      variants: updatedVariants,
-      totalItems,
-      totalQuantity: updateQuantityOrValue(
-        totalQuantity,
-        newItemData.quantity,
-        OldItemData.quantity,
-      ),
-      totalValue: updateQuantityOrValue(
-        totalValue,
-        newItemData.total_price,
-        OldItemData.total_price,
-      ),
-    };
-  }
-  return {
-    categories: { names: updatedCategories },
-    suppliers: { names: updatedSuppliers },
-    variants: updatedVariants,
-    totalItems: totalItems + 1,
-    totalQuantity: totalQuantity + newItemData.quantity,
-    totalValue: totalValue + newItemData.total_price,
-  };
-};
