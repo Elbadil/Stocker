@@ -119,6 +119,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def validate_variants(self, value):
         try:
+            unique_variants = []
             variants = json.loads(value) if isinstance(value, str) else value
             # Ensuring it's a list of dictionaries
             if not isinstance(variants, list):
@@ -134,6 +135,9 @@ class ItemSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError("Each variant must have a 'name'.")
                 if 'options' not in variant or not isinstance(variant['options'], list):
                     raise serializers.ValidationError("Each variant must have an 'options' list.")
+                if variant['name'] in unique_variants:
+                    raise serializers.ValidationError("Each variant name should be unique.")
+                unique_variants.append(variant['name'])
 
             return variants
         except json.JSONDecodeError:

@@ -206,6 +206,7 @@ const Items = () => {
       flex: 1,
       minWidth: 130,
       filterParams: {
+        inRangeInclusive: true,
         buttons: ['apply', 'reset'],
         closeOnApply: true,
       } as ITextFilterParams | INumberFilterParams | IDateFilterParams,
