@@ -74,3 +74,6 @@ class User(AbstractUser):
     # In Django, the objects attribute in a model class
     # defines the default manager for that model
     objects = UserManager() # Link UserManager to User model
+
+    def __str__(self) -> str:
+        return self.username

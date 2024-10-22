@@ -201,14 +201,17 @@ class ItemSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
 
         # Updating Item's category and supplier
-        item.category = self._get_or_create_category_supplier(user, Category, category_name)
-        item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
+        if category_name:
+            item.category = self._get_or_create_category_supplier(user, Category, category_name)
+        if supplier_name:
+            item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
         item.updated = True
         item.save()
 
         # Updating Item's variants
-        item.variants.clear()
-        VariantOption.objects.filter(item=item).delete()
+        if variants:
+            item.variants.clear()
+            VariantOption.objects.filter(item=item).delete()
         self._get_or_create_variants_with_options(item, user, variants)
 
         return item

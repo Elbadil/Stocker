@@ -94,11 +94,12 @@ class Order(BaseModel):
     client = models.ForeignKey(Client, on_delete=models.SET_NULL,
                                null=True)
     status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
-                               null=True, blank=True)
+                               null=True, blank=True,
+                               default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,
                                          null=True)
-    shipping_price = models.DecimalField(max_digits=6, decimal_places=2,
-                                         null=True, blank=True)
+    shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
+                                        null=True, blank=True)
     source = models.ForeignKey(AcquisitionSource,
                                on_delete=models.SET_NULL,
                                related_name='acquired_orders',
@@ -109,6 +110,21 @@ class Order(BaseModel):
     class Meta:
         ordering = ['-created_at']
 
+    @property
+    def items(self):
+        return self.ordered_items.all()
+
+    @property
+    def total_quantity(self):
+        return sum(item.ordered_quantity for item in self.items)
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items)
+
+    @property
+    def total_profit(self):
+        return sum(item.total_profit for item in self.items) - self.shipping_cost
 
     def __str__(self) -> str:
         return f'Order by: {self.client.name}'
@@ -116,7 +132,11 @@ class Order(BaseModel):
 
 class OrderedItem(BaseModel):
     """Ordered Item Model"""
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE,
+                                   null=True, blank=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE,
+                              null=True, blank=True,
+                              related_name="ordered_items")
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     ordered_quantity = models.IntegerField(validators=[MinValueValidator(1)])
     ordered_price = models.DecimalField(max_digits=6, decimal_places=2)
