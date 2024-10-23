@@ -17,6 +17,7 @@ import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
 import Items from './pages/Inventory/Items';
+import Clients from './pages/ClientOrders/Clients';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
@@ -50,6 +51,16 @@ function App() {
                   <>
                     <PageTitle title="Inventory | Stocker" />
                     <Items />
+                  </>
+                }
+              />
+              {/* Orders */}
+              <Route
+                path="client_orders/clients"
+                element={
+                  <>
+                    <PageTitle title="Client Orders | Stocker" />
+                    <Clients />
                   </>
                 }
               />

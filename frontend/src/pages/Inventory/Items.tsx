@@ -1,13 +1,10 @@
 import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
+import AgGridTable, {
+  dateFilterParams,
+} from '../../components/Tables/AgGridTable';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-  useRef,
-  useCallback,
-} from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
@@ -24,20 +21,12 @@ import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
 import { useAlert } from '../../contexts/AlertContext';
 import { Alert } from '../UiElements/Alert';
-import {
-  ColDef,
-  GridOptions,
-  RowSelectionOptions,
-  IDateFilterParams,
-  ITextFilterParams,
-  INumberFilterParams,
-  GetRowIdParams,
-} from 'ag-grid-community';
+import { ColDef } from 'ag-grid-community';
 import { handleItemExport, handleBulkExport } from './utils';
 
 const Items = () => {
   const { loading, totalItems, totalQuantity, totalValue } = useInventory();
-  const { alert, isDarkMode } = useAlert();
+  const { alert } = useAlert();
   const [itemsLoading, setItemsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<ItemProps | null>(null);
@@ -94,30 +83,6 @@ const Items = () => {
     ) : (
       <></>
     );
-  };
-
-  const dateFilterParams: IDateFilterParams = {
-    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
-      var dateAsString = cellValue;
-      if (dateAsString == null) return -1;
-      var dateParts = dateAsString.split('/');
-      var cellDate = new Date(
-        Number(dateParts[2]),
-        Number(dateParts[1]) - 1,
-        Number(dateParts[0]),
-      );
-      if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
-        return 0;
-      }
-      if (cellDate < filterLocalDateAtMidnight) {
-        return -1;
-      }
-      if (cellDate > filterLocalDateAtMidnight) {
-        return 1;
-      }
-      return 0;
-    },
-    inRangeFloatingFilterDateFormat: 'Do MMM YYYY',
   };
 
   const gridRef = useRef<AgGridReact>(null);
@@ -201,40 +166,6 @@ const Items = () => {
     },
   ]);
 
-  const defaultColDef = useMemo(() => {
-    return {
-      flex: 1,
-      minWidth: 130,
-      filterParams: {
-        inRangeInclusive: true,
-        buttons: ['apply', 'reset'],
-        closeOnApply: true,
-      } as ITextFilterParams | INumberFilterParams | IDateFilterParams,
-      filter: true,
-      autoHeight: true,
-      headerClass: 'text-base font-medium',
-      cellClass: 'font-medium',
-    };
-  }, []);
-
-  const rowSelection = useMemo<
-    RowSelectionOptions | 'single' | 'multiple'
-  >(() => {
-    return {
-      mode: 'multiRow',
-      selectAll: 'currentPage',
-      enableSelectionWithoutKeys: true,
-      // enableClickSelection: true,
-    };
-  }, []);
-
-  const gridOptions: GridOptions<ItemProps> = {
-    domLayout: 'autoHeight',
-    pagination: true,
-    paginationPageSize: 20,
-    enableCellTextSelection: true,
-  };
-
   const getAndSetSelectRows = () => {
     const selectedItems: ItemProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
@@ -244,11 +175,6 @@ const Items = () => {
   const getRowNode = (rowId: string) => {
     return gridRef.current?.api.getRowNode(rowId);
   };
-
-  const getRowId = useCallback(
-    (params: GetRowIdParams) => String(params.data.id),
-    [],
-  );
 
   useEffect(() => {
     getAndSetSelectRows();
@@ -460,23 +386,13 @@ const Items = () => {
                   </div>
 
                   {/* AG Grid DataTable */}
-                  <div
-                    className={`ag-theme-${
-                      isDarkMode ? 'quartz-dark' : 'quartz'
-                    } w-full flex-grow font-satoshi`}
-                  >
-                    <AgGridReact
-                      ref={gridRef}
-                      rowData={rowData}
-                      columnDefs={colDefs}
-                      rowSelection={rowSelection}
-                      onRowSelected={getAndSetSelectRows}
-                      defaultColDef={defaultColDef}
-                      gridOptions={gridOptions}
-                      quickFilterText={searchTerm}
-                      getRowId={getRowId}
-                    />
-                  </div>
+                  <AgGridTable
+                    rowData={rowData}
+                    colDefs={colDefs}
+                    searchTerm={searchTerm}
+                    ref={gridRef}
+                    onRowSelected={getAndSetSelectRows}
+                  />
                 </div>
               </div>
             </div>
