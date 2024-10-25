@@ -13,5 +13,8 @@ urlpatterns =[
          name="create_list_order"),
     path('order/<str:id>/',
          views.GetUpdateDeleteOrder.as_view(),
-         name="get_update_delete_order")
+         name="get_update_delete_order"),
+    path('cities/',
+         views.BulkCreateListCity.as_view(),
+         name="bulk_create_cities")
 ]

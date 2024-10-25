@@ -8,25 +8,45 @@ from ..inventory.models import Item
 User = get_user_model()
 
 
+class Country(BaseModel):
+    """Country Model"""
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class City(BaseModel):
+    """City Model"""
+    country = models.ForeignKey(Country, on_delete=models.CASCADE,
+                                related_name='cities')
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        unique_together = ['name', 'country']
+
+    def __str__(self) -> str:
+        return f'{self.name}, {self.country.name}'
+
+
 class Location(BaseModel):
     """Location Model"""
     added_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                  related_name='added_locations',
                                  help_text="The user who added this location to the system",
                                  null=True, blank=True)
-    city = models.CharField(max_length=100)
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL,
+                                null=True, blank=True)
+    city = models.ForeignKey(City, on_delete=models.SET_NULL,
+                             null=True, blank=True)
     street_address = models.CharField(max_length=200, blank=True, null=True)
-    country = models.CharField(max_length=100, blank=True, null=True)
-    region = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self) -> str:
-        components = [self.city]
+        components = [self.city.name]
         if self.street_address:
             components.append(self.street_address)
-        if self.region:
-            components.append(self.region)
         if self.country:
-            components.append(self.country)
+            components.append(self.country.name)
         if self.added_by:
             return ', '.join(components) + f' added by: {self.added_by.username}'
         return ', '.join(components)
@@ -152,6 +172,6 @@ class OrderedItem(BaseModel):
     @property
     def unit_profit(self):
         return (self.total_price / self.ordered_quantity) - self.item.price
-    
+
     def __str__(self) -> str:
         return f'{self.order.client.name} ordered {self.ordered_quantity} of {self.item.name}'

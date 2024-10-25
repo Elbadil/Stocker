@@ -5,6 +5,8 @@ from typing import List
 from .utils import get_or_create_location, get_or_create_source, get_location
 from utils.serializers import datetime_repr_format
 from .models import (Client,
+                     Country,
+                     City,
                      Location,
                      AcquisitionSource,
                      OrderedItem,
@@ -14,22 +16,72 @@ from ..inventory.models import Item
 from ..base.models import User
 
 
+class CountrySerializer(serializers.ModelSerializer):
+    """Country Serializer"""
+    class Meta:
+        model = Country
+        fields = '__all__'
+
+
+class CitySerializer(serializers.ModelSerializer):
+    """City Serializer"""
+    class Meta:
+        model = City
+        fields = '__all__'
+
+
 class LocationSerializer(serializers.ModelSerializer):
     """Location Serializer"""
+    country = serializers.CharField()
+    city = serializers.CharField()
+
     class Meta:
         model = Location
         fields = '__all__'
+    
+    def validate_country(self, value):
+        if value:
+            country = Country.objects.filter(name=value).exists()
+            if not country:
+                raise serializers.ValidationError("Invalid country.")
+            return value
+        return None
+    
+    def validate_city(self, value):
+        if value:
+            city = City.objects.filter(name=value).exists()
+            if not city:
+                raise serializers.ValidationError("Invalid city.")
+            return value
+        return None
+
+    def validate(self, attrs):
+        country_name = attrs.get('country', None)
+        city_name = attrs.get('city', None)
+        if country_name and city_name:
+            city = City.objects.filter(name=city_name,
+                                       country__name=country_name).first()
+            if not city:
+                raise serializers.ValidationError(
+                    {'city': 'City does not belong to the country provided.'})
+        return attrs
 
     def create(self, validated_data):
         user = self.context.get('user')
-        lookup_data = {f"{k}__iexact": v for k, v in validated_data.items()}
-        lookup_data['added_by'] = user
+        if user:
+            validated_data['added_by'] = user
 
+        city_name = validated_data.pop('city', None)
+        country_name = validated_data.pop('country', None)
+        if country_name:
+            validated_data['country'] = Country.objects.get(name=country_name)
+        if city_name:
+            validated_data['city'] = City.objects.get(name=city_name)
+        
         location, created = Location.objects.get_or_create(
-            **lookup_data,
+            **validated_data,
             defaults=validated_data
         )
-
         return location
 
 
@@ -84,11 +136,11 @@ class ClientSerializer(serializers.ModelSerializer):
         client = Client.objects.create(created_by=user, **validated_data)
 
         # Add client's location and source of acquisition
-        client.location = self.get_or_create_location(
+        client.location = get_or_create_location(
             user,
             location
         )
-        client.source = self.get_or_create_source(
+        client.source = get_or_create_source(
             user,
             source
         )

@@ -1,149 +1,88 @@
-import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
-import AgGridTable, {
-  dateFilterParams,
-} from '../../components/Tables/AgGridTable';
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import Item, { ItemProps } from './Item';
-import AddItem from './AddItem';
-import EditItem from './EditItem';
-import DeleteItem from './DeleteItem';
-import Loader from '../../common/Loader';
-import ModalOverlay from '../../components/ModalOverlay';
-import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { api } from '../../api/axios';
-import { useInventory } from '../../contexts/InventoryContext';
-import { useAlert } from '../../contexts/AlertContext';
-import { Alert } from '../UiElements/Alert';
+import AgGridTable, {
+  dateFilterParams,
+} from '../../../components/Tables/AgGridTable';
+import ModalOverlay from '../../../components/ModalOverlay';
+import Loader from '../../../common/Loader';
 import { ColDef } from 'ag-grid-community';
-import { handleItemExport, handleBulkExport } from './utils';
+import { useAlert } from '../../../contexts/AlertContext';
+import { Alert } from '../../UiElements/Alert';
+import { api } from '../../../api/axios';
+import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
+import { handleBulkExport, handleClientExport } from './utils';
+import AddClient from './AddClient';
 
-const Items = () => {
-  const { loading, totalItems, totalQuantity, totalValue } = useInventory();
+export interface Location {
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  street_address: string | null;
+}
+
+export interface ClientProps {
+  id: string;
+  created_by: string;
+  name: string;
+  age: number | null;
+  phone_number: string | null;
+  email: string | null;
+  sex: 'Male' | 'Female' | null;
+  location: Location;
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+  updated: boolean;
+}
+
+const Clients = () => {
   const { alert } = useAlert();
-  const [itemsLoading, setItemsLoading] = useState<boolean>(true);
+  const [clientsLoading, setClientsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedItem, setSelectedItem] = useState<ItemProps | null>(null);
-  const [openItem, setOpenItem] = useState<boolean>(false);
-  const [openAddItem, setOpenAddItem] = useState<boolean>(false);
-  const [openEditItem, setOpenEditItem] = useState<boolean>(false);
-  const [openDeleteItem, setOpenDeleteItem] = useState<boolean>(false);
+  const [selectedClient, setSelectedClient] = useState<ClientProps | null>(
+    null,
+  );
+  const [openClient, setOpenClient] = useState<boolean>(false);
+  const [openAddClient, setOpenAddClient] = useState<boolean>(false);
+  const [openEditClient, setOpenEditClient] = useState<boolean>(false);
+  const [openDeleteClient, setOpenDeleteClient] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
-  const NameRenderer = (props: CustomCellRendererProps) => {
-    return (
-      <button
-        className="hover:underline"
-        onClick={() => {
-          setOpenItem(true);
-          setSelectedItem(props.data);
-        }}
-      >
-        {props.value}
-      </button>
-    );
-  };
-
-  const VariantsRenderer = (props: CustomCellRendererProps) => {
-    const variants = props.value;
-    return variants ? (
-      <div className="grid divide-y">
-        {variants.map((variant: string, index: number) => (
-          <div
-            key={index}
-            className="whitespace-nowrap overflow-hidden text-ellipsis"
-          >
-            {variant.split(': ')[0]}: {variant.split(': ')[1]}
-          </div>
-        ))}
-      </div>
-    ) : (
-      <></>
-    );
-  };
-
-  const PictureRenderer = (props: CustomCellRendererProps) => {
-    return props.value ? (
-      <div className="mt-2.5 mb-2.5 h-20 w-20 rounded-full">
-        <img
-          src={props.value}
-          className="w-full h-full object-cover rounded-full"
-          alt="Item Picture"
-        />
-      </div>
-    ) : (
-      <></>
-    );
-  };
-
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<ItemProps[]>([]);
-  const [selectedRows, setSelectedRows] = useState<ItemProps[] | undefined>(
+  const [selectedRows, setSelectedRows] = useState<ClientProps[] | undefined>(
     undefined,
   );
-  const [colDefs] = useState<ColDef<ItemProps>[]>([
+  const [rowData, setRowData] = useState<ClientProps[]>([]);
+  const [colDefs] = useState<ColDef<ClientProps>[]>([
     {
       field: 'name',
-      cellRenderer: NameRenderer,
       flex: 3,
       minWidth: 150,
     },
     {
-      field: 'quantity',
+      field: 'phone_number',
+      headerName: 'Phone Number',
+      flex: 3,
+      minWidth: 165,
+    },
+    {
+      field: 'email',
+      flex: 3,
+      minWidth: 165,
+    },
+    {
+      field: 'age',
       flex: 1.2,
-      minWidth: 115,
+      minWidth: 105,
     },
-    {
-      field: 'price',
-      valueFormatter: (params) => params.value.toFixed(2),
-      getQuickFilterText: (params) => params.value.toFixed(2),
-      flex: 1.5,
-      minWidth: 115,
-    },
-    {
-      field: 'total_price',
-      headerName: 'T. Price',
-      valueFormatter: (params) => params.value.toFixed(2),
-      getQuickFilterText: (params) => params.value.toFixed(2),
-      flex: 1.5,
-      minWidth: 120,
-    },
-    {
-      field: 'variants',
-      valueGetter: (params) => {
-        let variants: string[] = [];
-        if (
-          params.data &&
-          params.data?.variants &&
-          Array.isArray(params.data?.variants)
-        ) {
-          params.data.variants.forEach((variant) => {
-            variants.push(`${variant.name}: ${variant.options.join(', ')}`);
-          });
-          return variants;
-        }
-      },
-      cellRenderer: VariantsRenderer,
-      flex: 2.5,
-      minWidth: 140,
-    },
-    {
-      field: 'picture',
-      cellRenderer: PictureRenderer,
-      getQuickFilterText: () => '',
-      minWidth: 120,
-      flex: 1.5,
-      filter: false,
-    },
-    { field: 'category', flex: 2 },
-    { field: 'supplier', flex: 2 },
     {
       field: 'created_at',
       headerName: 'Created',
@@ -165,9 +104,9 @@ const Items = () => {
   ]);
 
   const getAndSetSelectRows = () => {
-    const selectedItems: ItemProps[] | undefined =
+    const selectedClients: ClientProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
-    setSelectedRows(selectedItems);
+    setSelectedRows(selectedClients);
   };
 
   const getRowNode = (rowId: string) => {
@@ -175,29 +114,24 @@ const Items = () => {
   };
 
   useEffect(() => {
-    getAndSetSelectRows();
-  }, [openEditItem]);
-
-  useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await api.get('/inventory/user/items/');
+        const res = await api.get('/client_orders/clients/');
         setRowData(res.data);
       } catch (err) {
         console.log('Error getting user items', err);
       } finally {
-        setItemsLoading(false);
+        setClientsLoading(false);
       }
     };
-
     loadData();
   }, []);
 
   return (
     <>
       <div className="mx-auto max-w-full">
-        <Breadcrumb main="Inventory" pageName="Inventory Items" />
-        {loading || itemsLoading ? (
+        <Breadcrumb main="Orders" pageName="Clients" />
+        {clientsLoading ? (
           <Loader />
         ) : (
           <>
@@ -205,7 +139,7 @@ const Items = () => {
             <div className="col-span-5 xl:col-span-3 relative">
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
-                  {/* Search | Item CRUD */}
+                  {/* Search | Client CRUD */}
                   <div className="flex flex-col gap-3 sm:flex-row justify-between sm:items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
@@ -224,7 +158,7 @@ const Items = () => {
                           value={searchTerm}
                           onChange={handleSearchInputChange}
                           className="block max-w-sm p-3 ps-11 text-sm text-black border border-stroke rounded-lg bg-white focus:border-blue-500 focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:placeholder-slate-300 dark:text-white dark:focus:border-primary"
-                          placeholder="Search Items..."
+                          placeholder="Search Clients..."
                           required
                         />
                         {searchTerm && (
@@ -250,22 +184,23 @@ const Items = () => {
                         Bulk Export
                       </button>
                     </div>
-                    {/* Read Add | Edit | Delete | Export Item */}
+                    {/* Read Add | Edit | Delete | Export Client */}
                     <div>
                       {/* Read Item Modal */}
-                      {selectedItem && (
+                      {selectedClient && (
                         <ModalOverlay
-                          isOpen={openItem}
-                          onClose={() => setOpenItem(false)}
+                          isOpen={openClient}
+                          onClose={() => setOpenClient(false)}
                         >
-                          <Item
-                            item={selectedItem}
-                            setItem={setSelectedItem}
-                            itemRowNode={getRowNode(selectedItem.id)}
-                            setOpen={setOpenItem}
-                            rowData={rowData}
-                            setRowData={setRowData}
-                          />
+                          <div>Hi</div>
+                          {/* <Item
+                          item={selectedClient}
+                          setItem={setSelectedClient}
+                          itemRowNode={getRowNode(selectedClient.id)}
+                          setOpen={setOpenClient}
+                          rowData={rowData}
+                          setRowData={setRowData}
+                        /> */}
                         </ModalOverlay>
                       )}
                       {/* Export item(s) */}
@@ -276,7 +211,7 @@ const Items = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => handleItemExport(selectedRows)}
+                        onClick={handleClientExport}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
@@ -290,23 +225,24 @@ const Items = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-red-500 text-white'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => setOpenDeleteItem(true)}
+                        onClick={() => setOpenDeleteClient(true)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <DeleteOutlinedIcon />
                       </button>
                       {selectedRows && selectedRows.length >= 1 && (
                         <ModalOverlay
-                          isOpen={openDeleteItem}
-                          onClose={() => setOpenDeleteItem(false)}
+                          isOpen={openDeleteClient}
+                          onClose={() => setOpenDeleteClient(false)}
                         >
-                          <DeleteItem
-                            items={selectedRows}
-                            open={openDeleteItem}
-                            setOpen={setOpenDeleteItem}
-                            rowData={rowData}
-                            setRowData={setRowData}
-                          />
+                          <div>Hi</div>
+                          {/* <DeleteItem
+                          items={selectedRows}
+                          open={openDeleteClient}
+                          setOpen={setOpenDeleteClient}
+                          rowData={rowData}
+                          setRowData={setRowData}
+                        /> */}
                         </ModalOverlay>
                       )}
                       {/* Edit item */}
@@ -317,52 +253,52 @@ const Items = () => {
                             ? 'bg-primary text-white'
                             : 'text-slate-400 bg-gray dark:bg-meta-4'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => setOpenEditItem(true)}
+                        onClick={() => setOpenEditClient(true)}
                         disabled={!selectedRows || selectedRows.length !== 1}
                       >
                         <ModeEditOutlineOutlinedIcon />
                       </button>
                       {selectedRows && selectedRows[0] && (
                         <ModalOverlay
-                          isOpen={openEditItem}
-                          onClose={() => setOpenEditItem(false)}
+                          isOpen={openEditClient}
+                          onClose={() => setOpenEditClient(false)}
                         >
-                          <EditItem
-                            open={openEditItem}
-                            setOpen={setOpenEditItem}
-                            rowNode={getRowNode(selectedRows[0].id)}
-                            item={selectedRows[0]}
-                          />
+                          <div>Hi</div>
+                          {/* <EditItem
+                          open={openEditClient}
+                          setOpen={setOpenEditClient}
+                          rowNode={getRowNode(selectedRows[0].id)}
+                          item={selectedRows[0]}
+                        /> */}
                         </ModalOverlay>
                       )}
-                      {/* Add item */}
+                      {/* Add Client */}
                       <button
                         className="inline-flex items-center justify-center rounded-full bg-meta-3 py-2 px-3 text-center font-medium text-white hover:bg-opacity-90 lg:px-3 xl:px-3"
-                        onClick={() => setOpenAddItem(true)}
+                        onClick={() => setOpenAddClient(true)}
                         aria-hidden={false}
                       >
                         <AddCircleOutlinedIcon sx={{ marginRight: '3px' }} />
                         New
                       </button>
                       <ModalOverlay
-                        isOpen={openAddItem}
-                        onClose={() => setOpenAddItem(false)}
+                        isOpen={openAddClient}
+                        onClose={() => setOpenAddClient(false)}
                       >
-                        <AddItem
-                          open={openAddItem}
-                          setOpen={setOpenAddItem}
+                        <AddClient
+                          open={openAddClient}
+                          setOpen={setOpenAddClient}
                           setRowData={setRowData}
                         />
                       </ModalOverlay>
                     </div>
                   </div>
-
-                  {/* Inventory Info: Items | Quantity | Value */}
+                  {/* Clients Info */}
                   <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-3 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Items:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {totalItems}
+                        4
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
@@ -370,7 +306,7 @@ const Items = () => {
                         Total Quantity:
                       </span>
                       <span className="font-semibold text-black dark:text-white">
-                        {totalQuantity}
+                        5
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 xsm:flex-row">
@@ -378,11 +314,10 @@ const Items = () => {
                         Total Value:
                       </span>
                       <span className="font-semibold text-black dark:text-white">
-                        {totalValue.toFixed(2)}
+                        7
                       </span>
                     </div>
                   </div>
-
                   {/* AG Grid DataTable */}
                   <AgGridTable
                     ref={gridRef}
@@ -401,4 +336,4 @@ const Items = () => {
   );
 };
 
-export default Items;
+export default Clients;

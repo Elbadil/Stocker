@@ -211,9 +211,9 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
         const { inventory } = getState();
         dispatch(
           setInventory({
-            ...inventory,  
+            ...inventory,
             ...inventoryPlusNewItem,
-          })
+          }),
         );
       });
       setOpen(false);

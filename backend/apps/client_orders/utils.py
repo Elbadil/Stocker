@@ -38,9 +38,8 @@ def get_or_create_source(
 def get_location(instance_attribute):
     if instance_attribute:
         return {
-            'country': instance_attribute.country,
-            'region': instance_attribute.region,
-            'city': instance_attribute.city,
+            'country': instance_attribute.country.name,
+            'city': instance_attribute.city.name,
             'street_address': instance_attribute.street_address,
         }
     return None
