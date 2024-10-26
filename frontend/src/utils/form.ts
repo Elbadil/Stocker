@@ -166,4 +166,12 @@ export const customSelectStyles = (isDarkMode: boolean) => ({
     ...provided,
     color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(148 163 184)', // Placeholder color based on mode
   }),
+  input: (provided: CSSObject) => ({
+    ...provided,
+    color: isDarkMode ? '#ffffff' : '#000000', // Text color for typed input
+  }),
+  menuList: (provided: CSSObject) => ({
+    ...provided,
+    maxHeight: 150, // Set maximum height for the dropdown (in pixels)
+  }),
 });

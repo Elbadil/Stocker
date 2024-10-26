@@ -17,6 +17,7 @@ import { api } from '../../../api/axios';
 import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
 import { handleBulkExport, handleClientExport } from './utils';
 import AddClient from './AddClient';
+import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 
 export interface Location {
   country: string | null;
@@ -35,6 +36,7 @@ export interface ClientProps {
   sex: 'Male' | 'Female' | null;
   location: Location;
   source: string | null;
+  total_orders: number;
   created_at: string;
   updated_at: string;
   updated: boolean;
@@ -42,6 +44,7 @@ export interface ClientProps {
 
 const Clients = () => {
   const { alert } = useAlert();
+  const { loading } = useClientOrders();
   const [clientsLoading, setClientsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<ClientProps | null>(
@@ -68,6 +71,12 @@ const Clients = () => {
       minWidth: 150,
     },
     {
+      field: 'total_orders',
+      headerName: 'Total Orders',
+      flex: 3,
+      minWidth: 150,
+    },
+    {
       field: 'phone_number',
       headerName: 'Phone Number',
       flex: 3,
@@ -77,11 +86,6 @@ const Clients = () => {
       field: 'email',
       flex: 3,
       minWidth: 165,
-    },
-    {
-      field: 'age',
-      flex: 1.2,
-      minWidth: 105,
     },
     {
       field: 'created_at',
@@ -131,7 +135,7 @@ const Clients = () => {
     <>
       <div className="mx-auto max-w-full">
         <Breadcrumb main="Orders" pageName="Clients" />
-        {clientsLoading ? (
+        {loading || clientsLoading ? (
           <Loader />
         ) : (
           <>

@@ -16,5 +16,8 @@ urlpatterns =[
          name="get_update_delete_order"),
     path('cities/',
          views.BulkCreateListCity.as_view(),
-         name="bulk_create_cities")
+         name="bulk_create_cities"),
+    path('data/',
+         views.GetClientOrdersData.as_view(),
+         name='get_client_orders_data')
 ]

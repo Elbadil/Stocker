@@ -27,9 +27,10 @@ def get_or_create_source(
 ) -> Union[AcquisitionSource, None]:
     if value:
         acq_source, created = AcquisitionSource.objects.get_or_create(
-            added_by=user,
+            added_by__isnull=True,
             name__iexact=value,
-            defaults={'name': value}
+            defaults={'added_by': user,
+                      'name': value}
         )
         return acq_source
     return None

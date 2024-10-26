@@ -3,8 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from ..base.auth import TokenVersionAuthentication
+from django.db.models import Q
 from . import serializers
-from .models import Client, Order, OrderedItem, City
+from .models import (Client,
+                     Order,
+                     Country,
+                     City,
+                     AcquisitionSource,
+                     OrderStatus)
 
 
 class CreateListClient(generics.ListCreateAPIView):
@@ -60,3 +66,29 @@ class BulkCreateListCity(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class GetClientOrdersData(generics.GenericAPIView):
+    """Returns necessary data related to user's client orders"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        clients = list(Client.objects.filter(created_by=user).values_list('name', flat=True))
+        orders_count = Order.objects.filter(created_by=user).count()
+        countries = []
+        for country in Country.objects.all():
+            countries.append(
+                {'name': country.name,
+                'cities': [city.name for city in country.cities.all()]})
+        acq_sources = list(AcquisitionSource.objects.filter(
+                           Q(added_by=user) | Q(added_by__isnull=True)
+                           ).values_list('name', flat=True))
+        order_status = list(OrderStatus.objects.all().values_list('name', flat=True))
+        return Response({'clients': {'count': len(clients), 'names': clients},
+                         'orders_count': orders_count,
+                         'countries': countries,
+                         'acq_sources': acq_sources,
+                         'order_status': order_status},
+                         status=status.HTTP_200_OK)

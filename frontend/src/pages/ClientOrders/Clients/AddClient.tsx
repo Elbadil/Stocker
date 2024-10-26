@@ -1,26 +1,43 @@
 import { SubmitHandler, useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
-import Select from 'react-select';
+import Select, { SingleValue } from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import { zodResolver } from '@hookform/resolvers/zod';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { requiredStringField, customSelectStyles } from '../../../utils/form';
 import { useAlert } from '../../../contexts/AlertContext';
 import { ClientProps } from './Clients';
+import { useClientOrders } from '../../../contexts/ClientOrdersContext';
+import { api } from '../../../api/axios';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
   phone_number: z.string(),
-  email: z.string().email().optional(),
-  age: z.number(),
-  sex: z.string(),
-  location: z.object({
-    country: z.string(),
-    region: z.string(),
-    city: z.string(),
-    street_address: z.string(),
-  }),
-  source: z.string(),
+  email: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().email().optional(),
+  ),
+  age: z.preprocess((val) => (val ? Number(val) : null), z.number().nullable()),
+  sex: z.string().optional().nullable(),
+  location: z
+    .object({
+      country: z.string().optional().nullable(),
+      city: z.string().optional().nullable(),
+      street_address: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.string().optional(),
+      ),
+    })
+    .transform((loc) => {
+      // If all properties are null or undefined, return undefined
+      return Object.values(loc).every(
+        (val) => val === null || val === undefined,
+      )
+        ? undefined
+        : loc;
+    }),
+  source: z.string().optional().nullable(),
 });
 
 export type ClientSchema = z.infer<typeof schema>;
@@ -32,23 +49,102 @@ interface AddClientProps {
 }
 
 const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
-  const { isDarkMode } = useAlert();
-  const sexOptions = [
-    { value: 'Male', label: 'Male' },
-    { value: 'Female', label: 'Female' },
-  ];
+  const { isDarkMode, setAlert } = useAlert();
+  const { countries, acqSources } = useClientOrders();
+  const [cityOptions, setCityOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+
   const {
     register,
     handleSubmit,
     control,
+    setValue,
+    setError,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ClientSchema>({
     resolver: zodResolver(schema),
   });
 
-  const onSubmit: SubmitHandler<ClientSchema> = (data) => {
-    console.log(data);
+  const sexOptions = [
+    { value: 'Male', label: 'Male' },
+    { value: 'Female', label: 'Female' },
+  ];
+
+  const countryOptions = countries.map((country) => ({
+    value: country.name,
+    label: country.name,
+  }));
+
+  const acqSourceOptions = acqSources.map((source) => ({
+    value: source,
+    label: source,
+  }));
+
+  const handleCountryChange = (
+    onChange: (value: string | null) => void,
+    option: SingleValue<{ value: string; label: string }>,
+  ) => {
+    if (option) {
+      onChange(option.value);
+      const country = countries.find(
+        (country) => country.name === option.value,
+      );
+      if (country) {
+        setCityOptions(
+          country.cities.map((city) => ({ value: city, label: city })),
+        );
+      }
+    } else {
+      onChange(null);
+      setCityOptions([]);
+      setValue('location.city', null);
+    }
   };
+
+  const onSubmit: SubmitHandler<ClientSchema> = async (data) => {
+    console.log(data);
+    try {
+      const res = await api.post('/client_orders/clients/', data);
+      const newClient = res.data;
+      setAlert({
+        type: 'success',
+        title: 'New Client Added',
+        description: `Client ${newClient.name} has been successfully added.`,
+      });
+      setRowData((prev) => [newClient, ...prev]);
+      setOpen(false);
+    } catch (error: any) {
+      console.log('Error during form submission:', error);
+      if (error.response && error.response.status === 400) {
+        const errorData = error.response.data;
+        (Object.keys(errorData) as Array<keyof ClientSchema>).forEach(
+          (field) => {
+            if (field === 'location') {
+              const locationErrors = errorData[field];
+              Object.keys(locationErrors).forEach((prop) => {
+                const locationProp = prop as keyof ClientSchema['location'];
+                setError(`${field}.${locationProp}`, {
+                  message: locationErrors[locationProp],
+                });
+              });
+            } else {
+              setError(field, { message: errorData[field] });
+            }
+          },
+        );
+      } else {
+        setError('root', {
+          message: 'Something went wrong. Please try again later.',
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    reset();
+  }, [open]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
@@ -85,7 +181,7 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
               <input
                 className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                 type="text"
-                placeholder="Enter item name"
+                placeholder="Enter client name"
                 {...register('name')}
               />
               {errors.name && (
@@ -105,7 +201,7 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
               <input
                 className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                 type="text"
-                placeholder="Enter item name"
+                placeholder="Enter client number"
                 {...register('phone_number')}
               />
               {errors.phone_number && (
@@ -125,8 +221,8 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
               <input
                 className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                 type="text"
-                placeholder="Enter item name"
-                {...register('phone_number')}
+                placeholder="Enter client email"
+                {...register('email')}
               />
               {errors.email && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
@@ -148,7 +244,9 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
                   className="w-full rounded border border-stroke bg-gray py-2 pl-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                   type="number"
                   placeholder="e.g. 20"
-                  {...register('age')}
+                  {...register('age', {
+                    valueAsNumber: true,
+                  })}
                 />
                 {errors.age && (
                   <p className="text-red-500 font-medium text-sm italic mt-2">
@@ -188,6 +286,11 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
                     )}
                   />
                 )}
+                {errors.sex && (
+                  <p className="text-red-500 font-medium text-sm italic mt-2">
+                    {errors.sex.message}
+                  </p>
+                )}
               </div>
             </div>
             {/* Source of Acquisition */}
@@ -198,12 +301,30 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
               >
                 Source of Acquisition
               </label>
-              <input
-                className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
-                type="text"
-                placeholder="Enter item name"
-                {...register('source')}
-              />
+              {open && (
+                <Controller
+                  name="source"
+                  control={control}
+                  rules={{ required: false }}
+                  render={({ field: { value, onChange, ...field } }) => (
+                    <CreatableSelect
+                      {...field}
+                      isClearable
+                      value={
+                        value
+                          ? acqSourceOptions.find(
+                              (option) => option.value === value,
+                            )
+                          : null
+                      }
+                      onChange={(option) => onChange(option?.value || null)}
+                      options={acqSourceOptions}
+                      styles={customSelectStyles(isDarkMode)}
+                      placeholder={<span>Create or Select...</span>}
+                    />
+                  )}
+                />
+              )}
               {errors.source && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
                   {errors.source.message}
@@ -213,23 +334,117 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
             {/* Location */}
             <div className="mb-4">
               <label
-                className="mb-2 block text-sm font-medium text-black dark:text-white"
+                className="mb-2 border-b pb-2 border-stroke dark:border-slate-600 block text-Base font-medium text-black dark:text-white"
                 htmlFor="location"
               >
                 Location
               </label>
+              {/* Country & City */}
+              <div className="mb-4 flex flex-col gap-5.5 sm:flex-row">
+                {/* Country */}
+                <div className="w-full sm:w-1/2">
+                  <label
+                    className="mb-2 block text-sm font-medium text-black dark:text-white"
+                    htmlFor="country"
+                  >
+                    Country
+                  </label>
+                  {open && (
+                    <Controller
+                      name="location.country"
+                      control={control}
+                      rules={{ required: false }}
+                      render={({ field: { value, onChange, ...field } }) => (
+                        <Select
+                          {...field}
+                          isClearable
+                          value={
+                            value
+                              ? countryOptions.find(
+                                  (option) => option.value === value,
+                                )
+                              : null
+                          }
+                          onChange={(option) =>
+                            handleCountryChange(onChange, option)
+                          }
+                          options={countryOptions}
+                          styles={customSelectStyles(isDarkMode)}
+                        />
+                      )}
+                    />
+                  )}
+                  {errors.location?.country && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {errors.location.country.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* City */}
+                <div className="w-full sm:w-1/2">
+                  <label
+                    className="mb-2 block text-sm font-medium text-black dark:text-white"
+                    htmlFor="city"
+                  >
+                    City
+                  </label>
+                  {open && (
+                    <Controller
+                      name="location.city"
+                      control={control}
+                      rules={{ required: false }}
+                      render={({ field: { value, onChange, ...field } }) => (
+                        <Select
+                          {...field}
+                          isClearable
+                          value={
+                            value
+                              ? cityOptions.find(
+                                  (option) => option.value === value,
+                                )
+                              : null
+                          }
+                          onChange={(option) => onChange(option?.value || null)}
+                          options={cityOptions}
+                          noOptionsMessage={() =>
+                            'Choose a country for city options'
+                          }
+                          styles={customSelectStyles(isDarkMode)}
+                        />
+                      )}
+                    />
+                  )}
+                  {errors.location?.city && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {errors.location.city.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <label
+                className="mb-2 block text-sm font-medium text-black dark:text-white"
+                htmlFor="address"
+              >
+                Address
+              </label>
               <input
                 className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                 type="text"
-                placeholder="Enter item name"
-                {...register('location')}
+                placeholder="eg. Oued Tansift Street N2"
+                {...register('location.street_address')}
               />
-              {errors.location && (
+              {errors.location?.street_address && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
-                  {errors.location.message}
+                  {errors.location.street_address.message}
                 </p>
               )}
             </div>
+            {errors.root && (
+              <p className="text-red-500 font-medium text-sm italic mt-2">
+                {errors.root.message}
+              </p>
+            )}
           </div>
         </div>
         {/* Submit Form*/}

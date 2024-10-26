@@ -95,7 +95,7 @@ class AcquisitionSourceSerializer(serializers.ModelSerializer):
 class ClientSerializer(serializers.ModelSerializer):
     """Client Serializer"""
     location = LocationSerializer(many=False, required=False)
-    source = serializers.CharField(required=False)
+    source = serializers.CharField(allow_blank=True, required=False)
 
     class Meta:
         model = Client
@@ -109,6 +109,7 @@ class ClientSerializer(serializers.ModelSerializer):
             'sex',
             'location',
             'source',
+            'total_orders',
             'created_at',
             'updated_at',
             'updated',
@@ -136,14 +137,10 @@ class ClientSerializer(serializers.ModelSerializer):
         client = Client.objects.create(created_by=user, **validated_data)
 
         # Add client's location and source of acquisition
-        client.location = get_or_create_location(
-            user,
-            location
-        )
-        client.source = get_or_create_source(
-            user,
-            source
-        )
+        if location:
+            client.location = get_or_create_location(user, location)
+        if source:
+            client.source = get_or_create_source(user, source)
         client.save()
 
         return client

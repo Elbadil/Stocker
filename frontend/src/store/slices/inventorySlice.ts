@@ -88,7 +88,7 @@ const inventorySlice = createSlice({
       })
       .addCase(getInventoryData.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to get the access token.';
+        state.error = action.error.message || 'Failed to get inventory data.';
       });
   },
 });

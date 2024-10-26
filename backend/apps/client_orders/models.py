@@ -81,16 +81,21 @@ class Client(BaseModel):
                            choices=[('Male', 'Male'),
                                     ('Female', 'Female')])
     location = models.ForeignKey(Location, on_delete=models.SET_NULL,
-                                 null=True)
+                                 null=True, blank=True)
     source = models.ForeignKey(AcquisitionSource,
                                on_delete=models.SET_NULL,
                                related_name='acquired_clients',
                                help_text="The source through which this client was acquired",
-                               null=True)
+                               null=True,
+                               blank=True)
     updated = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
+
+    @property
+    def total_orders(self):
+        return self.orders.all().count()
 
     def __str__(self) -> str:
         return self.name
@@ -112,6 +117,7 @@ class Order(BaseModel):
                                    null=True,
                                    blank=True)
     client = models.ForeignKey(Client, on_delete=models.SET_NULL,
+                               related_name="orders",
                                null=True)
     status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
                                null=True, blank=True,
