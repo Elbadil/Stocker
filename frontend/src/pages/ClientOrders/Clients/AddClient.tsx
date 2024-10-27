@@ -10,15 +10,16 @@ import { useAlert } from '../../../contexts/AlertContext';
 import { ClientProps } from './Clients';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { api } from '../../../api/axios';
+import { findCountryAndSetCities } from './utils';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
-  phone_number: z.string(),
+  phone_number: z.string().optional().nullable(),
   email: z.preprocess(
     (val) => (val === '' ? undefined : val),
-    z.string().email().optional(),
+    z.string().email().optional().nullable(),
   ),
-  age: z.preprocess((val) => (val ? Number(val) : null), z.number().nullable()),
+  age: z.preprocess((val) => (val ? Number(val) : null), z.number().optional().nullable()),
   sex: z.string().optional().nullable(),
   location: z
     .object({
@@ -26,7 +27,7 @@ export const schema = z.object({
       city: z.string().optional().nullable(),
       street_address: z.preprocess(
         (val) => (val === '' ? undefined : val),
-        z.string().optional(),
+        z.string().optional().nullable(),
       ),
     })
     .transform((loc) => {
@@ -61,6 +62,7 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
     control,
     setValue,
     setError,
+    watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<ClientSchema>({
@@ -82,20 +84,21 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
     label: source,
   }));
 
+  const currentValues = watch();
+
   const handleCountryChange = (
     onChange: (value: string | null) => void,
     option: SingleValue<{ value: string; label: string }>,
   ) => {
     if (option) {
       onChange(option.value);
-      const country = countries.find(
-        (country) => country.name === option.value,
+      findCountryAndSetCities(
+        option.value,
+        countries,
+        setCityOptions,
+        currentValues,
+        setValue,
       );
-      if (country) {
-        setCityOptions(
-          country.cities.map((city) => ({ value: city, label: city })),
-        );
-      }
     } else {
       onChange(null);
       setCityOptions([]);

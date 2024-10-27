@@ -95,7 +95,7 @@ class AcquisitionSourceSerializer(serializers.ModelSerializer):
 class ClientSerializer(serializers.ModelSerializer):
     """Client Serializer"""
     location = LocationSerializer(many=False, required=False)
-    source = serializers.CharField(allow_blank=True, required=False)
+    source = serializers.CharField(allow_blank=True, allow_null=True, required=False)
 
     class Meta:
         model = Client

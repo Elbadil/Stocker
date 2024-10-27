@@ -17,25 +17,25 @@ import { api } from '../../../api/axios';
 import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
 import { handleBulkExport, handleClientExport } from './utils';
 import AddClient from './AddClient';
+import EditClient from './EditClient';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 
 export interface Location {
-  country: string | null;
-  region: string | null;
-  city: string | null;
-  street_address: string | null;
+  country?: string | null;
+  city?: string | null;
+  street_address?: string | null;
 }
 
 export interface ClientProps {
   id: string;
   created_by: string;
   name: string;
-  age: number | null;
-  phone_number: string | null;
-  email: string | null;
-  sex: 'Male' | 'Female' | null;
-  location: Location;
-  source: string | null;
+  age?: number | null;
+  phone_number?: string | null;
+  email?: string | null;
+  sex?: 'Male' | 'Female' | null;
+  location?: Location;
+  source?: string | null;
   total_orders: number;
   created_at: string;
   updated_at: string;
@@ -131,6 +131,10 @@ const Clients = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    getAndSetSelectRows();
+  }, [openEditClient]);
+
   return (
     <>
       <div className="mx-auto max-w-full">
@@ -190,7 +194,7 @@ const Clients = () => {
                     </div>
                     {/* Read Add | Edit | Delete | Export Client */}
                     <div>
-                      {/* Read Item Modal */}
+                      {/* Read Client Modal */}
                       {selectedClient && (
                         <ModalOverlay
                           isOpen={openClient}
@@ -207,7 +211,7 @@ const Clients = () => {
                         /> */}
                         </ModalOverlay>
                       )}
-                      {/* Export item(s) */}
+                      {/* Export Client(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -221,7 +225,7 @@ const Clients = () => {
                         <FileDownloadOutlinedIcon />
                       </button>
 
-                      {/* Delete item(s) */}
+                      {/* Delete Client(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -249,7 +253,7 @@ const Clients = () => {
                         /> */}
                         </ModalOverlay>
                       )}
-                      {/* Edit item */}
+                      {/* Edit Client */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -267,13 +271,12 @@ const Clients = () => {
                           isOpen={openEditClient}
                           onClose={() => setOpenEditClient(false)}
                         >
-                          <div>Hi</div>
-                          {/* <EditItem
-                          open={openEditClient}
-                          setOpen={setOpenEditClient}
-                          rowNode={getRowNode(selectedRows[0].id)}
-                          item={selectedRows[0]}
-                        /> */}
+                          <EditClient
+                            open={openEditClient}
+                            setOpen={setOpenEditClient}
+                            client={selectedRows[0]}
+                            rowNode={getRowNode(selectedRows[0].id)}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Add Client */}

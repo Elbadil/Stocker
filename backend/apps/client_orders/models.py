@@ -42,9 +42,11 @@ class Location(BaseModel):
     street_address = models.CharField(max_length=200, blank=True, null=True)
 
     def __str__(self) -> str:
-        components = [self.city.name]
+        components = []
         if self.street_address:
             components.append(self.street_address)
+        if self.city:
+            components.append(self.city.name)
         if self.country:
             components.append(self.country.name)
         if self.added_by:
