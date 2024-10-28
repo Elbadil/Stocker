@@ -30,6 +30,21 @@ class GetUpdateDeleteClient(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
 
+class BulkDeleteClients(generics.DestroyAPIView):
+    """Handles Client Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def delete(self, request, *args, **kwargs):
+        clients_ids = request.data.get('ids', [])
+        if not clients_ids:
+            return Response({"error": "No IDs provided."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        delete_count, _ = Client.objects.filter(id__in=clients_ids).delete()
+        return Response({'message': f'{delete_count} clients deleted'},
+                         status=status.HTTP_200_OK)
+
+
 class CreateListOrder(generics.ListCreateAPIView):
     """Handles Order Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)

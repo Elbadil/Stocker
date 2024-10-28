@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AgGridReact } from 'ag-grid-react';
+import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
@@ -16,35 +16,15 @@ import { Alert } from '../../UiElements/Alert';
 import { api } from '../../../api/axios';
 import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
 import { handleBulkExport, handleClientExport } from './utils';
+import Client, { ClientProps } from './Client';
 import AddClient from './AddClient';
 import EditClient from './EditClient';
+import DeleteClient from './DeleteClient';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
-
-export interface Location {
-  country?: string | null;
-  city?: string | null;
-  street_address?: string | null;
-}
-
-export interface ClientProps {
-  id: string;
-  created_by: string;
-  name: string;
-  age?: number | null;
-  phone_number?: string | null;
-  email?: string | null;
-  sex?: 'Male' | 'Female' | null;
-  location?: Location;
-  source?: string | null;
-  total_orders: number;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
 
 const Clients = () => {
   const { alert } = useAlert();
-  const { loading } = useClientOrders();
+  const { clients, ordersCount, loading } = useClientOrders();
   const [clientsLoading, setClientsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<ClientProps | null>(
@@ -59,6 +39,20 @@ const Clients = () => {
     setSearchTerm(e.target.value);
   };
 
+  const NameRenderer = (props: CustomCellRendererProps) => {
+    return (
+      <button
+        className="hover:underline"
+        onClick={() => {
+          setOpenClient(true);
+          setSelectedClient(props.data);
+        }}
+      >
+        {props.value}
+      </button>
+    );
+  };
+
   const gridRef = useRef<AgGridReact>(null);
   const [selectedRows, setSelectedRows] = useState<ClientProps[] | undefined>(
     undefined,
@@ -69,6 +63,7 @@ const Clients = () => {
       field: 'name',
       flex: 3,
       minWidth: 150,
+      cellRenderer: NameRenderer,
     },
     {
       field: 'total_orders',
@@ -200,15 +195,14 @@ const Clients = () => {
                           isOpen={openClient}
                           onClose={() => setOpenClient(false)}
                         >
-                          <div>Hi</div>
-                          {/* <Item
-                          item={selectedClient}
-                          setItem={setSelectedClient}
-                          itemRowNode={getRowNode(selectedClient.id)}
-                          setOpen={setOpenClient}
-                          rowData={rowData}
-                          setRowData={setRowData}
-                        /> */}
+                          <Client
+                            client={selectedClient}
+                            setClient={setSelectedClient}
+                            clientRowNode={getRowNode(selectedClient.id)}
+                            setOpen={setOpenClient}
+                            rowData={rowData}
+                            setRowData={setRowData}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Export Client(s) */}
@@ -243,14 +237,13 @@ const Clients = () => {
                           isOpen={openDeleteClient}
                           onClose={() => setOpenDeleteClient(false)}
                         >
-                          <div>Hi</div>
-                          {/* <DeleteItem
-                          items={selectedRows}
-                          open={openDeleteClient}
-                          setOpen={setOpenDeleteClient}
-                          rowData={rowData}
-                          setRowData={setRowData}
-                        /> */}
+                          <DeleteClient
+                            clients={selectedRows}
+                            open={openDeleteClient}
+                            setOpen={setOpenDeleteClient}
+                            rowData={rowData}
+                            setRowData={setRowData}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Edit Client */}
@@ -300,28 +293,18 @@ const Clients = () => {
                       </ModalOverlay>
                     </div>
                   </div>
-                  {/* Clients Info */}
-                  <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-3 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
+                  {/* Clients Info | Clients Count | Orders Count */}
+                  <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-2 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
-                      <span className="text-base font-medium">Items:</span>
+                      <span className="text-base font-medium">Clients:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        4
+                        {clients.count}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
-                      <span className="text-base font-medium">
-                        Total Quantity:
-                      </span>
+                    <div className="flex flex-col items-center justify-center gap-1 px-4 xsm:flex-row">
+                      <span className="text-base font-medium">Orders:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        5
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center gap-1 xsm:flex-row">
-                      <span className="text-base font-medium">
-                        Total Value:
-                      </span>
-                      <span className="font-semibold text-black dark:text-white">
-                        7
+                        {ordersCount}
                       </span>
                     </div>
                   </div>

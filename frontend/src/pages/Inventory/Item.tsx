@@ -45,7 +45,7 @@ const Item = ({
   const [openDeleteItem, setOpenDeleteItem] = useState<boolean>(false);
 
   return (
-    <div className="mx-auto max-w-md min-w-100 border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
+    <div className="mx-auto max-w-sm border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
       {/* Item Modal Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">

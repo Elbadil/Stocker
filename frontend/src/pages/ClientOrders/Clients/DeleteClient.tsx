@@ -1,98 +1,90 @@
 import React, { useEffect, useState } from 'react';
+import { ClientProps } from './Client';
+import { api } from '../../../api/axios';
+import { useAlert } from '../../../contexts/AlertContext';
 import ClipLoader from 'react-spinners/ClipLoader';
-import { ItemProps } from './Item';
-import { api } from '../../api/axios';
 import { useDispatch } from 'react-redux';
-import { setInventory } from '../../store/slices/inventorySlice';
-import { AppDispatch } from '../../store/store';
-import { useAlert } from '../../contexts/AlertContext';
+import { AppDispatch } from '../../../store/store';
+import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 
-export interface DeleteItemProps {
-  items: ItemProps[];
+interface DeleteClientProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  rowData: ItemProps[];
-  setRowData: React.Dispatch<React.SetStateAction<ItemProps[]>>;
-  setItemOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  setClientOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  clients: ClientProps[];
+  rowData: ClientProps[];
+  setRowData: React.Dispatch<React.SetStateAction<ClientProps[]>>;
 }
 
-const DeleteItem = ({
-  items,
+const DeleteClient = ({
   open,
   setOpen,
+  setClientOpen,
+  clients,
   rowData,
   setRowData,
-  setItemOpen,
-}: DeleteItemProps) => {
-  const dispatch = useDispatch<AppDispatch>();
+}: DeleteClientProps) => {
   const { setAlert } = useAlert();
+  const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState<boolean>(false);
   const [deleteErrors, setDeleteErrors] = useState<string>('');
 
-  const itemsSummary = {
-    ids: items.map((item) => item.id),
-    totalQuantity: items.reduce(
-      (prevQuantity, item) => prevQuantity + item.quantity,
-      0,
-    ),
-    totalValue: items.reduce(
-      (prevValue, item) => prevValue + item.total_price,
-      0,
-    ),
+  const clientsData = {
+    ids: clients.map((client) => client.id),
+    names: clients.map((client) => client.name),
   };
 
-  const removeDeletedRows = () => {
-    const itemsIds = new Set(itemsSummary.ids);
-    const filteredRows = rowData.filter(
-      (item: ItemProps) => !itemsIds.has(item.id),
-    );
+  const removeDeletedClientsRows = () => {
+    const clientsIds = new Set(clientsData.ids);
+    const filteredRows = rowData.filter((row) => !clientsIds.has(row.id));
     setRowData(filteredRows);
   };
 
-  const handleDelete = async () => {
+  const handleClientDeletion = async () => {
     setLoading(true);
     setDeleteErrors('');
     try {
-      if (items.length === 0) {
-        throw new Error('No items to delete');
-      }
-
       let res;
-      if (items.length > 1) {
-        console.log('items length', items.length);
-        res = await api.delete('/inventory/items/bulk_delete/', {
-          data: { ids: itemsSummary.ids },
+      if (clients.length > 1) {
+        res = await api.delete(`/client_orders/clients/bulk_delete/`, {
+          data: { ids: clientsData.ids },
         });
       } else {
-        res = await api.delete(`/inventory/items/${items[0].id}/`);
+        res = await api.delete(`/client_orders/clients/${clients[0].id}/`);
       }
-      console.log(res.status);
+      console.log(res.data);
+      removeDeletedClientsRows();
       dispatch((dispatch, getState) => {
-        const { inventory } = getState();
+        const { clientOrders } = getState();
         dispatch(
-          setInventory({
-            ...inventory,
-            totalItems: inventory.totalItems - items.length,
-            totalQuantity: inventory.totalQuantity - itemsSummary.totalQuantity,
-            totalValue: inventory.totalValue - itemsSummary.totalValue,
+          setClientOrders({
+            ...clientOrders,
+            clients: {
+              count: clientOrders.clients.count - clients.length,
+              names: clientOrders.clients.names.filter(
+                (name) => !new Set(clientsData.names).has(name),
+              ),
+            },
           }),
         );
       });
-      removeDeletedRows();
       setAlert({
         type: 'success',
         title:
-          items.length > 1 ? `${items.length} Items Deleted` : 'Item Deleted',
-        description:
-          items.length > 1
-            ? `You have successfully deleted ${items.length} items from your inventory.`
-            : `You have successfully deleted ${items[0].name} from your inventory.`,
+          clients.length > 1
+            ? `${clients.length} Clients Deleted`
+            : 'Client Deleted',
+        description: `You successfully deleted ${
+          clients.length > 1
+            ? `${clients.length} clients`
+            : `client ${clients[0].name}`
+        }.`,
       });
       setOpen(false);
-      if (setItemOpen) setItemOpen(false);
-    } catch (err) {
-      console.log('Error deleting items', err);
-      setDeleteErrors('Something went wrong. Please try again later.');
+      if (setClientOpen) setClientOpen(false);
+    } catch (error: any) {
+      console.log('Error during client deletion', error);
+      setDeleteErrors('Something went wrong, please try again later');
     } finally {
       setLoading(false);
     }
@@ -103,11 +95,11 @@ const DeleteItem = ({
   }, [open]);
 
   return (
-    <div className="mx-auto max-w-sm border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
+    <div className="mx-auto max-w-sm min-w-80 border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
       {/* Form Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">
-          {items.length > 1 ? 'Delete Items' : 'Delete Item'}
+          {clients.length > 1 ? 'Delete Clients' : 'Delete Client'}
         </h3>
         <div>
           <button
@@ -128,9 +120,9 @@ const DeleteItem = ({
             Are you sure you want to delete:
           </div>
           <ol className="list-inside list-disc">
-            {items.map((item, index: number) => (
+            {clients.map((client, index: number) => (
               <li className="mt-2" key={index}>
-                {item.name}
+                {client.name}
               </li>
             ))}
           </ol>
@@ -153,7 +145,7 @@ const DeleteItem = ({
         <button
           className="flex justify-center bg-red-500 hover:bg-opacity-90 rounded py-2 px-4 font-medium text-gray"
           type="submit"
-          onClick={handleDelete}
+          onClick={handleClientDeletion}
         >
           {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Delete'}
         </button>
@@ -162,4 +154,4 @@ const DeleteItem = ({
   );
 };
 
-export default DeleteItem;
+export default DeleteClient;

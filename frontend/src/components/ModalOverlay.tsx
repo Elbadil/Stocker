@@ -7,27 +7,31 @@ export interface ModalProps {
   children: ReactNode;
 }
 
-const ModalOverlay = ({ isOpen, onClose, children }: ModalProps) => {
+const ModalOverlay = ({ isOpen, onClose, children}: ModalProps) => {
   return (
     <Modal
       open={isOpen}
       onClose={onClose}
       disableScrollLock={true}
       closeAfterTransition={true}
-      disablePortal
+      disablePortal={false}
+      container={document.body}
       keepMounted={true}
-      className="inset-0 z-[10000]"
+      className={`fixed inset-0 z-[50]`}
     >
       <Fade in={isOpen} timeout={300}>
         <div className="relative h-full w-full">
           {/* Full screen overlay */}
           <div
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-black bg-opacity-40"
             onClick={onClose}
+          
           />
 
           {/* Modal content */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full rounded-lg">
+          <div
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-lg"
+          >
             {children}
           </div>
         </div>

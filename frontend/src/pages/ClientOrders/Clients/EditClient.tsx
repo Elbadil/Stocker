@@ -9,20 +9,32 @@ import { customSelectStyles } from '../../../utils/form';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { schema, ClientSchema } from './AddClient';
-import { ClientProps } from './Clients';
+import { ClientProps } from './Client';
 import { findCountryAndSetCities } from './utils';
 import { api } from '../../../api/axios';
+import { useDispatch } from 'react-redux';
+import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
+import { AppDispatch } from '../../../store/store';
+import toast from 'react-hot-toast';
 
 interface EditClientProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   client: ClientProps;
+  setClient?: React.Dispatch<React.SetStateAction<ClientProps | null>>;
   rowNode?: IRowNode<ClientProps>;
 }
 
-const EditClient = ({ open, setOpen, client, rowNode }: EditClientProps) => {
+const EditClient = ({
+  open,
+  setOpen,
+  client,
+  setClient,
+  rowNode,
+}: EditClientProps) => {
   const { isDarkMode, setAlert } = useAlert();
-  const { countries, acqSources } = useClientOrders();
+  const dispatch = useDispatch<AppDispatch>();
+  const { clients, countries, acqSources } = useClientOrders();
   const [cityOptions, setCityOptions] = useState<
     { value: string; label: string }[]
   >([]);
@@ -79,13 +91,33 @@ const EditClient = ({ open, setOpen, client, rowNode }: EditClientProps) => {
 
   const onSubmit: SubmitHandler<ClientSchema> = async (data) => {
     try {
-      const res = await api.put(`/client_orders/client/${client.id}/`, data);
-      const clientUpdated = res.data;
+      const res = await api.put(`/client_orders/clients/${client.id}/`, data);
+      const clientUpdate = res.data;
+      if (setClient) {
+        setClient(clientUpdate);
+        toast.success('Client has been successfully updated!', {
+          duration: 5000,
+        });
+      }
       rowNode?.setData(res.data);
       setAlert({
         type: 'success',
         title: 'Client Updated',
-        description: `Client ${clientUpdated.name} has been successfully updated.`,
+        description: `Client ${clientUpdate.name} has been successfully updated.`,
+      });
+      dispatch((dispatch, getState) => {
+        const { clientOrders } = getState();
+        dispatch(
+          setClientOrders({
+            ...clientOrders,
+            clients: {
+              count: clients.count,
+              names: clients.names.map((name) =>
+                name === client.name ? clientUpdate.name : name,
+              ),
+            },
+          }),
+        );
       });
       setOpen(false);
     } catch (error: any) {
@@ -173,7 +205,10 @@ const EditClient = ({ open, setOpen, client, rowNode }: EditClientProps) => {
       {/* Form Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">
-          Create New Client
+          Edit Client:{' '}
+          {client.name.length > 28
+            ? client.name.substring(0, 28) + '...'
+            : client.name}
         </h3>
         <div>
           <button
