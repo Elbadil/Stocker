@@ -213,7 +213,7 @@ const Clients = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={handleClientExport}
+                        onClick={() => handleClientExport(selectedRows)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
