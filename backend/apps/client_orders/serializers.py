@@ -190,6 +190,7 @@ class OrderedItemSerializer(serializers.ModelSerializer):
             'item',
             'ordered_quantity',
             'ordered_price',
+            'total_profit',
             'created_at',
             'updated_at',
         ]
@@ -203,7 +204,7 @@ class OrderedItemSerializer(serializers.ModelSerializer):
         ordered_quantity = attrs['ordered_quantity']
 
         # Check if the item exists in the user's inventory
-        item = Item.objects.filter(user=user, name=item_name).first()
+        item = Item.objects.filter(user=user, name__iexact=item_name).first()
         if not item:
             raise serializers.ValidationError(
                 {'item': f"Item {item_name} does not exist in your inventory."}
@@ -212,7 +213,7 @@ class OrderedItemSerializer(serializers.ModelSerializer):
         # Check if ordered quantity exceeds available stock
         if ordered_quantity > item.quantity:
             raise serializers.ValidationError(
-                {'ordered_quantity': f"The ordered quantity exceeds available stock."}
+                {'ordered_quantity': f"The ordered quantity for {item_name} exceeds available stock."}
             )
 
         return attrs
@@ -221,11 +222,12 @@ class OrderedItemSerializer(serializers.ModelSerializer):
         item_name = validated_data.pop('item', None)
         item = Item.objects.filter(
             user=validated_data['created_by'],
-            name=item_name
+            name__iexact=item_name
         ).first()
         item.quantity -= validated_data['ordered_quantity']
         item.save()
         return OrderedItem.objects.create(item=item, **validated_data)
+
 
     def to_representation(self, instance: OrderedItem):
         ordered_item_repr = super().to_representation(instance)
@@ -247,6 +249,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id',
+            'created_by',
             'client',
             'ordered_items',
             'shipping_address',
@@ -281,7 +284,8 @@ class OrderSerializer(serializers.ModelSerializer):
             ordered_items.append({
                 'item': ordered_item.item.name,
                 'ordered_quantity': ordered_item.ordered_quantity,
-                'ordered_price': ordered_item.ordered_price
+                'ordered_price': ordered_item.ordered_price,
+                'total_profit': ordered_item.total_profit,
             })
         return ordered_items
 
@@ -294,7 +298,7 @@ class OrderSerializer(serializers.ModelSerializer):
         OrderedItem.objects.filter(order=instance).delete()
 
     def validate_status(self, value):
-        status = OrderStatus.objects.filter(name=value).first()
+        status = OrderStatus.objects.filter(name__iexact=value).first()
         if not status:
             raise serializers.ValidationError("Invalid order status.")
         return status
@@ -382,8 +386,9 @@ class OrderSerializer(serializers.ModelSerializer):
         order.save()
         return order
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: Order):
         order_repr = super().to_representation(instance)
+        order_repr['created_by'] = instance.created_by.username
         order_repr['ordered_items'] = self.get_ordered_items(instance)
         order_repr['shipping_address'] = get_location(instance.shipping_address)
         order_repr['created_at'] = datetime_repr_format(instance.created_at)

@@ -175,7 +175,7 @@ class OrderedItem(BaseModel):
 
     @property
     def total_profit(self):
-        return self.ordered_price - (self.ordered_quantity * self.item.price)
+        return (self.ordered_price * self.ordered_quantity) - (self.ordered_quantity * self.item.price)
 
     @property
     def unit_profit(self):

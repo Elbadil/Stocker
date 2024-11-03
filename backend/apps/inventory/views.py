@@ -78,10 +78,13 @@ class GetUserInventoryData(generics.GenericAPIView):
         }
         variants = list(Variant.objects.filter(user=user).values_list('name', flat=True))
         user_items = Item.objects.filter(user=user)
-        total_items = user_items.count()
+        items = []
+        for item in user_items:
+            items.append({'name': item.name, 'quantity': item.quantity})
         total_value = sum([item.total_price for item in user_items])
         total_quantity = sum(list(user_items.values_list('quantity', flat=True)))
-        return Response({'total_items': total_items,
+        return Response({'items': items,
+                         'total_items': user_items.count(),
                          'total_value': total_value,
                          'total_quantity': total_quantity,
                          'categories': categories,

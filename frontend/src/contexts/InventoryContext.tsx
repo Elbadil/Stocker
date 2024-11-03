@@ -19,13 +19,17 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
     categories,
     suppliers,
     variants,
+    items,
     totalItems,
     totalValue,
     totalQuantity,
   } = useSelector((state: RootState) => state.inventory);
 
   useEffect(() => {
-    if (pathname.startsWith('/inventory/')) {
+    if (
+      pathname.startsWith('/inventory/') ||
+      pathname.startsWith('/client_orders/')
+    ) {
       dispatch(getInventoryData());
     }
   }, [dispatch, pathname]);
@@ -37,6 +41,7 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
         categories,
         suppliers,
         variants,
+        items,
         error,
         totalItems,
         totalValue,

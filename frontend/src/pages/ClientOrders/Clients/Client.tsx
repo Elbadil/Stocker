@@ -103,6 +103,7 @@ const Client = ({
                 open={openEditClient}
                 setOpen={setOpenEditClient}
                 rowNode={clientRowNode}
+                setRowData={setRowData}
               />
             </ModalOverlay>
 

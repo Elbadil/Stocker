@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AgGridReact, CustomCellRendererProps } from 'ag-grid-react';
+import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
@@ -10,7 +10,7 @@ import AgGridTable, {
 } from '../../../components/Tables/AgGridTable';
 import ModalOverlay from '../../../components/ModalOverlay';
 import Loader from '../../../common/Loader';
-import { ColDef } from 'ag-grid-community';
+import { ColDef } from '@ag-grid-community/core';
 import { useAlert } from '../../../contexts/AlertContext';
 import { Alert } from '../../UiElements/Alert';
 import { api } from '../../../api/axios';
@@ -41,15 +41,15 @@ const Clients = () => {
 
   const NameRenderer = (props: CustomCellRendererProps) => {
     return (
-      <button
-        className="hover:underline"
+      <div
+        className="hover:underline whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer"
         onClick={() => {
           setOpenClient(true);
           setSelectedClient(props.data);
         }}
       >
         {props.value}
-      </button>
+      </div>
     );
   };
 
@@ -133,7 +133,7 @@ const Clients = () => {
   return (
     <>
       <div className="mx-auto max-w-full">
-        <Breadcrumb main="Orders" pageName="Clients" />
+        <Breadcrumb main="Client Orders" pageName="Clients" />
         {loading || clientsLoading ? (
           <Loader />
         ) : (
@@ -269,6 +269,7 @@ const Clients = () => {
                             setOpen={setOpenEditClient}
                             client={selectedRows[0]}
                             rowNode={getRowNode(selectedRows[0].id)}
+                            setRowData={setRowData}
                           />
                         </ModalOverlay>
                       )}

@@ -6,6 +6,7 @@ import { api } from '../../api/axios';
 
 export const getUpdatedInventory = (
   type: 'add' | 'update',
+  items: { name: string; quantity: number }[],
   newItemData: ItemProps,
   categories: string[],
   suppliers: string[],
@@ -13,7 +14,7 @@ export const getUpdatedInventory = (
   totalItems: number,
   totalValue: number,
   totalQuantity: number,
-  OldItemData?: ItemProps,
+  oldItemData?: ItemProps,
 ) => {
   const newVariants = newItemData.variants
     ? newItemData.variants.map(
@@ -41,8 +42,13 @@ export const getUpdatedInventory = (
     ? Array.from(new Set(variants.concat(newVariants)))
     : variants;
 
-  if (type === 'update' && OldItemData) {
+  if (type === 'update' && oldItemData) {
     return {
+      items: items.map((item) =>
+        item.name === oldItemData.name
+          ? { name: newItemData.name, quantity: newItemData.quantity }
+          : item,
+      ),
       categories: { names: updatedCategories },
       suppliers: { names: updatedSuppliers },
       variants: updatedVariants,
@@ -50,16 +56,20 @@ export const getUpdatedInventory = (
       totalQuantity: updateQuantityOrValue(
         totalQuantity,
         newItemData.quantity,
-        OldItemData.quantity,
+        oldItemData.quantity,
       ),
       totalValue: updateQuantityOrValue(
         totalValue,
         newItemData.total_price,
-        OldItemData.total_price,
+        oldItemData.total_price,
       ),
     };
   }
   return {
+    items: [
+      ...items,
+      { name: newItemData.name, quantity: newItemData.quantity },
+    ],
     categories: { names: updatedCategories },
     suppliers: { names: updatedSuppliers },
     variants: updatedVariants,

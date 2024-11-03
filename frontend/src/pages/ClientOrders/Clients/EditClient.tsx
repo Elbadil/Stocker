@@ -23,6 +23,7 @@ interface EditClientProps {
   client: ClientProps;
   setClient?: React.Dispatch<React.SetStateAction<ClientProps | null>>;
   rowNode?: IRowNode<ClientProps>;
+  setRowData: React.Dispatch<React.SetStateAction<ClientProps[]>>;
 }
 
 const EditClient = ({
@@ -31,6 +32,7 @@ const EditClient = ({
   client,
   setClient,
   rowNode,
+  setRowData
 }: EditClientProps) => {
   const { isDarkMode, setAlert } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
@@ -100,6 +102,9 @@ const EditClient = ({
         });
       }
       rowNode?.setData(res.data);
+      setRowData((prev) =>
+        prev.map((client) => (client.id === clientUpdate.id ? clientUpdate : client)),
+      );
       setAlert({
         type: 'success',
         title: 'Client Updated',

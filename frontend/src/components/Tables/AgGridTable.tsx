@@ -1,4 +1,4 @@
-import { AgGridReact } from 'ag-grid-react';
+import { AgGridReact } from '@ag-grid-community/react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { forwardRef, useCallback, useMemo } from 'react';
@@ -10,8 +10,12 @@ import {
   ITextFilterParams,
   INumberFilterParams,
   GetRowIdParams,
-} from 'ag-grid-community';
+} from '@ag-grid-community/core'
 import { useAlert } from '../../contexts/AlertContext';
+import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
+import { ModuleRegistry } from '@ag-grid-community/core';
+
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 export interface AgGridTableProps {
   rowData: [];
@@ -58,6 +62,7 @@ const AgGridTable = forwardRef<AgGridReact, AgGridTableProps>(
           closeOnApply: true,
         } as ITextFilterParams | INumberFilterParams | IDateFilterParams,
         filter: true,
+        sortable: true,
         autoHeight: true,
         headerClass: 'text-base font-medium',
         cellClass: 'font-medium',

@@ -96,6 +96,7 @@ const Item = ({
                 open={openEditItem}
                 setOpen={setOpenEditItem}
                 rowNode={itemRowNode}
+                setRowData={setRowData}
               />
             </ModalOverlay>
             {/* Delete Item */}

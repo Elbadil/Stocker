@@ -32,6 +32,7 @@ export interface EditItemProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rowNode?: IRowNode<ItemProps>;
+  setRowData: React.Dispatch<React.SetStateAction<ItemProps[]>>;
 }
 
 interface ItemFormDisplay {
@@ -44,7 +45,14 @@ interface ItemFormDisplay {
   picture: string | undefined;
 }
 
-const EditItem = ({ item, setItem, open, setOpen, rowNode }: EditItemProps) => {
+const EditItem = ({
+  item,
+  setItem,
+  open,
+  setOpen,
+  rowNode,
+  setRowData,
+}: EditItemProps) => {
   const { setAlert, isDarkMode } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
   const {
@@ -68,6 +76,7 @@ const EditItem = ({ item, setItem, open, setOpen, rowNode }: EditItemProps) => {
 
   const {
     loading,
+    items,
     categories,
     suppliers,
     variants,
@@ -192,10 +201,11 @@ const EditItem = ({ item, setItem, open, setOpen, rowNode }: EditItemProps) => {
         toast.success('Your item has been successfully updated!', {
           duration: 5000,
         });
-      };
+      }
       rowNode?.setData(itemUpdate);
       const inventoryUpdate = getUpdatedInventory(
         'update',
+        items,
         itemUpdate,
         categories.names,
         suppliers.names,
@@ -204,6 +214,9 @@ const EditItem = ({ item, setItem, open, setOpen, rowNode }: EditItemProps) => {
         totalValue,
         totalQuantity,
         item,
+      );
+      setRowData((prev) =>
+        prev.map((item) => (item.id === itemUpdate.id ? itemUpdate : item)),
       );
       setOpen(false);
       dispatch((dispatch, getState) => {

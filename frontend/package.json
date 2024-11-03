@@ -14,13 +14,17 @@
     "url": "https://tailadmin.com"
   },
   "dependencies": {
+    "@ag-grid-community/client-side-row-model": "^32.3.2",
+    "@ag-grid-community/core": "^32.3.2",
+    "@ag-grid-community/react": "^32.3.2",
+    "@ag-grid-community/styles": "^32.3.2",
     "@emotion/styled": "^11.13.0",
     "@hookform/resolvers": "^3.9.0",
     "@mui/icons-material": "^6.0.1",
     "@mui/material": "^6.0.1",
     "@mui/styled-engine": "^6.0.1",
     "@reduxjs/toolkit": "^2.2.7",
-    "ag-grid-react": "^32.2.1",
+    "ag-grid-react": "^32.3.2",
     "apexcharts": "^3.41.0",
     "axios": "^1.7.7",
     "buffer": "^6.0.3",

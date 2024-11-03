@@ -225,3 +225,32 @@ span.flatpickr-weekday,
 [x-cloak] {
   display: none !important;
 }
+
+.no-arrows {
+  -moz-appearance: textfield; /* Firefox */
+  -webkit-appearance: none; /* Chrome, Safari, Edge */
+  appearance: none; /* General */
+}
+
+/* For Chrome, Safari, Edge */
+.no-arrows::-webkit-outer-spin-button,
+.no-arrows::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.custom-select {
+  appearance: none; /* Remove default arrow */
+  background-repeat: no-repeat; 
+  background-position: right 7px center; 
+  background-size: 22px; /* Size of the arrow */
+  padding: 0.45rem 1rem 0.45rem 0.5rem; 
+}
+
+.custom-select.light {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width=20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23000000' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); /* Black arrow for light mode */
+}
+
+.custom-select.dark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); /* White arrow for dark mode */
+}

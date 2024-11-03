@@ -93,6 +93,7 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
 
   const {
     loading,
+    items,
     categories,
     suppliers,
     variants,
@@ -198,6 +199,7 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
       const newItem = res.data;
       const inventoryPlusNewItem = getUpdatedInventory(
         'add',
+        items,
         newItem,
         categories.names,
         suppliers.names,
