@@ -1,25 +1,11 @@
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { IDoesFilterPassParams } from '@ag-grid-community/core';
+import {
+  IDoesFilterPassParams,
+  IAfterGuiAttachedParams,
+} from '@ag-grid-community/core';
 import { CustomFilterProps, useGridFilter } from '@ag-grid-community/react';
 import { useCallback, useRef, useState } from 'react';
-import { useAlert } from '../contexts/AlertContext';
-
-type ContainerType =
-  | 'columnMenu'
-  | 'contextMenu'
-  | 'toolPanel'
-  | 'floatingFilter'
-  | 'columnFilter';
-
-interface IAfterGuiAttachedParams {
-  // Where this component is attached to.
-  container?: ContainerType;
-  // Call this to hide the popup.
-  // i.e useful if your component has an action button and you want to hide the popup after it is pressed.
-  hidePopup?: () => void;
-  // Set to `true` to not have the component focus its default item.
-  suppressFocus?: boolean;
-}
+import { useAlert } from '../../contexts/AlertContext';
 
 const MultiNumberFilter = ({
   model,
@@ -59,7 +45,7 @@ const MultiNumberFilter = ({
       }
       return false;
     },
-    [model, filterType, getValue, secondInputValue],
+    [model, getValue],
   );
 
   const afterGuiAttached = (params: IAfterGuiAttachedParams) => {
@@ -78,7 +64,7 @@ const MultiNumberFilter = ({
     if (hidePopupRef.current) hidePopupRef.current();
   };
 
-  const clearFilter = () => {
+  const resetFilter = () => {
     setInputValue('');
     setSecondInputValue('');
     onModelChange(null);
@@ -148,16 +134,16 @@ const MultiNumberFilter = ({
           </div>
         )}
       </div>
-      <div className="mt-5 mb-1 flex justify-end gap-5">
+      <div className="mt-4 mb-1 flex justify-end gap-4">
         <button
           onClick={applyFilter}
-          className="bg-white dark:bg-customDark border-1 py-2.5 px-5 rounded-sm text-center text-black dark:text-white dark:border-strokedark hover:bg-opacity-90 lg:px-4 xl:px-4"
+          className="py-2.5 px-4 bg-white dark:bg-customDark border border-slate-300 dark:border-slate-600 rounded-md text-center text-black dark:text-white hover:bg-slate-200 dark:hover:bg-sky-900"
         >
           Apply
         </button>
         <button
-          onClick={clearFilter}
-          className="bg-white dark:bg-customDark border-1 py-2.5 px-5 rounded-sm text-center text-black dark:text-white dark:border-strokedark hover:bg-opacity-90 lg:px-4 xl:px-4"
+          onClick={resetFilter}
+          className="py-2.5 px-4 bg-white dark:bg-customDark border border-slate-300 dark:border-slate-600 rounded-md text-center text-black dark:text-white hover:bg-slate-200 dark:hover:bg-sky-900"
         >
           Reset
         </button>

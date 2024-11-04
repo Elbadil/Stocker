@@ -22,7 +22,8 @@ import { Alert } from '../../UiElements/Alert';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { handleBulkExport, handleOrderExport } from './utils';
 import { Location } from '../Clients/Client';
-import MultiNumberFilter from '../../../components/MultiNumberFilter';
+import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
+import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
@@ -64,7 +65,7 @@ const Orders = () => {
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  };
+  }
 
   const OrderedItemRenderer = (
     params: CustomCellRendererProps,
@@ -145,6 +146,7 @@ const Orders = () => {
       valueGetter: (params) => createValueGetter(params, 'item'),
       cellRenderer: (params: CustomCellRendererProps) =>
         OrderedItemRenderer(params, 'item'),
+      filter: MultiTextFilter,
       flex: 3,
       minWidth: 150,
     },
