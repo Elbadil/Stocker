@@ -12,3 +12,4 @@ class BaseModel(models.Model):
     class Meta:
         # Ensures this model is abstract and not created as a table
         abstract = True
+        ordering = ['-created_at']

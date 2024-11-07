@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
+from shortuuid.django_fields import ShortUUIDField
 from utils.models import BaseModel
 from ..inventory.models import Item
 
@@ -92,9 +93,6 @@ class Client(BaseModel):
                                blank=True)
     updated = models.BooleanField(default=False)
 
-    class Meta:
-        ordering = ['-created_at']
-
     @property
     def total_orders(self):
         return self.orders.all().count()
@@ -113,6 +111,9 @@ class OrderStatus(BaseModel):
 
 class Order(BaseModel):
     """Order Model"""
+    reference_id = ShortUUIDField(length=7,
+                                  max_length=12,
+                                  prefix="ID_")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                    related_name='created_orders',
                                    help_text="The user who created this order",
@@ -135,9 +136,6 @@ class Order(BaseModel):
                                null=True)
     updated = models.BooleanField(default=False)
 
-    class Meta:
-        ordering = ['-created_at']
-
     @property
     def items(self):
         return self.ordered_items.all()
@@ -152,7 +150,8 @@ class Order(BaseModel):
 
     @property
     def total_profit(self):
-        return sum(item.total_profit for item in self.items) - self.shipping_cost
+        items_total_profit = sum(item.total_profit for item in self.items)
+        return items_total_profit - self.shipping_cost if self.shipping_cost else items_total_profit
 
     def __str__(self) -> str:
         return f'Order by: {self.client.name}'

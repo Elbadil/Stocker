@@ -7,6 +7,7 @@ export interface ClientOrdersState {
     count: number;
     names: string[];
   };
+  newClient: string | null,
   ordersCount: number;
   countries: {
     name: string;
@@ -33,6 +34,7 @@ const initialState: ClientOrdersState = {
     count: 0,
     names: [],
   },
+  newClient: null,
   ordersCount: 0,
   countries: [],
   acqSources: [],
@@ -63,6 +65,7 @@ const clientOrdersSlice = createSlice({
         count: payload.clients.count,
         names: payload.clients.names,
       };
+      state.newClient = payload.newClient;
       state.ordersCount = payload.ordersCount;
       state.countries = payload.countries.map(
         (country: { name: string; cities: string[] }) => ({

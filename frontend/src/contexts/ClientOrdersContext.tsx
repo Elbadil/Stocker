@@ -16,6 +16,7 @@ export const ClientOrdersProvider: React.FC<{ children: ReactNode }> = ({
   const dispatch = useDispatch<AppDispatch>();
   const {
     clients,
+    newClient,
     countries,
     ordersCount,
     orderStatus,
@@ -34,6 +35,7 @@ export const ClientOrdersProvider: React.FC<{ children: ReactNode }> = ({
     <ClientOrdersContext.Provider
       value={{
         clients,
+        newClient,
         countries,
         ordersCount,
         orderStatus,

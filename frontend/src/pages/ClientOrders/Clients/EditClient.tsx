@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Select, { SingleValue } from 'react-select';
-import { IRowNode } from 'ag-grid-community';
+import { IRowNode } from '@ag-grid-community/core';
 import CreatableSelect from 'react-select/creatable';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { useAlert } from '../../../contexts/AlertContext';

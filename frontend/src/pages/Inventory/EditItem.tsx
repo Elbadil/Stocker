@@ -20,7 +20,7 @@ import { useAlert } from '../../contexts/AlertContext';
 import { schema } from './AddItem';
 import { ItemSchema } from './AddItem';
 import { ItemProps } from './Item';
-import { IRowNode } from 'ag-grid-community';
+import { IRowNode } from '@ag-grid-community/core';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { setInventory } from '../../store/slices/inventorySlice';

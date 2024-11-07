@@ -11,6 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import toast from 'react-hot-toast';
 import Loader from '../../common/Loader';
 import {
   requiredStringField,
@@ -67,7 +68,7 @@ export type ItemSchema = z.infer<typeof schema>;
 interface AddItemProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRowData: React.Dispatch<React.SetStateAction<ItemProps[]>>;
+  setRowData?: React.Dispatch<React.SetStateAction<ItemProps[]>>;
 }
 
 const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
@@ -208,7 +209,18 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
         totalValue,
         totalQuantity,
       );
-      setRowData((prev) => [newItem, ...prev]);
+      if (setRowData) {
+        setAlert({
+          type: 'success',
+          title: 'New item added',
+          description: `Item ${newItem.name} has been successfully added to your inventory.`,
+        });
+        setRowData((prev) => [newItem, ...prev]);
+      } else {
+        toast.success(`Item ${newItem.name} has been successfully added.`, {
+          duration: 5000,
+        });
+      }
       dispatch((dispatch, getState) => {
         const { inventory } = getState();
         dispatch(
@@ -219,11 +231,6 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
         );
       });
       setOpen(false);
-      setAlert({
-        type: 'success',
-        title: 'New item added',
-        description: `Item ${newItem.name} has been successfully added to your inventory.`,
-      });
       console.log(newItem);
     } catch (error: any) {
       console.log('Error during form submission:', error);

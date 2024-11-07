@@ -118,6 +118,13 @@ export const fileField = () => {
     );
 };
 
+export const selectOptionsFromStrings = (options: string[]) =>
+  options.map((option) => ({ value: option, label: option }));
+
+export const selectOptionsFromObjects = (
+  options: { name: string; [key: string]: any }[],
+) => options.map((option) => ({ value: option.name, label: option.name }));
+
 export const customSelectStyles = (isDarkMode: boolean) => ({
   control: (provided: CSSObject, state: any) => ({
     ...provided,

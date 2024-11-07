@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { IRowNode } from 'ag-grid-community';
+import { IRowNode } from '@ag-grid-community/core';
 import ModalOverlay from '../../../components/ModalOverlay';
 import { handleClientExport } from './utils';
 import EditClient from './EditClient';

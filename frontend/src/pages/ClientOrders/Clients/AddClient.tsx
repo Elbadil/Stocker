@@ -5,6 +5,7 @@ import CreatableSelect from 'react-select/creatable';
 import { zodResolver } from '@hookform/resolvers/zod';
 import React, { useEffect, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
+import toast from 'react-hot-toast';
 import Loader from '../../../common/Loader';
 import { requiredStringField, customSelectStyles } from '../../../utils/form';
 import { useAlert } from '../../../contexts/AlertContext';
@@ -53,7 +54,7 @@ export type ClientSchema = z.infer<typeof schema>;
 interface AddClientProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRowData: React.Dispatch<React.SetStateAction<ClientProps[]>>;
+  setRowData?: React.Dispatch<React.SetStateAction<ClientProps[]>>;
 }
 
 const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
@@ -119,17 +120,24 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
     try {
       const res = await api.post('/client_orders/clients/', data);
       const newClient = res.data;
-      setAlert({
-        type: 'success',
-        title: 'New Client Added',
-        description: `Client ${newClient.name} has been successfully added.`,
-      });
-      setRowData((prev) => [newClient, ...prev]);
+      if (setRowData) {
+        setRowData((prev) => [newClient, ...prev]);
+        setAlert({
+          type: 'success',
+          title: 'New Client Added',
+          description: `Client ${newClient.name} has been successfully added.`,
+        });
+      } else {
+        toast.success(`Client ${newClient.name} has been successfully added.`, {
+          duration: 5000,
+        });
+      }
       dispatch((dispatch, getState) => {
         const { clientOrders } = getState();
         dispatch(
           setClientOrders({
             ...clientOrders,
+            newClient: newClient.name,
             clients: {
               count: clients.count + 1,
               names: clients.names.concat([newClient.name]),
@@ -457,6 +465,7 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
                       )}
                     </div>
                   </div>
+                  {/* Street Address */}
                   <label
                     className="mb-2 block text-sm font-medium text-black dark:text-white"
                     htmlFor="address"

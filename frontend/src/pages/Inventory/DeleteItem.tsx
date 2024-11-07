@@ -6,9 +6,10 @@ import { useDispatch } from 'react-redux';
 import { setInventory } from '../../store/slices/inventorySlice';
 import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
+import { useInventory } from '../../contexts/InventoryContext';
 
 export interface DeleteItemProps {
-  items: ItemProps[];
+  selectedItems: ItemProps[];
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rowData: ItemProps[];
@@ -17,7 +18,7 @@ export interface DeleteItemProps {
 }
 
 const DeleteItem = ({
-  items,
+  selectedItems,
   open,
   setOpen,
   rowData,
@@ -26,16 +27,18 @@ const DeleteItem = ({
 }: DeleteItemProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert } = useAlert();
+  const { items } = useInventory();
   const [loading, setLoading] = useState<boolean>(false);
   const [deleteErrors, setDeleteErrors] = useState<string>('');
 
   const itemsSummary = {
-    ids: items.map((item) => item.id),
-    totalQuantity: items.reduce(
+    ids: selectedItems.map((item) => item.id),
+    names: selectedItems.map((item) => item.name),
+    totalQuantity: selectedItems.reduce(
       (prevQuantity, item) => prevQuantity + item.quantity,
       0,
     ),
-    totalValue: items.reduce(
+    totalValue: selectedItems.reduce(
       (prevValue, item) => prevValue + item.total_price,
       0,
     ),
@@ -53,18 +56,18 @@ const DeleteItem = ({
     setLoading(true);
     setDeleteErrors('');
     try {
-      if (items.length === 0) {
+      if (selectedItems.length === 0) {
         throw new Error('No items to delete');
       }
 
       let res;
-      if (items.length > 1) {
-        console.log('items length', items.length);
+      if (selectedItems.length > 1) {
+        console.log('items length', selectedItems.length);
         res = await api.delete('/inventory/items/bulk_delete/', {
           data: { ids: itemsSummary.ids },
         });
       } else {
-        res = await api.delete(`/inventory/items/${items[0].id}/`);
+        res = await api.delete(`/inventory/items/${selectedItems[0].id}/`);
       }
       console.log(res.status);
       dispatch((dispatch, getState) => {
@@ -72,7 +75,8 @@ const DeleteItem = ({
         dispatch(
           setInventory({
             ...inventory,
-            totalItems: inventory.totalItems - items.length,
+            items: items.filter((item) => !itemsSummary.names.includes(item.name)),
+            totalItems: inventory.totalItems - selectedItems.length,
             totalQuantity: inventory.totalQuantity - itemsSummary.totalQuantity,
             totalValue: inventory.totalValue - itemsSummary.totalValue,
           }),
@@ -82,11 +86,11 @@ const DeleteItem = ({
       setAlert({
         type: 'success',
         title:
-          items.length > 1 ? `${items.length} Items Deleted` : 'Item Deleted',
+          selectedItems.length > 1 ? `${selectedItems.length} Items Deleted` : 'Item Deleted',
         description:
-          items.length > 1
-            ? `You have successfully deleted ${items.length} items from your inventory.`
-            : `You have successfully deleted ${items[0].name} from your inventory.`,
+        selectedItems.length > 1
+            ? `You have successfully deleted ${selectedItems.length} items from your inventory.`
+            : `You have successfully deleted ${selectedItems[0].name} from your inventory.`,
       });
       setOpen(false);
       if (setItemOpen) setItemOpen(false);
@@ -107,7 +111,7 @@ const DeleteItem = ({
       {/* Form Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">
-          {items.length > 1 ? 'Delete Items' : 'Delete Item'}
+          {selectedItems.length > 1 ? 'Delete Items' : 'Delete Item'}
         </h3>
         <div>
           <button
@@ -128,7 +132,7 @@ const DeleteItem = ({
             Are you sure you want to delete:
           </div>
           <ol className="list-inside list-disc">
-            {items.map((item, index: number) => (
+            {selectedItems.map((item, index: number) => (
               <li className="mt-2" key={index}>
                 {item.name}
               </li>

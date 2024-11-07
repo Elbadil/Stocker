@@ -155,7 +155,12 @@ const Items = () => {
     {
       field: 'updated_at',
       headerName: 'Updated',
-      valueFormatter: (params) => (params.data?.updated ? params.value : ''),
+      valueGetter: (params) => {
+        if (params.data?.updated_at && params.data?.updated) {
+          return params.data?.updated_at;
+        }
+        return null;
+      },
       filter: 'agDateColumnFilter',
       filterParams: dateFilterParams,
       minWidth: 120,
@@ -301,7 +306,7 @@ const Items = () => {
                           onClose={() => setOpenDeleteItem(false)}
                         >
                           <DeleteItem
-                            items={selectedRows}
+                            selectedItems={selectedRows}
                             open={openDeleteItem}
                             setOpen={setOpenDeleteItem}
                             rowData={rowData}

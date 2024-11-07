@@ -41,7 +41,7 @@ class LocationSerializer(serializers.ModelSerializer):
     
     def validate_country(self, value):
         if value:
-            country = Country.objects.filter(name=value).exists()
+            country = Country.objects.filter(name__iexact=value).exists()
             if not country:
                 raise serializers.ValidationError("Invalid country.")
             return value
@@ -49,7 +49,7 @@ class LocationSerializer(serializers.ModelSerializer):
     
     def validate_city(self, value):
         if value:
-            city = City.objects.filter(name=value).exists()
+            city = City.objects.filter(name__iexact=value).exists()
             if not city:
                 raise serializers.ValidationError("Invalid city.")
             return value
@@ -59,8 +59,8 @@ class LocationSerializer(serializers.ModelSerializer):
         country_name = attrs.get('country', None)
         city_name = attrs.get('city', None)
         if country_name and city_name:
-            city = City.objects.filter(name=city_name,
-                                       country__name=country_name).first()
+            city = City.objects.filter(name__iexact=city_name,
+                                       country__name__iexact=country_name).first()
             if not city:
                 raise serializers.ValidationError(
                     {'city': 'City does not belong to the country provided.'})
@@ -74,14 +74,20 @@ class LocationSerializer(serializers.ModelSerializer):
         city_name = validated_data.pop('city', None)
         country_name = validated_data.pop('country', None)
         if country_name:
-            validated_data['country'] = Country.objects.get(name=country_name)
+            validated_data['country'] = Country.objects.get(
+                                        name__iexact=country_name)
         if city_name:
-            validated_data['city'] = City.objects.get(name=city_name)
-        
-        location, created = Location.objects.get_or_create(
-            **validated_data,
-            defaults=validated_data
-        )
+            validated_data['city'] = City.objects.get(
+                                     name__iexact=city_name)
+
+        # Define filter fields to determine which action to perform
+        filter_fields = ['added_by', 'country', 'city', 'street_address']
+        for field in filter_fields:
+            if field not in validated_data:
+                validated_data[field] = None
+
+        location, created = Location.objects.get_or_create(**validated_data)
+
         return location
 
 
@@ -242,19 +248,22 @@ class OrderSerializer(serializers.ModelSerializer):
     """Order Serializer"""
     client = serializers.CharField()
     ordered_items = OrderedItemSerializer(many=True)
-    status = serializers.CharField(required=False)
-    shipping_address = LocationSerializer(many=False)
+    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    shipping_address = LocationSerializer(many=False, required=False)
+    source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Order
         fields = [
             'id',
+            'reference_id',
             'created_by',
             'client',
             'ordered_items',
+            'status',
             'shipping_address',
             'shipping_cost',
-            'status',
+            'total_profit',
             'source',
             'created_at',
             'updated_at',
@@ -297,11 +306,24 @@ class OrderSerializer(serializers.ModelSerializer):
             )
         OrderedItem.objects.filter(order=instance).delete()
 
+    def validate_ordered_items(self, value: List[OrderedItem]):
+        unique_items = []
+        for ordered_item in value:
+            item_name = ordered_item['item'].lower()
+            if item_name in unique_items:
+                raise serializers.ValidationError(
+                    {'item': f'Item {ordered_item["item"]} has been selected multiple times.'})
+            else:
+                unique_items.append(item_name)
+        return value
+
     def validate_status(self, value):
-        status = OrderStatus.objects.filter(name__iexact=value).first()
-        if not status:
-            raise serializers.ValidationError("Invalid order status.")
-        return status
+        if value:
+            status = OrderStatus.objects.filter(name__iexact=value).first()
+            if not status:
+                raise serializers.ValidationError("Invalid order status.")
+            return status
+        return None
 
     def validate(self, attrs):
         user = self.context.get('request').user
@@ -389,6 +411,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance: Order):
         order_repr = super().to_representation(instance)
         order_repr['created_by'] = instance.created_by.username
+        order_repr['source'] = instance.source.name if instance.source else None
         order_repr['ordered_items'] = self.get_ordered_items(instance)
         order_repr['shipping_address'] = get_location(instance.shipping_address)
         order_repr['created_at'] = datetime_repr_format(instance.created_at)

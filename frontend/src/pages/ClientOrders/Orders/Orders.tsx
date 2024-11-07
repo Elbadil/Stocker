@@ -3,6 +3,7 @@ import {
   ColDef,
   ValueGetterParams,
   ModuleRegistry,
+  GetQuickFilterTextParams,
 } from '@ag-grid-community/core';
 import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -25,6 +26,7 @@ import { Location } from '../Clients/Client';
 import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
 import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
+import AddOrder from './AddOrder';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
@@ -37,12 +39,14 @@ export interface OrderedItem {
 
 export interface OrderProps {
   id: string;
+  reference_id: string;
   created_by: string;
   client: string;
   ordered_items: OrderedItem[];
+  status: string;
   shipping_address: Location;
   shipping_cost?: string | null;
-  status: string;
+  total_profit: number;
   source?: string | null;
   created_at: string;
   updated_at: string;
@@ -65,7 +69,7 @@ const Orders = () => {
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
-  }
+  };
 
   const OrderedItemRenderer = (
     params: CustomCellRendererProps,
@@ -116,12 +120,37 @@ const Orders = () => {
     );
   };
 
+  const AddressRenderer = (params: CustomCellRendererProps) => {
+    if (!params.value) return null;
+
+    return (
+      <div className="mb-1">
+        {params.value.split(', ').map((prop: string, index: number) => (
+          <div
+            key={index}
+            className="m-0 p-0 whitespace-nowrap overflow-hidden text-ellipsis"
+            style={{ lineHeight: '2' }}
+          >
+            {prop}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const createValueGetter = (
     params: ValueGetterParams<OrderProps, OrderedItem[]>,
     key: keyof OrderedItem,
   ) => {
     if (!params.data?.ordered_items) return [];
     return params.data.ordered_items.map((item) => item[key]);
+  };
+
+  const numberGetQuickFilterText = (
+    params: GetQuickFilterTextParams<OrderProps, number[]>,
+  ) => {
+    if (!params.value) return '';
+    return params.value.map((value: number) => value.toFixed(2)).join(', ');
   };
 
   const gridRef = useRef<AgGridReact>(null);
@@ -132,6 +161,13 @@ const Orders = () => {
       headerName: 'Created',
       filter: 'agDateColumnFilter',
       filterParams: dateFilterParams,
+      minWidth: 120,
+      flex: 1,
+    },
+    {
+      field: 'reference_id',
+      headerName: 'Ref',
+      sortable: false,
       minWidth: 120,
       flex: 1,
     },
@@ -157,6 +193,7 @@ const Orders = () => {
       cellRenderer: (params: CustomCellRendererProps) =>
         OrderedItemRenderer(params, 'ordered_quantity'),
       filter: MultiNumberFilter,
+      getQuickFilterText: numberGetQuickFilterText,
       flex: 1.5,
       minWidth: 115,
     },
@@ -166,10 +203,11 @@ const Orders = () => {
       valueGetter: (params) => createValueGetter(params, 'ordered_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
         OrderedItemRenderer(params, 'ordered_price'),
+      getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
 
-      flex: 1.5,
-      minWidth: 115,
+      flex: 1,
+      minWidth: 110,
     },
     {
       field: 'ordered_items',
@@ -177,9 +215,10 @@ const Orders = () => {
       valueGetter: (params) => createValueGetter(params, 'total_profit'),
       cellRenderer: (params: CustomCellRendererProps) =>
         OrderedItemRenderer(params, 'total_profit'),
+      getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
-      flex: 1.5,
-      minWidth: 115,
+      flex: 1,
+      minWidth: 110,
     },
     {
       field: 'status',
@@ -188,10 +227,56 @@ const Orders = () => {
       minWidth: 115,
       sortable: false,
     },
-    // {
-    //   field: 'shipping_address',
-    //   headerName: 'Address',
-    // },
+    {
+      field: 'shipping_address',
+      headerName: 'Address',
+      valueGetter: (params: ValueGetterParams<OrderProps, Location>) => {
+        if (!params.data?.shipping_address) return null;
+        return Object.values(params.data.shipping_address).join(', ');
+      },
+      cellRenderer: AddressRenderer,
+    },
+    {
+      field: 'shipping_cost',
+      headerName: 'Shipping Cost',
+      valueGetter: (params) => {
+        if (!params.data?.shipping_cost) return null;
+        return Number(params.data.shipping_cost);
+      },
+      valueFormatter: (params) => {
+        if (!params.value) return null;
+        return params.value.toFixed(2);
+      },
+      filter: 'agNumberColumnFilter',
+      flex: 3,
+      minWidth: 155,
+    },
+    {
+      field: 'total_profit',
+      headerName: 'Total Profit',
+      flex: 2,
+      minWidth: 130,
+    },
+    {
+      field: 'source',
+      headerName: 'Source',
+      flex: 2,
+      minWidth: 130,
+    },
+    {
+      field: 'updated_at',
+      headerName: 'Updated',
+      valueGetter: (params) => {
+        if (params.data?.updated_at && params.data?.updated) {
+          return params.data?.updated_at;
+        }
+        return null;
+      },
+      filter: 'agDateColumnFilter',
+      filterParams: dateFilterParams,
+      minWidth: 120,
+      flex: 1,
+    },
   ]);
 
   const getAndSetSelectRows = () => {
@@ -296,7 +381,7 @@ const Orders = () => {
                           /> */}
                         </ModalOverlay>
                       )}
-                      {/* Export Client(s) */}
+                      {/* Export Order(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -310,7 +395,7 @@ const Orders = () => {
                         <FileDownloadOutlinedIcon />
                       </button>
 
-                      {/* Delete Client(s) */}
+                      {/* Delete Order(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -338,7 +423,7 @@ const Orders = () => {
                           /> */}
                         </ModalOverlay>
                       )}
-                      {/* Edit Client */}
+                      {/* Edit Order */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -366,7 +451,7 @@ const Orders = () => {
                           /> */}
                         </ModalOverlay>
                       )}
-                      {/* Add Client */}
+                      {/* Add Order */}
                       <button
                         className="inline-flex items-center justify-center rounded-full bg-meta-3 py-2 px-3 text-center font-medium text-white hover:bg-opacity-90 lg:px-3 xl:px-3"
                         onClick={() => setOpenAddOrder(true)}
@@ -379,12 +464,11 @@ const Orders = () => {
                         isOpen={openAddOrder}
                         onClose={() => setOpenAddOrder(false)}
                       >
-                        <div>Hi</div>
-                        {/* <AddClient
-                          open={openAddClient}
-                          setOpen={setOpenAddClient}
+                        <AddOrder
+                          open={openAddOrder}
+                          setOpen={setOpenAddOrder}
                           setRowData={setRowData}
-                        /> */}
+                        />
                       </ModalOverlay>
                     </div>
                   </div>

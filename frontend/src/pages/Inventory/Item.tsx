@@ -1,7 +1,7 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { IRowNode } from 'ag-grid-community';
+import { IRowNode } from '@ag-grid-community/core';
 import { useState } from 'react';
 import EditItem from './EditItem';
 import DeleteItem from './DeleteItem';
@@ -112,7 +112,7 @@ const Item = ({
               onClose={() => setOpenDeleteItem(false)}
             >
               <DeleteItem
-                items={[item]}
+                selectedItems={[item]}
                 open={openDeleteItem}
                 setOpen={setOpenDeleteItem}
                 rowData={rowData}

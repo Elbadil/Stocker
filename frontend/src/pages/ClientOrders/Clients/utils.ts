@@ -13,8 +13,8 @@ export const findCountryAndSetCities = (
   setCityOptions: React.Dispatch<
     React.SetStateAction<{ value: string; label: string }[]>
   >,
-  currentValues: ClientSchema,
-  setValue: UseFormSetValue<ClientSchema>,
+  currentValues?: ClientSchema,
+  setValue?: UseFormSetValue<ClientSchema>,
 ) => {
   const country = countries.find(
     (country: { name: string; cities: string[] }) =>
@@ -26,9 +26,11 @@ export const findCountryAndSetCities = (
       label: city,
     }));
     setCityOptions(countryCities);
-    const currentCity = currentValues?.location?.city ?? null;
-    if (currentCity && !country.cities.includes(currentCity)) {
-      setValue('location.city', null, { shouldDirty: true });
+    if (currentValues && setValue) {
+      const currentCity = currentValues?.location?.city ?? null;
+      if (currentCity && !country.cities.includes(currentCity)) {
+        setValue('location.city', null, { shouldDirty: true });
+      }
     }
   }
 };
