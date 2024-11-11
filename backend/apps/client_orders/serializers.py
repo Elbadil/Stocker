@@ -247,7 +247,9 @@ class OrderedItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     """Order Serializer"""
     client = serializers.CharField()
-    ordered_items = OrderedItemSerializer(many=True)
+    ordered_items = serializers.ListField(child=serializers.DictField(),
+                                          write_only=True,
+                                          required=True)
     status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     shipping_address = LocationSerializer(many=False, required=False)
     source = serializers.CharField(required=False, allow_blank=True, allow_null=True)

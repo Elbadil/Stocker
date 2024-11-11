@@ -182,3 +182,6 @@ class OrderedItem(BaseModel):
 
     def __str__(self) -> str:
         return f'{self.order.client.name} ordered {self.ordered_quantity} of {self.item.name}'
+
+    class Meta:
+        ordering = ['created_at']

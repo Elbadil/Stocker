@@ -27,6 +27,7 @@ import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilt
 import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import AddOrder from './AddOrder';
+import EditOrder from './EditOrder';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
@@ -45,7 +46,7 @@ export interface OrderProps {
   ordered_items: OrderedItem[];
   status: string;
   shipping_address: Location;
-  shipping_cost?: string | null;
+  shipping_cost?: number | null;
   total_profit: number;
   source?: string | null;
   created_at: string;
@@ -305,6 +306,10 @@ const Orders = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    getAndSetSelectRows();
+  }, [openEditOrder])
+
   return (
     <>
       <div className="mx-auto max-w-full">
@@ -441,14 +446,13 @@ const Orders = () => {
                           isOpen={openEditOrder}
                           onClose={() => setOpenEditOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <EditClient
-                            open={openEditClient}
-                            setOpen={setOpenEditClient}
-                            client={selectedRows[0]}
+                          <EditOrder
+                            open={openEditOrder}
+                            setOpen={setOpenEditOrder}
+                            order={selectedRows[0]}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Add Order */}

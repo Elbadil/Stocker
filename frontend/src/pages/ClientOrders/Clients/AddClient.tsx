@@ -14,7 +14,7 @@ import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 import { useDispatch } from 'react-redux';
 import { api } from '../../../api/axios';
-import { findCountryAndSetCities } from './utils';
+import { findCountryAndSetCitiesForClient } from './utils';
 import { AppDispatch } from '../../../store/store';
 
 export const schema = z.object({
@@ -101,7 +101,7 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
   ) => {
     if (option) {
       onChange(option.value);
-      findCountryAndSetCities(
+      findCountryAndSetCitiesForClient(
         option.value,
         countries,
         setCityOptions,

@@ -10,7 +10,7 @@ import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { schema, ClientSchema } from './AddClient';
 import { ClientProps } from './Client';
-import { findCountryAndSetCities } from './utils';
+import { findCountryAndSetCitiesForClient } from './utils';
 import { api } from '../../../api/axios';
 import { useDispatch } from 'react-redux';
 import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
@@ -77,7 +77,7 @@ const EditClient = ({
   ) => {
     if (option) {
       onChange(option.value);
-      findCountryAndSetCities(
+      findCountryAndSetCitiesForClient(
         option.value,
         countries,
         setCityOptions,
@@ -175,7 +175,7 @@ const EditClient = ({
       const { name, phone_number, email, age, sex, source, location } = client;
 
       if (location && location.country) {
-        findCountryAndSetCities(
+        findCountryAndSetCitiesForClient(
           location.country,
           countries,
           setCityOptions,

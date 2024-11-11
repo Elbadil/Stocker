@@ -7,7 +7,7 @@ import { api } from '../../../api/axios';
 import { ClientProps } from './Client';
 import toast from 'react-hot-toast';
 
-export const findCountryAndSetCities = (
+export const findCountryAndSetCitiesForClient = (
   countryName: string,
   countries: { name: string; cities: string[] }[],
   setCityOptions: React.Dispatch<
