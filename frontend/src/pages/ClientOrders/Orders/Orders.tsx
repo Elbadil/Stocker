@@ -28,6 +28,7 @@ import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import AddOrder from './AddOrder';
 import EditOrder from './EditOrder';
+import DeleteOrder from './DeleteOrder';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
@@ -418,14 +419,13 @@ const Orders = () => {
                           isOpen={openDeleteOrder}
                           onClose={() => setOpenDeleteOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <DeleteClient
-                            clients={selectedRows}
-                            open={openDeleteClient}
-                            setOpen={setOpenDeleteClient}
+                          <DeleteOrder
+                            orders={selectedRows}
+                            open={openDeleteOrder}
+                            setOpen={setOpenDeleteOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Edit Order */}

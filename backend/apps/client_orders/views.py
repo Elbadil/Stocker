@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from ..base.auth import TokenVersionAuthentication
 from django.db.models import Q
+from .utils import reset_ordered_items
 from . import serializers
 from .models import (Client,
                      Order,
@@ -60,6 +61,33 @@ class GetUpdateDeleteOrder(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = serializers.OrderSerializer
     queryset = Order.objects.all()
     lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        order = self.get_object()
+        reset_ordered_items(order)
+        return super().destroy(request, *args, **kwargs)
+
+
+class BulkDeleteOrders(generics.DestroyAPIView):
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.OrderSerializer
+    queryset = Order.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        print(request.data)
+        order_ids = request.data.get('ids', [])
+        if not order_ids:
+            return Response({'error': 'No IDs provided.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        orders = Order.objects.filter(id__in=order_ids)
+        for order in orders:
+            reset_ordered_items(order)
+            order.delete()
+
+        return Response({'message': 'orders have been successfully deleted'},
+                         status=status.HTTP_200_OK)
 
 
 class BulkCreateListCity(generics.ListCreateAPIView):

@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from django.db.models import F
 from typing import Union
-from .models import Location, AcquisitionSource
+from .models import Location, AcquisitionSource, Order, OrderedItem
 from ..inventory.models import Item
 
 
@@ -44,3 +45,12 @@ def get_location(instance_attribute):
             'street_address': instance_attribute.street_address,
         }
     return None
+
+
+def reset_ordered_items(instance: Order):
+    prev_items = instance.items
+    for ordered_item in prev_items:
+        Item.objects.filter(id=ordered_item.item.id).update(
+            quantity=F('quantity') + ordered_item.ordered_quantity
+        )
+    OrderedItem.objects.filter(order=instance).delete()
