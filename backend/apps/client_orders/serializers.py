@@ -265,7 +265,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'status',
             'shipping_address',
             'shipping_cost',
-            'total_profit',
+            'net_profit',
             'source',
             'created_at',
             'updated_at',
@@ -296,6 +296,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 'item': ordered_item.item.name,
                 'ordered_quantity': ordered_item.ordered_quantity,
                 'ordered_price': ordered_item.ordered_price,
+                'total_price': ordered_item.total_price,
                 'total_profit': ordered_item.total_profit,
             })
         return ordered_items

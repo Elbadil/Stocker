@@ -149,7 +149,7 @@ class Order(BaseModel):
         return sum(item.total_price for item in self.items)
 
     @property
-    def total_profit(self):
+    def net_profit(self):
         items_total_profit = sum(item.total_profit for item in self.items)
         return items_total_profit - self.shipping_cost if self.shipping_cost else items_total_profit
 

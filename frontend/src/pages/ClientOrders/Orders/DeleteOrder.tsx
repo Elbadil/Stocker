@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { OrderProps } from './Orders';
+import { OrderProps } from './Order';
 import { api } from '../../../api/axios';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
@@ -16,6 +16,7 @@ interface DeleteOrderProps {
   orders: OrderProps[];
   rowData: OrderProps[];
   setRowData: React.Dispatch<React.SetStateAction<OrderProps[]>>;
+  setOrderOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const DeleteOrder = ({
@@ -24,6 +25,7 @@ const DeleteOrder = ({
   orders,
   rowData,
   setRowData,
+  setOrderOpen,
 }: DeleteOrderProps) => {
   const { setAlert } = useAlert();
   const { ordersCount } = useClientOrders();
@@ -114,15 +116,16 @@ const DeleteOrder = ({
         title:
           orders.length > 1
             ? `${orders.length} Orders Deleted.`
-            : `Order ${orders[0].reference_id} Deleted.`,
+            : `Order Deleted.`,
         description: `You successfully deleted ${
           orders.length > 1
             ? `${orders.length} orders`
-            : `order ${orders[0].reference_id}`
+            : `order ${orders[0].reference_id} by ${orders[0].client}`
         }.`,
       });
       // Close the delete order(s) modal
       setOpen(false);
+      if (setOrderOpen) setOrderOpen(false);
     } catch (error: any) {
       console.log('Error during orders deletion', error);
       setDeleteErrors('Something went wrong, please try again later.');
@@ -163,7 +166,7 @@ const DeleteOrder = ({
           <ol className="list-inside list-disc">
             {orders.map((order, index: number) => (
               <li className="mt-2" key={index}>
-                Order {order.reference_id} by {order.client}
+                Order {order.reference_id} - by {order.client}
               </li>
             ))}
           </ol>

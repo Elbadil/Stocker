@@ -25,17 +25,19 @@ import { useInventory } from '../../../contexts/InventoryContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 import { schema, OrderSchema, OrderedItemSchema } from './AddOrder';
-import { OrderProps } from './Orders';
+import { OrderProps } from './Order';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
 import { findCountryAndSetCitiesForOrder } from './utils';
 import { api } from '../../../api/axios';
+import toast from 'react-hot-toast';
 
 interface EditOrderProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   order: OrderProps;
+  setOrder?: React.Dispatch<React.SetStateAction<OrderProps | null>>;
   rowNode?: IRowNode<OrderProps>;
   setRowData: React.Dispatch<React.SetStateAction<OrderProps[]>>;
 }
@@ -44,6 +46,7 @@ const EditOrder = ({
   open,
   setOpen,
   order,
+  setOrder,
   rowNode,
   setRowData,
 }: EditOrderProps) => {
@@ -212,11 +215,18 @@ const EditOrder = ({
         );
       });
       // Set success Alert
-      setAlert({
-        type: 'success',
-        title: 'Order Updated',
-        description: `Order ${order.reference_id} has been successfully updated.`,
-      });
+      if (setOrder) {
+        setOrder(orderUpdate);
+        toast.success(`Order ${order.reference_id} updated!`, {
+          duration: 4000,
+        });
+      } else {
+        setAlert({
+          type: 'success',
+          title: 'Order Updated',
+          description: `Order ${order.reference_id} has been successfully updated.`,
+        });
+      }
       // Close Edit Order Modal
       setOpen(false);
     } catch (error: any) {

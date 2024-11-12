@@ -26,34 +26,12 @@ import { Location } from '../Clients/Client';
 import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
 import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
+import Order, { OrderProps, OrderedItem } from './Order';
 import AddOrder from './AddOrder';
 import EditOrder from './EditOrder';
 import DeleteOrder from './DeleteOrder';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
-
-export interface OrderedItem {
-  item: string;
-  ordered_quantity: number;
-  ordered_price: number;
-  total_profit: number;
-}
-
-export interface OrderProps {
-  id: string;
-  reference_id: string;
-  created_by: string;
-  client: string;
-  ordered_items: OrderedItem[];
-  status: string;
-  shipping_address: Location;
-  shipping_cost?: number | null;
-  total_profit: number;
-  source?: string | null;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
 
 const Orders = () => {
   const { alert } = useAlert();
@@ -73,11 +51,27 @@ const Orders = () => {
     setSearchTerm(e.target.value);
   };
 
+  const RefRenderer = (params: CustomCellRendererProps) => {
+    if (!params.value) return null;
+    return (
+      <div
+        className="hover:underline cursor-pointer"
+        onClick={() => {
+          setSelectedOrder(params.data);
+          setOpenOrder(true);
+        }}
+      >
+        {params.value}
+      </div>
+    );
+  };
+
   const OrderedItemRenderer = (
     params: CustomCellRendererProps,
     key: keyof OrderedItem,
   ) => {
     if (!params.value) return null;
+    const decimalFields = ['ordered_price', 'total_profit', 'total_price'];
     return (
       <>
         {params.value.map((prop: string | number, index: number) => (
@@ -85,8 +79,7 @@ const Orders = () => {
             key={index}
             className="whitespace-nowrap overflow-hidden text-ellipsis"
           >
-            {(key === 'ordered_price' || key === 'total_profit') &&
-            typeof prop === 'number'
+            {decimalFields.includes(key) && typeof prop === 'number'
               ? prop.toFixed(2)
               : prop}
           </div>
@@ -169,6 +162,7 @@ const Orders = () => {
     {
       field: 'reference_id',
       headerName: 'Ref',
+      cellRenderer: RefRenderer,
       sortable: false,
       minWidth: 120,
       flex: 1,
@@ -213,10 +207,10 @@ const Orders = () => {
     },
     {
       field: 'ordered_items',
-      headerName: 'Profit',
-      valueGetter: (params) => createValueGetter(params, 'total_profit'),
+      headerName: 'T. Price',
+      valueGetter: (params) => createValueGetter(params, 'total_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'total_profit'),
+        OrderedItemRenderer(params, 'total_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
       flex: 1,
@@ -254,8 +248,9 @@ const Orders = () => {
       minWidth: 155,
     },
     {
-      field: 'total_profit',
-      headerName: 'Total Profit',
+      field: 'net_profit',
+      headerName: 'Net Profit',
+      valueFormatter: (params) => params.value.toFixed(2),
       flex: 2,
       minWidth: 130,
     },
@@ -308,8 +303,8 @@ const Orders = () => {
   }, []);
 
   useEffect(() => {
-    getAndSetSelectRows();
-  }, [openEditOrder])
+    if (openEditOrder) getAndSetSelectRows();
+  }, [openEditOrder]);
 
   return (
     <>
@@ -376,15 +371,14 @@ const Orders = () => {
                           isOpen={openOrder}
                           onClose={() => setOpenOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <Client
-                            client={selectedClient}
-                            setClient={setSelectedClient}
-                            clientRowNode={getRowNode(selectedClient.id)}
-                            setOpen={setOpenClient}
+                          <Order
+                            order={selectedOrder}
+                            setOrder={setSelectedOrder}
+                            orderRowNode={getRowNode(selectedOrder.id)}
+                            setOpen={setOpenOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Export Order(s) */}
