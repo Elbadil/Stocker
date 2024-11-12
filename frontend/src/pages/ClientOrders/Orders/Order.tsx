@@ -55,11 +55,11 @@ const Order = ({
 
   const statusStyle = (status: string) => {
     const success = ['Paid', 'Delivered'];
-    const fail = ['Failed', 'Canceled'];
+    const failure = ['Failed', 'Canceled', 'Returned', 'Refunded'];
 
     if (success.includes(status)) {
       return 'bg-lime-500';
-    } else if (fail.includes(status)) {
+    } else if (failure.includes(status)) {
       return 'bg-red-500';
     }
     return 'bg-cyan-500';
@@ -270,7 +270,10 @@ const Order = ({
             {/* Net Profit */}
             <div className="mb-2 pt-3">
               <div className="mb-1 block text-base font-medium text-black dark:text-white">
-                Net Profit <span className='text-sm italic font-light ml-1'>total revenue - costs</span>
+                Net Profit{' '}
+                <span className="text-sm italic font-light ml-1">
+                  total revenue - costs
+                </span>
               </div>
               <p className="text-base text-slate-900 truncate dark:text-slate-300">
                 {order.net_profit.toFixed(2)}

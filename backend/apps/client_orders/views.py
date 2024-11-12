@@ -118,20 +118,43 @@ class GetClientOrdersData(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
+        # Clients
         clients = list(Client.objects.filter(created_by=user).values_list('name', flat=True))
+        # Orders Count
         orders_count = Order.objects.filter(created_by=user).count()
+        # Countries and Cities
         countries = []
         for country in Country.objects.all():
             countries.append(
                 {'name': country.name,
                 'cities': [city.name for city in country.cities.all()]})
+        # Sources of Acquisition
         acq_sources = list(AcquisitionSource.objects.filter(
                            Q(added_by=user) | Q(added_by__isnull=True)
                            ).values_list('name', flat=True))
-        order_status = list(OrderStatus.objects.all().values_list('name', flat=True))
+        # Status Names
+        status_names = list(OrderStatus.objects.all().values_list('name', flat=True))
+        # Completed orders
+        completed_status = ['Paid', 'Delivered']
+        completed_orders = Order.objects.filter(created_by=user,
+                                                status__name__in=completed_status).count()
+        # Active Orders
+        active_status = ['Pending', 'Shipped']
+        active_orders = Order.objects.filter(created_by=user,
+                                             status__name__in=active_status).count()
+        # Failed Orders
+        failed_status = ['Canceled', 'Failed', 'Refunded', 'Returned']
+        failed_orders = Order.objects.filter(created_by=user,
+                                             status__name__in=failed_status).count()
+        # Orders Status
+        orders_status = {'names': status_names,
+                         'active': active_orders,
+                         'completed': completed_orders,
+                         'failed': failed_orders}
+
         return Response({'clients': {'count': len(clients), 'names': clients},
                          'orders_count': orders_count,
                          'countries': countries,
                          'acq_sources': acq_sources,
-                         'order_status': order_status},
+                         'order_status': orders_status},
                          status=status.HTTP_200_OK)

@@ -7,14 +7,19 @@ export interface ClientOrdersState {
     count: number;
     names: string[];
   };
-  newClient: string | null,
+  newClient: string | null;
   ordersCount: number;
   countries: {
     name: string;
     cities: string[];
   }[];
   acqSources: string[];
-  orderStatus: string[];
+  orderStatus: {
+    names: string[];
+    active: number;
+    completed: number;
+    failed: number;
+  };
   loading: boolean;
   error: string | null;
 }
@@ -26,7 +31,12 @@ export interface ClientOrdersApiResponse
   > {
   orders_count: number;
   acq_sources: string[];
-  order_status: string[];
+  order_status: {
+    names: string[];
+    active: number;
+    completed: number;
+    failed: number;
+  };
 }
 
 const initialState: ClientOrdersState = {
@@ -38,7 +48,7 @@ const initialState: ClientOrdersState = {
   ordersCount: 0,
   countries: [],
   acqSources: [],
-  orderStatus: [],
+  orderStatus: {names: [], active: 0, completed: 0, failed: 0},
   loading: true,
   error: null,
 };

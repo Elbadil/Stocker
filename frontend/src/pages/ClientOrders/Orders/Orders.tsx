@@ -35,7 +35,7 @@ ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 const Orders = () => {
   const { alert } = useAlert();
-  const { loading, clients, ordersCount } = useClientOrders();
+  const { loading, ordersCount, orderStatus } = useClientOrders();
   const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedRows, setSelectedRows] = useState<OrderProps[] | undefined>(
@@ -93,12 +93,12 @@ const Orders = () => {
 
     const status = params.value;
     const success = ['Paid', 'Delivered'];
-    const fail = ['Failed', 'Canceled'];
+    const failure = ['Failed', 'Canceled', 'Returned', 'Refunded'];
 
     const statusStyle = () => {
       if (success.includes(status)) {
         return 'bg-lime-500';
-      } else if (fail.includes(status)) {
+      } else if (failure.includes(status)) {
         return 'bg-red-500';
       }
       return 'bg-cyan-500';
@@ -471,17 +471,31 @@ const Orders = () => {
                     </div>
                   </div>
                   {/* Orders Info | Clients Count | Orders Count */}
-                  <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-2 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
+                  <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-4 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
-                      <span className="text-base font-medium">Clients:</span>
+                      <span className="text-base font-medium">
+                        Total Orders:
+                      </span>
                       <span className="font-semibold text-black dark:text-white">
-                        {clients.count}
+                        {ordersCount}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
+                      <span className="text-base font-medium">Active:</span>
+                      <span className="font-semibold text-black dark:text-white">
+                        {orderStatus.active}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
+                      <span className="text-base font-medium">Completed:</span>
+                      <span className="font-semibold text-black dark:text-white">
+                        {orderStatus.completed}
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 px-4 xsm:flex-row">
-                      <span className="text-base font-medium">Orders:</span>
+                      <span className="text-base font-medium">Failed:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {ordersCount}
+                        {orderStatus.failed}
                       </span>
                     </div>
                   </div>

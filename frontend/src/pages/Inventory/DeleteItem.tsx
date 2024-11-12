@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { ItemProps } from './Item';
 import { api } from '../../api/axios';
 import { useDispatch } from 'react-redux';
@@ -52,6 +53,16 @@ const DeleteItem = ({
     setRowData(filteredRows);
   };
 
+  const isItemOrdered = (selectedItem: ItemProps) => {
+    const itemFound = items.find((item) => item.name === selectedItem.name);
+    return itemFound ? itemFound.ordered : false;
+  };
+
+  const orderedItems = useMemo(() => {
+    const itemsNames = new Set(itemsSummary.names);
+    return items.filter((item) => itemsNames.has(item.name) && item.ordered);
+  }, [items, selectedItems]);
+
   const handleDelete = async () => {
     setLoading(true);
     setDeleteErrors('');
@@ -75,7 +86,9 @@ const DeleteItem = ({
         dispatch(
           setInventory({
             ...inventory,
-            items: items.filter((item) => !itemsSummary.names.includes(item.name)),
+            items: items.filter(
+              (item) => !itemsSummary.names.includes(item.name),
+            ),
             totalItems: inventory.totalItems - selectedItems.length,
             totalQuantity: inventory.totalQuantity - itemsSummary.totalQuantity,
             totalValue: inventory.totalValue - itemsSummary.totalValue,
@@ -86,9 +99,11 @@ const DeleteItem = ({
       setAlert({
         type: 'success',
         title:
-          selectedItems.length > 1 ? `${selectedItems.length} Items Deleted` : 'Item Deleted',
+          selectedItems.length > 1
+            ? `${selectedItems.length} Items Deleted`
+            : 'Item Deleted',
         description:
-        selectedItems.length > 1
+          selectedItems.length > 1
             ? `You have successfully deleted ${selectedItems.length} items from your inventory.`
             : `You have successfully deleted ${selectedItems[0].name} from your inventory.`,
       });
@@ -128,16 +143,46 @@ const DeleteItem = ({
       {/* Form Content */}
       <div className="max-w-full overflow-y-auto max-h-[85vh] text-black dark:text-white flex flex-col">
         <div className="p-5">
-          <div className="mb-3  font-medium">
+          <div className="mb-3 font-medium">
             Are you sure you want to delete:
           </div>
           <ol className="list-inside list-disc">
-            {selectedItems.map((item, index: number) => (
+            {selectedItems.map((selectedItem, index: number) => (
               <li className="mt-2" key={index}>
-                {item.name}
+                {selectedItem.name}
+                {isItemOrdered(selectedItem) && (
+                  <WarningAmberOutlinedIcon
+                    sx={{
+                      color: '#f97316',
+                      fontSize: '22px',
+                      paddingBottom: '4px',
+                      marginLeft: '1.5px',
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ol>
+
+          {/* Delete Errors */}
+          {orderedItems.length > 0 && (
+            <div className="mt-3 text-sm text-orange-500 flex justify-start gap-0.5">
+              <WarningAmberOutlinedIcon
+                sx={{
+                  fontSize: '17.5px',
+                  paddingTop: '3px',
+                }}
+              />
+              <p>
+                {orderedItems.length > 1
+                  ? orderedItems.length === selectedItems.length
+                    ? 'All selected items are '
+                    : 'Some selected items are '
+                  : `${orderedItems[0].name} is `}
+                linked to existing orders. Please manage orders before deletion.
+              </p>
+            </div>
+          )}
           {deleteErrors && (
             <p className="mt-2 text-red-500 font-medium text-sm italic">
               {deleteErrors}
@@ -155,9 +200,16 @@ const DeleteItem = ({
           Cancel
         </button>
         <button
-          className="flex justify-center bg-red-500 hover:bg-opacity-90 rounded py-2 px-4 font-medium text-gray"
+          className={
+            'flex justify-center ' +
+            (orderedItems.length > 0
+              ? 'cursor-not-allowed bg-red-400 '
+              : 'bg-red-500 hover:bg-opacity-90 ') +
+            'rounded py-2 px-6 font-medium text-gray'
+          }
           type="submit"
           onClick={handleDelete}
+          disabled={orderedItems.length > 0}
         >
           {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Delete'}
         </button>

@@ -93,7 +93,7 @@ const EditOrder = ({
   const itemOptions = selectOptionsFromObjects(items);
   const sourceOptions = selectOptionsFromStrings(acqSources);
   const countryOptions = selectOptionsFromObjects(countries);
-  const statusOptions = selectOptionsFromStrings(orderStatus);
+  const statusOptions = selectOptionsFromStrings(orderStatus.names);
 
   const handleClientChange = (
     onChange: (value: string | null) => void,

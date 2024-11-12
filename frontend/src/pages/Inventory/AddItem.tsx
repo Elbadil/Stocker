@@ -318,6 +318,27 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
 
                 {/* Price & Quantity */}
                 <div className="mb-4 flex flex-col gap-5.5 sm:flex-row">
+                  {/* Quantity */}
+                  <div className="w-full sm:w-1/2">
+                    <label
+                      className="mb-2 block text-sm font-medium text-black dark:text-white"
+                      htmlFor="quantity"
+                    >
+                      Quantity*
+                    </label>
+                    <input
+                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                      type="number"
+                      placeholder="e.g. 1"
+                      {...register('quantity')}
+                    />
+                    {errors.quantity && (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {errors.quantity.message}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Price */}
                   <div className="w-full sm:w-1/2">
                     <label
@@ -336,27 +357,6 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
                     {errors.price && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
                         {errors.price.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Quantity */}
-                  <div className="w-full sm:w-1/2">
-                    <label
-                      className="mb-2 block text-sm font-medium text-black dark:text-white"
-                      htmlFor="quantity"
-                    >
-                      Quantity*
-                    </label>
-                    <input
-                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
-                      type="number"
-                      placeholder="e.g. 1"
-                      {...register('quantity')}
-                    />
-                    {errors.quantity && (
-                      <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {errors.quantity.message}
                       </p>
                     )}
                   </div>

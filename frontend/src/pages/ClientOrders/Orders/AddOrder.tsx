@@ -30,7 +30,7 @@ import { useAlert } from '../../../contexts/AlertContext';
 import { useInventory } from '../../../contexts/InventoryContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { AppDispatch } from '../../../store/store';
-import { OrderProps } from './Orders';
+import { OrderProps } from './Order';
 import { findCountryAndSetCitiesForOrder } from './utils';
 
 export const schema = z.object({
@@ -154,7 +154,7 @@ const AddOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
   const itemOptions = selectOptionsFromObjects(items);
   const sourceOptions = selectOptionsFromStrings(acqSources);
   const countryOptions = selectOptionsFromObjects(countries);
-  const statusOptions = selectOptionsFromStrings(orderStatus);
+  const statusOptions = selectOptionsFromStrings(orderStatus.names);
 
   const handleClientChange = (
     onChange: (value: string | null) => void,
