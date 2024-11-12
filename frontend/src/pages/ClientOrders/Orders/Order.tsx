@@ -94,7 +94,7 @@ const Order = ({
             <button
               type="button"
               className="mr-1.5 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark bg-gray dark:bg-meta-4 text-slate-500 dark:text-white h-10 w-10.5 text-center font-medium hover:text-black dark:hover:text-black hover:bg-slate-200 dark:hover:bg-slate-200"
-              onClick={handleOrderExport}
+              onClick={() => handleOrderExport([order])}
             >
               <FileDownloadOutlinedIcon />
             </button>

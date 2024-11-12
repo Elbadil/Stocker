@@ -195,15 +195,15 @@ const Orders = () => {
     },
     {
       field: 'ordered_items',
-      headerName: 'Price',
+      headerName: 'Unit Price',
       valueGetter: (params) => createValueGetter(params, 'ordered_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
         OrderedItemRenderer(params, 'ordered_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
 
-      flex: 1,
-      minWidth: 110,
+      flex: 1.5,
+      minWidth: 123,
     },
     {
       field: 'ordered_items',
@@ -389,7 +389,7 @@ const Orders = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={handleOrderExport}
+                        onClick={() => handleOrderExport(selectedRows)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
