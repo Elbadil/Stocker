@@ -18,7 +18,7 @@ import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
 import Items from './pages/Inventory/Items';
 import Clients from './pages/ClientOrders/Clients/Clients';
-import Orders from './pages/ClientOrders/Orders/Orders';
+import ClientOrders from './pages/ClientOrders/ClientOrders/ClientOrders';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
@@ -56,14 +56,14 @@ function App() {
                   </>
                 }
               />
-              {/* Orders */}
+              {/* Client Orders */}
               <Route
                 path="client_orders/orders"
                 element={
                   <ClientOrdersProvider>
                     <>
                       <PageTitle title="Client Orders | Stocker" />
-                      <Orders />
+                      <ClientOrders />
                     </>
                   </ClientOrdersProvider>
                 }
@@ -79,6 +79,7 @@ function App() {
                   </ClientOrdersProvider>
                 }
               />
+              {/* Calender */}
               <Route
                 path="/calendar"
                 element={

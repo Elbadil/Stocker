@@ -1,8 +1,8 @@
 import { UseFormSetValue } from 'react-hook-form';
 import { utils, writeFile } from 'xlsx';
 import { format } from 'date-fns';
-import { OrderSchema } from './AddOrder';
-import { OrderProps } from './Order';
+import { ClientOrderSchema } from './AddClientOrder';
+import { ClientOrderProps } from './ClientOrder';
 import toast from 'react-hot-toast';
 import { api } from '../../../api/axios';
 
@@ -16,8 +16,8 @@ export const findCountryAndSetCitiesForOrder = (
   setCityOptions: React.Dispatch<
     React.SetStateAction<{ value: string; label: string }[]>
   >,
-  currentValues?: OrderSchema,
-  setValue?: UseFormSetValue<OrderSchema>,
+  currentValues?: ClientOrderSchema,
+  setValue?: UseFormSetValue<ClientOrderSchema>,
 ) => {
   const country = countries.find(
     (country: { name: string; cities: string[] }) =>
@@ -38,7 +38,18 @@ export const findCountryAndSetCitiesForOrder = (
   }
 };
 
-export const orderedItemsDataFlattener = (order: OrderProps) => {
+export const statusType = (status: string) => {
+  const completedStatus = ['Paid', 'Delivered'];
+  const activeStatus = ['Pending', 'Shipped'];
+  if (completedStatus.includes(status)) {
+    return 'completed';
+  } else if (activeStatus.includes(status)) {
+    return 'active';
+  }
+  return 'failed';
+};
+
+export const orderedItemsDataFlattener = (order: ClientOrderProps) => {
   return order.ordered_items.reduce<FlattenedOrderedItems>(
     (acc, orderedItem, index) => {
       acc[`ordered_item-${index + 1}`] = `${orderedItem.item} | Quantity: ${
@@ -52,7 +63,7 @@ export const orderedItemsDataFlattener = (order: OrderProps) => {
   );
 };
 
-export const orderDataFlattener = (orders: OrderProps[]) =>
+export const orderDataFlattener = (orders: ClientOrderProps[]) =>
   orders.map((order) => ({
     ...order,
     ordered_items: `${order.ordered_items.length} unique ${
@@ -65,7 +76,7 @@ export const orderDataFlattener = (orders: OrderProps[]) =>
       : null,
   }));
 
-export const createSheetFile = (orders: OrderProps[]) => {
+export const createSheetFile = (orders: ClientOrderProps[]) => {
   const flattenedData = orderDataFlattener(orders);
   const ws = utils.json_to_sheet(flattenedData);
   /* create workbook and append worksheet */
@@ -79,7 +90,7 @@ export const createSheetFile = (orders: OrderProps[]) => {
   }
 };
 
-export const handleOrderExport = (selectedRows?: OrderProps[]) => {
+export const handleOrderExport = (selectedRows?: ClientOrderProps[]) => {
   if (selectedRows) {
     createSheetFile(selectedRows);
   } else {

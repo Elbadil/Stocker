@@ -9,9 +9,9 @@ from .models import (Client,
                      City,
                      Location,
                      AcquisitionSource,
-                     OrderedItem,
-                     OrderStatus,
-                     Order)
+                     ClientOrderedItem,
+                     ClientOrderStatus,
+                     ClientOrder)
 from ..inventory.models import Item
 from ..base.models import User
 
@@ -183,12 +183,12 @@ class ClientSerializer(serializers.ModelSerializer):
         return client_repr
 
 
-class OrderedItemSerializer(serializers.ModelSerializer):
+class ClientOrderedItemSerializer(serializers.ModelSerializer):
     """Ordered Item Serializer"""
     item = serializers.CharField()
 
     class Meta:
-        model = OrderedItem
+        model = ClientOrderedItem
         fields = [
             'id',
             'order',
@@ -232,10 +232,10 @@ class OrderedItemSerializer(serializers.ModelSerializer):
         ).first()
         item.quantity -= validated_data['ordered_quantity']
         item.save()
-        return OrderedItem.objects.create(item=item, **validated_data)
+        return ClientOrderedItem.objects.create(item=item, **validated_data)
 
 
-    def to_representation(self, instance: OrderedItem):
+    def to_representation(self, instance: ClientOrderedItem):
         ordered_item_repr = super().to_representation(instance)
         ordered_item_repr['item'] = instance.item.name
         ordered_item_repr['created_by'] = instance.created_by.username
@@ -244,7 +244,7 @@ class OrderedItemSerializer(serializers.ModelSerializer):
         return ordered_item_repr
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class ClientOrderSerializer(serializers.ModelSerializer):
     """Order Serializer"""
     client = serializers.CharField()
     ordered_items = serializers.ListField(child=serializers.DictField(),
@@ -255,7 +255,7 @@ class OrderSerializer(serializers.ModelSerializer):
     source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
-        model = Order
+        model = ClientOrder
         fields = [
             'id',
             'reference_id',
@@ -272,24 +272,24 @@ class OrderSerializer(serializers.ModelSerializer):
             'updated'
         ]
 
-    def create_ordered_items_for_order(
+    def create_ordered_items_for_client_order(
         self,
         request,
-        order: Order,
+        order: ClientOrder,
         user: User,
         ordered_items: List[dict],
     ):
         for item in ordered_items:
             item['order'] = order.id
             item['created_by'] = user.id
-            serializer = OrderedItemSerializer(data=item,
-                                                context={'request': request})
+            serializer = ClientOrderedItemSerializer(data=item,
+                                                     context={'request': request})
             if serializer.is_valid():
                 serializer.save()
             else:
                 raise serializers.ValidationError(serializer.errors)
 
-    def get_ordered_items(self, order: Order):
+    def get_ordered_items(self, order: ClientOrder):
         ordered_items = []
         for ordered_item in order.items:
             ordered_items.append({
@@ -301,15 +301,15 @@ class OrderSerializer(serializers.ModelSerializer):
             })
         return ordered_items
 
-    def reset_ordered_items(self, instance: Order):
+    def reset_client_ordered_items(self, instance: ClientOrder):
         prev_items = instance.items
         for ordered_item in prev_items:
             Item.objects.filter(id=ordered_item.item.id).update(
                 quantity=F('quantity') + ordered_item.ordered_quantity
             )
-        OrderedItem.objects.filter(order=instance).delete()
+        ClientOrderedItem.objects.filter(order=instance).delete()
 
-    def validate_ordered_items(self, value: List[OrderedItem]):
+    def validate_ordered_items(self, value: List[ClientOrderedItem]):
         unique_items = []
         for ordered_item in value:
             item_name = ordered_item['item'].lower()
@@ -322,7 +322,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def validate_status(self, value):
         if value:
-            status = OrderStatus.objects.filter(name__iexact=value).first()
+            status = ClientOrderStatus.objects.filter(name__iexact=value).first()
             if not status:
                 raise serializers.ValidationError("Invalid order status.")
             return status
@@ -356,10 +356,10 @@ class OrderSerializer(serializers.ModelSerializer):
         status = validated_data.pop('status', None)
 
         # Create order with remaining data
-        order = Order.objects.create(created_by=user, **validated_data)
+        order = ClientOrder.objects.create(created_by=user, **validated_data)
 
         # Create and Add ordered items to the order
-        self.create_ordered_items_for_order(
+        self.create_ordered_items_for_client_order(
             request,
             order,
             user,
@@ -376,7 +376,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return order
 
     @transaction.atomic
-    def update(self, instance: Order, validated_data):
+    def update(self, instance: ClientOrder, validated_data):
         # Extract the user from the context request
         request = self.context.get('request')
         user = request.user
@@ -392,8 +392,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # Update ordered items of the order
         if ordered_items:
-            self.reset_ordered_items(instance)
-            self.create_ordered_items_for_order(
+            self.reset_client_ordered_items(instance)
+            self.create_ordered_items_for_client_order(
                 request,
                 order,
                 user,
@@ -411,7 +411,7 @@ class OrderSerializer(serializers.ModelSerializer):
         order.save()
         return order
 
-    def to_representation(self, instance: Order):
+    def to_representation(self, instance: ClientOrder):
         order_repr = super().to_representation(instance)
         order_repr['created_by'] = instance.created_by.username
         order_repr['source'] = instance.source.name if instance.source else None

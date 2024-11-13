@@ -6,7 +6,7 @@ from rest_framework import status
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Item, Category, Supplier, Variant
-from ..client_orders.models import OrderedItem
+from ..client_orders.models import ClientOrderedItem
 
 
 class CreateItem(generics.CreateAPIView):
@@ -64,7 +64,7 @@ class ItemsBulkDelete(generics.GenericAPIView):
             return Response({"error": "No IDs provided."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        ordered_items = list(OrderedItem.objects.filter(
+        ordered_items = list(ClientOrderedItem.objects.filter(
                             item__id__in=ids).values_list('item__name', flat=True))
         if ordered_items:
             return Response(
@@ -104,10 +104,10 @@ class GetUserInventoryData(generics.GenericAPIView):
         user_items = Item.objects.filter(user=user)
         items = []
         for item in user_items:
-            is_ordered = OrderedItem.objects.filter(item=item).exists()
+            client_ordered = ClientOrderedItem.objects.filter(item=item).exists()
             items.append({'name': item.name,
                           'quantity': item.quantity,
-                          'ordered': is_ordered})
+                          'ordered': client_ordered})
         # Total Value & Total Quantity
         total_value = sum([item.total_price for item in user_items])
         total_quantity = sum(list(user_items.values_list('quantity', flat=True)))

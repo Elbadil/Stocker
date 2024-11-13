@@ -82,7 +82,7 @@ class Client(BaseModel):
     email = models.EmailField(max_length=100, null=True, blank=True)
     sex = models.CharField(max_length=10, null=True, blank=True,
                            choices=[('Male', 'Male'),
-                                    ('Female', 'Female')])
+                                     ('Female', 'Female')])
     location = models.ForeignKey(Location, on_delete=models.SET_NULL,
                                  null=True, blank=True)
     source = models.ForeignKey(AcquisitionSource,
@@ -101,7 +101,7 @@ class Client(BaseModel):
         return self.name
 
 
-class OrderStatus(BaseModel):
+class ClientOrderStatus(BaseModel):
     """Order Status Model"""
     name = models.CharField(max_length=50, unique=True)
 
@@ -109,7 +109,7 @@ class OrderStatus(BaseModel):
         return self.name
 
 
-class Order(BaseModel):
+class ClientOrder(BaseModel):
     """Order Model"""
     reference_id = ShortUUIDField(length=7,
                                   max_length=12,
@@ -122,7 +122,7 @@ class Order(BaseModel):
     client = models.ForeignKey(Client, on_delete=models.SET_NULL,
                                related_name="orders",
                                null=True)
-    status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
+    status = models.ForeignKey(ClientOrderStatus, on_delete=models.SET_NULL,
                                null=True, blank=True,
                                default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,
@@ -157,11 +157,11 @@ class Order(BaseModel):
         return f'Order by: {self.client.name}'
 
 
-class OrderedItem(BaseModel):
+class ClientOrderedItem(BaseModel):
     """Ordered Item Model"""
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                    null=True, blank=True)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE,
+    order = models.ForeignKey(ClientOrder, on_delete=models.CASCADE,
                               null=True, blank=True,
                               related_name="ordered_items")
     item = models.ForeignKey(Item, on_delete=models.CASCADE)

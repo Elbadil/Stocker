@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { OrderProps } from './Order';
+import ClipLoader from 'react-spinners/ClipLoader';
+import { ClientOrderProps } from './ClientOrder';
 import { api } from '../../../api/axios';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
@@ -8,27 +9,27 @@ import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { useInventory } from '../../../contexts/InventoryContext';
-import ClipLoader from 'react-spinners/ClipLoader';
+import { statusType } from './utils';
 
-interface DeleteOrderProps {
+interface DeleteClientOrderProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  orders: OrderProps[];
-  rowData: OrderProps[];
-  setRowData: React.Dispatch<React.SetStateAction<OrderProps[]>>;
+  orders: ClientOrderProps[];
+  rowData: ClientOrderProps[];
+  setRowData: React.Dispatch<React.SetStateAction<ClientOrderProps[]>>;
   setOrderOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const DeleteOrder = ({
+const DeleteClientOrder = ({
   open,
   setOpen,
   orders,
   rowData,
   setRowData,
   setOrderOpen,
-}: DeleteOrderProps) => {
+}: DeleteClientOrderProps) => {
   const { setAlert } = useAlert();
-  const { ordersCount } = useClientOrders();
+  const { ordersCount, orderStatus } = useClientOrders();
   const { items } = useInventory();
   const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState<boolean>(false);
@@ -37,6 +38,7 @@ const DeleteOrder = ({
   const ordersSummary = {
     ids: orders.map((order) => order.id),
     orderedItemsGrouped: orders.map((order) => order.ordered_items),
+    status: orders.map((order) => order.status),
 
     flattenedOrderedItems() {
       const orderedItemsMap = new Map();
@@ -69,6 +71,15 @@ const DeleteOrder = ({
     setRowData(filteredRows);
   };
 
+  const updateOrderStatusState = () => {
+    const newOrderStatus = structuredClone(orderStatus);
+    ordersSummary.status.forEach((status) => {
+      const delStatusType = statusType(status);
+      newOrderStatus[delStatusType] = newOrderStatus[delStatusType] - 1;
+    });
+    return newOrderStatus;
+  };
+
   const updateOrdersState = () => {
     dispatch((dispatch, getState) => {
       const { inventory, clientOrders } = getState();
@@ -76,6 +87,7 @@ const DeleteOrder = ({
         setClientOrders({
           ...clientOrders,
           ordersCount: ordersCount - orders.length,
+          orderStatus: updateOrderStatusState(),
         }),
       );
       dispatch(
@@ -198,4 +210,4 @@ const DeleteOrder = ({
   );
 };
 
-export default DeleteOrder;
+export default DeleteClientOrder;

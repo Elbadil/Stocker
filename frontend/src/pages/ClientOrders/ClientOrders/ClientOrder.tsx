@@ -4,12 +4,12 @@ import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutl
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { IRowNode } from '@ag-grid-community/core';
 import { handleOrderExport } from './utils';
-import EditOrder from './EditOrder';
-import DeleteOrder from './DeleteOrder';
+import EditClientOrder from './EditClientOrder';
+import DeleteClientOrder from './DeleteClientOrder';
 import { Location } from '../Clients/Client';
 import ModalOverlay from '../../../components/ModalOverlay';
 
-export interface OrderedItem {
+export interface ClientOrderedItem {
   item: string;
   ordered_quantity: number;
   ordered_price: number;
@@ -17,12 +17,12 @@ export interface OrderedItem {
   total_profit: number;
 }
 
-export interface OrderProps {
+export interface ClientOrderProps {
   id: string;
   reference_id: string;
   created_by: string;
   client: string;
-  ordered_items: OrderedItem[];
+  ordered_items: ClientOrderedItem[];
   status: string;
   shipping_address: Location;
   shipping_cost?: number | null;
@@ -33,23 +33,23 @@ export interface OrderProps {
   updated: boolean;
 }
 
-interface Order {
-  order: OrderProps;
-  setOrder: React.Dispatch<React.SetStateAction<OrderProps | null>>;
+interface ClientOrder {
+  order: ClientOrderProps;
+  setOrder: React.Dispatch<React.SetStateAction<ClientOrderProps | null>>;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  orderRowNode?: IRowNode<OrderProps>;
-  rowData: OrderProps[];
-  setRowData: React.Dispatch<React.SetStateAction<OrderProps[]>>;
+  orderRowNode?: IRowNode<ClientOrderProps>;
+  rowData: ClientOrderProps[];
+  setRowData: React.Dispatch<React.SetStateAction<ClientOrderProps[]>>;
 }
 
-const Order = ({
+const ClientOrder = ({
   order,
   setOrder,
   setOpen,
   orderRowNode,
   rowData,
   setRowData,
-}: Order) => {
+}: ClientOrder) => {
   const [openEditOrder, setOpenEditOrder] = useState<boolean>(false);
   const [openDeleteOrder, setOpenDeleteOrder] = useState<boolean>(false);
 
@@ -110,7 +110,7 @@ const Order = ({
               isOpen={openEditOrder}
               onClose={() => setOpenEditOrder(false)}
             >
-              <EditOrder
+              <EditClientOrder
                 open={openEditOrder}
                 setOpen={setOpenEditOrder}
                 order={order}
@@ -131,7 +131,7 @@ const Order = ({
               isOpen={openDeleteOrder}
               onClose={() => setOpenDeleteOrder(false)}
             >
-              <DeleteOrder
+              <DeleteClientOrder
                 open={openDeleteOrder}
                 setOpen={setOpenDeleteOrder}
                 orders={[order]}
@@ -286,4 +286,4 @@ const Order = ({
   );
 };
 
-export default Order;
+export default ClientOrder;

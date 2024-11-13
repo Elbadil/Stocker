@@ -26,22 +26,27 @@ import { Location } from '../Clients/Client';
 import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
 import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
-import Order, { OrderProps, OrderedItem } from './Order';
-import AddOrder from './AddOrder';
-import EditOrder from './EditOrder';
-import DeleteOrder from './DeleteOrder';
+import ClientOrder, {
+  ClientOrderProps,
+  ClientOrderedItem,
+} from './ClientOrder';
+import AddClientOrder from './AddClientOrder';
+import EditClientOrder from './EditClientOrder';
+import DeleteClientOrder from './DeleteClientOrder';
 
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
-const Orders = () => {
+const ClientOrders = () => {
   const { alert } = useAlert();
   const { loading, ordersCount, orderStatus } = useClientOrders();
   const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedRows, setSelectedRows] = useState<OrderProps[] | undefined>(
-    undefined,
+  const [selectedRows, setSelectedRows] = useState<
+    ClientOrderProps[] | undefined
+  >(undefined);
+  const [selectedOrder, setSelectedOrder] = useState<ClientOrderProps | null>(
+    null,
   );
-  const [selectedOrder, setSelectedOrder] = useState<OrderProps | null>(null);
   const [openOrder, setOpenOrder] = useState<boolean>(false);
   const [openAddOrder, setOpenAddOrder] = useState<boolean>(false);
   const [openEditOrder, setOpenEditOrder] = useState<boolean>(false);
@@ -68,7 +73,7 @@ const Orders = () => {
 
   const OrderedItemRenderer = (
     params: CustomCellRendererProps,
-    key: keyof OrderedItem,
+    key: keyof ClientOrderedItem,
   ) => {
     if (!params.value) return null;
     const decimalFields = ['ordered_price', 'total_profit', 'total_price'];
@@ -134,23 +139,23 @@ const Orders = () => {
   };
 
   const createValueGetter = (
-    params: ValueGetterParams<OrderProps, OrderedItem[]>,
-    key: keyof OrderedItem,
+    params: ValueGetterParams<ClientOrderProps, ClientOrderedItem[]>,
+    key: keyof ClientOrderedItem,
   ) => {
     if (!params.data?.ordered_items) return [];
     return params.data.ordered_items.map((item) => item[key]);
   };
 
   const numberGetQuickFilterText = (
-    params: GetQuickFilterTextParams<OrderProps, number[]>,
+    params: GetQuickFilterTextParams<ClientOrderProps, number[]>,
   ) => {
     if (!params.value) return '';
     return params.value.map((value: number) => value.toFixed(2)).join(', ');
   };
 
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<OrderProps[]>([]);
-  const [colDefs] = useState<ColDef<OrderProps>[]>([
+  const [rowData, setRowData] = useState<ClientOrderProps[]>([]);
+  const [colDefs] = useState<ColDef<ClientOrderProps>[]>([
     {
       field: 'created_at',
       headerName: 'Created',
@@ -226,7 +231,7 @@ const Orders = () => {
     {
       field: 'shipping_address',
       headerName: 'Address',
-      valueGetter: (params: ValueGetterParams<OrderProps, Location>) => {
+      valueGetter: (params: ValueGetterParams<ClientOrderProps, Location>) => {
         if (!params.data?.shipping_address) return null;
         return Object.values(params.data.shipping_address).join(', ');
       },
@@ -277,7 +282,7 @@ const Orders = () => {
   ]);
 
   const getAndSetSelectRows = () => {
-    const selectedOrders: OrderProps[] | undefined =
+    const selectedOrders: ClientOrderProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
     setSelectedRows(selectedOrders);
   };
@@ -371,7 +376,7 @@ const Orders = () => {
                           isOpen={openOrder}
                           onClose={() => setOpenOrder(false)}
                         >
-                          <Order
+                          <ClientOrder
                             order={selectedOrder}
                             setOrder={setSelectedOrder}
                             orderRowNode={getRowNode(selectedOrder.id)}
@@ -413,7 +418,7 @@ const Orders = () => {
                           isOpen={openDeleteOrder}
                           onClose={() => setOpenDeleteOrder(false)}
                         >
-                          <DeleteOrder
+                          <DeleteClientOrder
                             orders={selectedRows}
                             open={openDeleteOrder}
                             setOpen={setOpenDeleteOrder}
@@ -440,7 +445,7 @@ const Orders = () => {
                           isOpen={openEditOrder}
                           onClose={() => setOpenEditOrder(false)}
                         >
-                          <EditOrder
+                          <EditClientOrder
                             open={openEditOrder}
                             setOpen={setOpenEditOrder}
                             order={selectedRows[0]}
@@ -462,7 +467,7 @@ const Orders = () => {
                         isOpen={openAddOrder}
                         onClose={() => setOpenAddOrder(false)}
                       >
-                        <AddOrder
+                        <AddClientOrder
                           open={openAddOrder}
                           setOpen={setOpenAddOrder}
                           setRowData={setRowData}
@@ -517,4 +522,4 @@ const Orders = () => {
   );
 };
 
-export default Orders;
+export default ClientOrders;

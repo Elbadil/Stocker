@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from django.db.models import F
 from typing import Union
-from .models import Location, AcquisitionSource, Order, OrderedItem
+from .models import (Location,
+                     AcquisitionSource,
+                     ClientOrder,
+                     ClientOrderedItem)
 from ..inventory.models import Item
 
 
@@ -47,10 +50,10 @@ def get_location(instance_attribute):
     return None
 
 
-def reset_ordered_items(instance: Order):
+def reset_client_ordered_items(instance: ClientOrder):
     prev_items = instance.items
     for ordered_item in prev_items:
         Item.objects.filter(id=ordered_item.item.id).update(
             quantity=F('quantity') + ordered_item.ordered_quantity
         )
-    OrderedItem.objects.filter(order=instance).delete()
+    ClientOrderedItem.objects.filter(order=instance).delete()

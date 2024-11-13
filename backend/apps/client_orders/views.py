@@ -4,14 +4,14 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from ..base.auth import TokenVersionAuthentication
 from django.db.models import Q
-from .utils import reset_ordered_items
+from .utils import reset_client_ordered_items
 from . import serializers
 from .models import (Client,
-                     Order,
+                     ClientOrder,
                      Country,
                      City,
                      AcquisitionSource,
-                     OrderStatus)
+                     ClientOrderStatus)
 
 
 class CreateListClient(generics.ListCreateAPIView):
@@ -46,51 +46,51 @@ class BulkDeleteClients(generics.DestroyAPIView):
                          status=status.HTTP_200_OK)
 
 
-class CreateListOrder(generics.ListCreateAPIView):
-    """Handles Order Creation and Listing"""
+class CreateListClientOrder(generics.ListCreateAPIView):
+    """Handles Client Order Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.OrderSerializer
-    queryset = Order.objects.all()
+    serializer_class = serializers.ClientOrderSerializer
+    queryset = ClientOrder.objects.all()
 
 
-class GetUpdateDeleteOrder(generics.RetrieveUpdateDestroyAPIView):
-    """Handles Order Retrieval Update and Deletion"""
+class GetUpdateDeleteClientOrder(generics.RetrieveUpdateDestroyAPIView):
+    """Handles Client Order Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.OrderSerializer
-    queryset = Order.objects.all()
+    serializer_class = serializers.ClientOrderSerializer
+    queryset = ClientOrder.objects.all()
     lookup_field = 'id'
 
     def destroy(self, request, *args, **kwargs):
         order = self.get_object()
-        reset_ordered_items(order)
+        reset_client_ordered_items(order)
         return super().destroy(request, *args, **kwargs)
 
 
-class BulkDeleteOrders(generics.DestroyAPIView):
+class BulkDeleteClientOrders(generics.DestroyAPIView):
+    """Handles Client Orders Bulk Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.OrderSerializer
-    queryset = Order.objects.all()
+    serializer_class = serializers.ClientOrderSerializer
+    queryset = ClientOrder.objects.all()
 
     def delete(self, request, *args, **kwargs):
-        print(request.data)
         order_ids = request.data.get('ids', [])
         if not order_ids:
             return Response({'error': 'No IDs provided.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        orders = Order.objects.filter(id__in=order_ids)
+        orders = ClientOrder.objects.filter(id__in=order_ids)
         for order in orders:
-            reset_ordered_items(order)
+            reset_client_ordered_items(order)
             order.delete()
 
         return Response({'message': 'orders have been successfully deleted'},
                          status=status.HTTP_200_OK)
 
 
-class BulkCreateListCity(generics.ListCreateAPIView):
+class BulkCreateListCities(generics.ListCreateAPIView):
     """Handles Location Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -121,7 +121,7 @@ class GetClientOrdersData(generics.GenericAPIView):
         # Clients
         clients = list(Client.objects.filter(created_by=user).values_list('name', flat=True))
         # Orders Count
-        orders_count = Order.objects.filter(created_by=user).count()
+        orders_count = ClientOrder.objects.filter(created_by=user).count()
         # Countries and Cities
         countries = []
         for country in Country.objects.all():
@@ -133,19 +133,19 @@ class GetClientOrdersData(generics.GenericAPIView):
                            Q(added_by=user) | Q(added_by__isnull=True)
                            ).values_list('name', flat=True))
         # Status Names
-        status_names = list(OrderStatus.objects.all().values_list('name', flat=True))
+        status_names = list(ClientOrderStatus.objects.all().values_list('name', flat=True))
         # Completed orders
         completed_status = ['Paid', 'Delivered']
-        completed_orders = Order.objects.filter(created_by=user,
-                                                status__name__in=completed_status).count()
+        completed_orders = ClientOrder.objects.filter(created_by=user,
+                                                      status__name__in=completed_status).count()
         # Active Orders
         active_status = ['Pending', 'Shipped']
-        active_orders = Order.objects.filter(created_by=user,
-                                             status__name__in=active_status).count()
+        active_orders = ClientOrder.objects.filter(created_by=user,
+                                                   status__name__in=active_status).count()
         # Failed Orders
         failed_status = ['Canceled', 'Failed', 'Refunded', 'Returned']
-        failed_orders = Order.objects.filter(created_by=user,
-                                             status__name__in=failed_status).count()
+        failed_orders = ClientOrder.objects.filter(created_by=user,
+                                                   status__name__in=failed_status).count()
         # Orders Status
         orders_status = {'names': status_names,
                          'active': active_orders,

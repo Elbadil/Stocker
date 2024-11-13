@@ -1,93 +1,155 @@
-import React, { useState, useEffect } from 'react';
 import {
+  SubmitHandler,
   useForm,
   useFieldArray,
   Controller,
-  SubmitHandler,
 } from 'react-hook-form';
-import { IRowNode } from '@ag-grid-community/core';
+import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Select, { SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import ClipLoader from 'react-spinners/ClipLoader';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModalOverlay from '../../../components/ModalOverlay';
+import { api } from '../../../api/axios';
+import AddClient from '../Clients/AddClient';
+import AddItem from '../../Inventory/AddItem';
 import {
+  requiredStringField,
+  requiredPositiveNumberField,
   customSelectStyles,
   selectOptionsFromStrings,
   selectOptionsFromObjects,
 } from '../../../utils/form';
-import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import AddClient from '../Clients/AddClient';
-import AddItem from '../../Inventory/AddItem';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
+import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
+import { useDispatch } from 'react-redux';
+import React, { useEffect, useState } from 'react';
+import { useAlert } from '../../../contexts/AlertContext';
 import { useInventory } from '../../../contexts/InventoryContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
-import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
-import { schema, OrderSchema, OrderedItemSchema } from './AddOrder';
-import { OrderProps } from './Order';
-import { useAlert } from '../../../contexts/AlertContext';
-import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
-import { findCountryAndSetCitiesForOrder } from './utils';
-import { api } from '../../../api/axios';
-import toast from 'react-hot-toast';
+import { ClientOrderProps } from './ClientOrder';
+import { findCountryAndSetCitiesForOrder, statusType } from './utils';
 
-interface EditOrderProps {
+export const schema = z.object({
+  client: requiredStringField('Client'),
+  ordered_items: z
+    .array(
+      z.object({
+        item: requiredStringField('Item name'),
+        ordered_quantity: requiredPositiveNumberField('Quantity'),
+        ordered_price: requiredPositiveNumberField('Price'),
+      }),
+    )
+    .superRefine((orderedItems, ctx) => {
+      // Collect all items names
+      const itemNames = orderedItems.map((orderedItem) => orderedItem.item);
+      const nameCount: { [key: string]: number } = {};
+      itemNames.forEach((name: string, index: number) => {
+        const nameLower = name.toLowerCase().trim();
+        nameCount[nameLower] = (nameCount[nameLower] || 0) + 1;
+        if (nameCount[nameLower] > 1) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'item'], // Point to the specific field in the array
+            message: `Item "${name.trim()}" has already been selected.`,
+          });
+        }
+      });
+    }),
+  status: z.string().optional().nullable(),
+  source: z.string().optional().nullable(),
+  shipping_address: z
+    .object({
+      country: z.string().optional().nullable(),
+      city: z.string().optional().nullable(),
+      street_address: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.string().optional().nullable(),
+      ),
+    })
+    .transform((loc) => {
+      // If all properties are null or undefined, return undefined
+      return Object.values(loc).every(
+        (val) => val === null || val === undefined || val === '',
+      )
+        ? undefined
+        : loc;
+    }),
+  shipping_cost: z.preprocess(
+    (val) => (val ? Number(val) : null),
+    z.number().optional().nullable(),
+  ),
+});
+
+export type ClientOrderSchema = z.infer<typeof schema>;
+// Adding [number] at the end to tell TypeScript to give you the
+// type of a single item in that array
+export type ClientOrderedItemSchema =
+  ClientOrderSchema['ordered_items'][number];
+
+interface AddOrderProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  order: OrderProps;
-  setOrder?: React.Dispatch<React.SetStateAction<OrderProps | null>>;
-  rowNode?: IRowNode<OrderProps>;
-  setRowData: React.Dispatch<React.SetStateAction<OrderProps[]>>;
+  setRowData: React.Dispatch<React.SetStateAction<ClientOrderProps[]>>;
 }
 
-const EditOrder = ({
-  open,
-  setOpen,
-  order,
-  setOrder,
-  rowNode,
-  setRowData,
-}: EditOrderProps) => {
+const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
   const { isDarkMode, setAlert } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
-  const { clients, newClient, acqSources, countries, orderStatus } =
-    useClientOrders();
+  const {
+    clients,
+    newClient,
+    acqSources,
+    countries,
+    orderStatus,
+    ordersCount,
+  } = useClientOrders();
   const { items } = useInventory();
   const [openAddClient, setOpenAddClient] = useState<boolean>(false);
   const [openAddItem, setOpenAddItem] = useState<boolean>(false);
   const [cityOptions, setCityOptions] = useState<
     { value: string; label: string }[]
   >([]);
-  const [initialValues, setInitialValues] = useState<OrderSchema | null>(null);
+
+  // Partial makes all properties of a type optional
+  const emptyItem: Partial<ClientOrderedItemSchema> = {
+    item: '',
+    ordered_quantity: undefined,
+    ordered_price: undefined,
+  };
 
   const {
     register,
-    handleSubmit,
     control,
-    reset,
-    watch,
+    handleSubmit,
     clearErrors,
-    setValue,
+    reset,
     setError,
-    formState: { errors, dirtyFields, isSubmitting },
-  } = useForm<OrderSchema>({
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<ClientOrderSchema>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      client: '',
+      // "as" => trust me, I know what I'm doing
+      ordered_items: [emptyItem as ClientOrderedItemSchema],
+      status: '',
+      source: '',
+      shipping_address: {
+        country: '',
+        city: '',
+        street_address: '',
+      },
+    },
   });
-
-  const currentValues = watch();
 
   const { fields, append, remove } = useFieldArray({
     name: 'ordered_items',
     control,
   });
-
-  const emptyItem: Partial<OrderedItemSchema> = {
-    item: '',
-    ordered_quantity: undefined,
-    ordered_price: undefined,
-  };
 
   const clientOptions = selectOptionsFromStrings(clients.names);
   const itemOptions = selectOptionsFromObjects(items);
@@ -136,13 +198,7 @@ const EditOrder = ({
   ) => {
     if (option) {
       onChange(option.value);
-      findCountryAndSetCitiesForOrder(
-        option.value,
-        countries,
-        setCityOptions,
-        currentValues,
-        setValue,
-      );
+      findCountryAndSetCitiesForOrder(option.value, countries, setCityOptions);
     } else {
       onChange(null);
       setCityOptions([]);
@@ -150,96 +206,83 @@ const EditOrder = ({
     }
   };
 
-  const updateOrderedItemsState = (orderUpdate: OrderProps) => {
-    const updatedItemsMap = new Map(
-      orderUpdate.ordered_items.map((orderedItem) => [
-        orderedItem.item,
-        orderedItem,
-      ]),
-    );
-    const previousItemsMap = new Map(
-      order.ordered_items.map((orderedItem) => [orderedItem.item, orderedItem]),
-    );
+  const validateItemQuantity = (orderedItems: ClientOrderedItemSchema[]) => {
+    let quantityErrors = false;
+    const inventoryItemsMap = new Map(items.map((item) => [item.name, item]));
 
-    return items.map((item) => {
-      const orderedItem = updatedItemsMap.get(item.name);
-      const previousOrderedItem = previousItemsMap.get(item.name);
+    orderedItems.forEach((orderedItem, index: number) => {
+      const itemInInventory = inventoryItemsMap.get(orderedItem.item);
 
-      if (orderedItem && previousOrderedItem) {
-        // Calculate quantity difference for updated items
-        const quantityDiff =
-          orderedItem.ordered_quantity - previousOrderedItem.ordered_quantity;
-        return {
-          ...item,
-          quantity: item.quantity - quantityDiff,
-        };
-      } else if (previousOrderedItem) {
-        // Add removed ordered item's quantity to the item
-        return {
-          ...item,
-          quantity: item.quantity + previousOrderedItem.ordered_quantity,
-        };
-      } else if (orderedItem) {
-        // New ordered item quantity adjustment
-        return {
-          ...item,
-          quantity: item.quantity - orderedItem.ordered_quantity,
-        };
+      if (
+        itemInInventory &&
+        itemInInventory.quantity < orderedItem.ordered_quantity
+      ) {
+        setError(`ordered_items.${index}.ordered_quantity`, {
+          message: 'The ordered quantity exceeds available stock.',
+        });
+        quantityErrors = true;
       }
-      return item;
     });
+    return quantityErrors;
   };
 
-  const onSubmit: SubmitHandler<OrderSchema> = async (data) => {
+  const onSubmit: SubmitHandler<ClientOrderSchema> = async (data) => {
+    const quantityErrors = validateItemQuantity(data.ordered_items);
+    if (quantityErrors) return;
+    const orderedItems = data.ordered_items;
     console.log(data);
     try {
-      const res = await api.put(`/client_orders/orders/${order.id}/`, data);
-      const orderUpdate = res.data;
-      console.log('Order Update', orderUpdate);
-      // Update rowNode
-      rowNode?.setData(orderUpdate);
-      // Update rowData
-      setRowData((prev) =>
-        prev.map((orderInstance) =>
-          orderInstance.id === order.id ? orderUpdate : orderInstance,
-        ),
-      );
-      // Update inventory's items state
+      const res = await api.post('/client_orders/orders/', data);
+      const newOrder = res.data;
+      const orderStatusType = statusType(newOrder.status);
+      console.log(newOrder);
       dispatch((dispatch, getState) => {
-        const { inventory } = getState();
+        const { clientOrders, inventory } = getState();
+        dispatch(
+          setClientOrders({
+            ...clientOrders,
+            ordersCount: ordersCount + 1,
+            orderStatus: {
+              ...orderStatus,
+              [orderStatusType]: orderStatus[orderStatusType] + 1,
+            },
+          }),
+        );
         dispatch(
           setInventory({
             ...inventory,
-            items: updateOrderedItemsState(orderUpdate),
+            items: items.map((item) => {
+              const orderedItem = orderedItems.find(
+                (orderedItem) => orderedItem.item === item.name,
+              );
+              return orderedItem
+                ? {
+                    name: item.name,
+                    quantity: item.quantity - orderedItem.ordered_quantity,
+                  }
+                : item;
+            }),
           }),
         );
       });
-      // Set success Alert
-      if (setOrder) {
-        setOrder(orderUpdate);
-        toast.success(`Order ${order.reference_id} updated!`, {
-          duration: 4000,
-        });
-      } else {
-        setAlert({
-          type: 'success',
-          title: 'Order Updated',
-          description: `Order ${order.reference_id} has been successfully updated.`,
-        });
-      }
-      // Close Edit Order Modal
+      setRowData((prev) => [newOrder, ...prev]);
+      setAlert({
+        type: 'success',
+        title: 'New Order Created',
+        description: `Order ${newOrder.reference_id} by ${newOrder.client} has been successfully added.`,
+      });
       setOpen(false);
     } catch (error: any) {
       console.log('Error during form submission', error);
       if (error.response && error.response.status === 400) {
         const errorData = error.response.data;
-        (Object.keys(errorData) as Array<keyof OrderSchema>).forEach(
+        (Object.keys(errorData) as Array<keyof ClientOrderSchema>).forEach(
           (field) => {
             if (field === 'shipping_address') {
               const addressErrors = errorData[field];
               Object.keys(addressErrors).forEach((prop) => {
                 const addressProp =
-                  prop as keyof OrderSchema['shipping_address'];
+                  prop as keyof ClientOrderSchema['shipping_address'];
                 setError(`${field}.${addressProp}`, {
                   message: addressErrors[addressProp],
                 });
@@ -251,88 +294,25 @@ const EditOrder = ({
         );
       } else {
         setError('root', {
-          message: 'Something went wrong, please try again later.',
+          message: 'Something went wrong, please try again later',
         });
       }
     }
   };
 
-  const orderHasChanges = () => {
-    if (!initialValues || !currentValues) return false;
-
-    if (
-      initialValues.ordered_items.length !== currentValues.ordered_items.length
-    )
-      return true;
-
-    const numberFields = ['ordered_quantity', 'ordered_price', 'shipping_cost'];
-
-    return (Object.keys(dirtyFields) as Array<keyof OrderSchema>).some(
-      (key) => {
-        if (numberFields.includes(key)) {
-          return Number(initialValues[key]) !== Number(currentValues[key]);
-        }
-        if (key === 'ordered_items') {
-          return initialValues.ordered_items.some((orderedItem, index) => {
-            return (
-              Object.keys(orderedItem) as Array<keyof OrderedItemSchema>
-            ).some((orderedItemKey) => {
-              if (numberFields.includes(orderedItemKey)) {
-                return (
-                  Number(initialValues[key][index][orderedItemKey]) !==
-                  Number(currentValues[key][index][orderedItemKey])
-                );
-              }
-              return (
-                initialValues[key][index][orderedItemKey] !==
-                currentValues[key][index][orderedItemKey]
-              );
-            });
-          });
-        }
-        if (key === 'shipping_address') {
-          return (
-            JSON.stringify(initialValues[key]) !==
-            JSON.stringify(currentValues[key])
-          );
-        }
-        return initialValues[key] !== currentValues[key];
-      },
-    );
-  };
-
   useEffect(() => {
-    const loadData = () => {
-      setInitialValues(order);
-      reset(order);
-      if (
-        order.shipping_address &&
-        order.shipping_address.country &&
-        order.shipping_address.city
-      ) {
-        findCountryAndSetCitiesForOrder(
-          order.shipping_address.country,
-          countries,
-          setCityOptions,
-          currentValues,
-          setValue,
-        );
-      }
-    };
-
-    if (open) loadData();
+    if (open) {
+      clearErrors();
+      reset();
+    }
   }, [open]);
-
-  useEffect(() => {
-    orderHasChanges();
-  }, [initialValues, currentValues]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
       {/* Form Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">
-          Edit Order {order.reference_id} - By: {order.client}
+          Create New Order
         </h3>
         <div>
           <button
@@ -532,7 +512,9 @@ const EditOrder = ({
                     <button
                       type="button"
                       className="mt-3 text-sm inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-2 text-center font-medium text-white hover:bg-opacity-90"
-                      onClick={() => append(emptyItem as OrderedItemSchema)}
+                      onClick={() =>
+                        append(emptyItem as ClientOrderedItemSchema)
+                      }
                     >
                       <AddCircleOutlinedIcon sx={{ marginRight: '0.2em' }} />
                       Add Item
@@ -761,17 +743,15 @@ const EditOrder = ({
         {/* Submit Form*/}
         <div className="flex justify-end gap-4 border-t border-stroke py-3 px-6 dark:border-strokedark">
           <button
-            className={
-              'flex justify-center ' +
-              (!orderHasChanges()
-                ? 'cursor-not-allowed bg-blue-400 '
-                : 'bg-primary hover:bg-opacity-90 ') +
-              'rounded py-2 px-6 font-medium text-gray'
-            }
+            className="flex justify-center bg-primary hover:bg-opacity-90 rounded py-2 px-6 font-medium text-gray"
             type="submit"
-            disabled={isSubmitting || !orderHasChanges()}
+            disabled={isSubmitting}
           >
-            {isSubmitting ? <ClipLoader color="#ffffff" size={23} /> : 'Save'}
+            {isSubmitting ? (
+              <ClipLoader color="#ffffff" size={23} />
+            ) : (
+              'Add new order'
+            )}
           </button>
         </div>
       </form>
@@ -792,4 +772,4 @@ const EditOrder = ({
   );
 };
 
-export default EditOrder;
+export default AddClientOrder;
