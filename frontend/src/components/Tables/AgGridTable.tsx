@@ -1,4 +1,4 @@
-import { AgGridReact } from '@ag-grid-community/react';
+import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { forwardRef, useCallback, useMemo } from 'react';
@@ -46,6 +46,24 @@ export const dateFilterParams: IDateFilterParams = {
     return 0;
   },
   inRangeFloatingFilterDateFormat: 'Do MMM YYYY',
+};
+
+export const AddressRenderer = (params: CustomCellRendererProps) => {
+  if (!params.value) return null;
+
+  return (
+    <div className="mb-1">
+      {params.value.split(', ').map((prop: string, index: number) => (
+        <div
+          key={index}
+          className="m-0 p-0 whitespace-nowrap overflow-hidden text-ellipsis"
+          style={{ lineHeight: '2' }}
+        >
+          {prop}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const AgGridTable = forwardRef<AgGridReact, AgGridTableProps>(

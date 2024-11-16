@@ -43,7 +43,6 @@ api.interceptors.request.use(async function (config) {
   } catch (err) {
     console.log('Error refreshing the access token:', err);
     store.dispatch(clearUser());
-    window.location.href = '/auth/signin';
     return Promise.reject(err);
   }
   return config;

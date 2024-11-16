@@ -1,16 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+import { SubmitHandler, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import ClipLoader from 'react-spinners/ClipLoader';
 import toast from 'react-hot-toast';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
-import { UserProps } from '../store/slices/authSlice';
-import { FormErrors, FormValues } from '../types/form';
 import {
-  handleInputErrors,
-  handleInputChange,
-  removeBlankFields,
-  areFieldsFilled,
-  resetFormErrors,
-  resetFormValues,
+  requiredStringField,
 } from '../utils/form';
 import { api } from '../api/axios';
 import DefaultPfp from '../images/user/default.jpg';
@@ -19,103 +15,108 @@ import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../store/store';
 import { setUser } from '../store/slices/authSlice';
 
+const infoSchema = z.object({
+  username: requiredStringField('Username'),
+  first_name: requiredStringField('First name'),
+  last_name: requiredStringField('Last name'),
+  bio: z.string().optional(),
+  avatar: z.instanceof(FileList).optional(),
+});
+
+const pwdSchema = z
+  .object({
+    old_password: requiredStringField('Old password'),
+    new_password1: requiredStringField('New password'),
+    new_password2: requiredStringField('New password confirmation'),
+  })
+  .refine((data) => data.new_password1 === data.new_password2, {
+    message: 'The two new password fields do not match',
+    path: ['new_password2'],
+  });
+
+type PersonalInfoSchema = z.infer<typeof infoSchema>;
+type ResetPwdSchema = z.infer<typeof pwdSchema>;
 
 const Settings = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAuth();
-  const [submitInfoLoading, setSubmitInfoLoading] = useState<boolean>(false);
-  const [submitPwdLoading, setSubmitPwdLoading] = useState<boolean>(false);
-  const [modified, setModified] = useState<boolean>(false);
-  const [pwdModified, setPwdModified] = useState<boolean>(false);
-  const [pictureDeleted, setPictureDeleted] = useState<boolean>(false);
-  const [avatar, setAvatar] = useState<string | null>(null);
-  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [initialUserData, setInitialUserData] = useState<FormValues | null>(
+
+  // Personal Info
+  const [initialValues, setInitialValues] = useState<PersonalInfoSchema | null>(
     null,
   );
-  const [formValues, setFormValues] = useState<FormValues>({
-    username: '',
-    first_name: '',
-    last_name: '',
-    bio: '',
-  });
-  const [formErrors, setFormErrors] = useState<FormErrors>({
-    username: '',
-    first_name: '',
-    last_name: '',
-    bio: '',
-    updateInfo: '',
-  });
-  const [pwdFormValues, setPwdFormValues] = useState<FormValues>({
-    old_password: '',
-    new_password1: '',
-    new_password2: '',
-  });
-  const [pwdFormErrors, setPwdFormErrors] = useState<FormErrors>({
-    old_password: '',
-    new_password1: '',
-    new_password2: '',
-    updatePwd: '',
+  const [avatarModified, setAvatarModified] = useState<boolean>(false);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    reset,
+    clearErrors,
+    setValue,
+    watch,
+    formState: { errors, dirtyFields, isSubmitting },
+  } = useForm<PersonalInfoSchema>({
+    resolver: zodResolver(infoSchema),
   });
 
-  const updateUserData = (userData: UserProps) => {
-    const updatedData = {
-      username: userData.username,
-      first_name: userData.first_name,
-      last_name: userData.last_name,
-      bio: userData.bio,
-    };
-    setFormValues(updatedData);
-    setInitialUserData(updatedData);
-    setAvatar(userData.avatar);
-  };
+  const currentInfoValues = watch();
+  const currentInfoTextValues = { ...currentInfoValues };
+  delete currentInfoTextValues.avatar;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const newPreviewAvatarUrl = URL.createObjectURL(file);
-      setPreviewAvatarUrl(newPreviewAvatarUrl);
-      setModified(true);
-      setPictureDeleted(false);
+    setAvatar(null);
+    setAvatarModified(true);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Checking file type (JPEG or PNG)
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        setError('avatar', {
+          type: 'manual',
+          message: 'Only JPEG or PNG files are allowed',
+        });
+        setValue('avatar', undefined);
+      } else if (file.size > 2000000) {
+        // Checking file size (2MB)
+        setError('avatar', {
+          type: 'manual',
+          message: 'File size must be less than or equal to 2MB',
+        });
+        setValue('avatar', undefined);
+      } else {
+        // Clearing previous errors
+        clearErrors('avatar');
+        setPreviewAvatarUrl(URL.createObjectURL(file));
+      }
+    } else {
+      // clearing the file and errors if no file is selected,
+      setValue('avatar', undefined);
+      clearErrors('avatar');
     }
   };
 
   const handleFileClear = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-    setAvatar(null);
+    setValue('avatar', undefined);
+    clearErrors('avatar');
     setPreviewAvatarUrl(null);
-    setModified(true);
-    setPictureDeleted(true);
+    setAvatar(null);
+    setAvatarModified(true);
   };
 
-  const handleInfoInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target;
-    setFormValues({
-      ...formValues,
-      [name]: value,
-    });
-  };
-
-  const submitPersonalInfo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitInfoLoading(true);
+  const onSubmit: SubmitHandler<PersonalInfoSchema> = async (data) => {
     const formData = new FormData();
-    formData.append('username', formValues.username);
-    formData.append('first_name', formValues.first_name);
-    formData.append('last_name', formValues.last_name);
-    formData.append('bio', formValues.bio);
-    if (
-      fileInputRef.current &&
-      fileInputRef.current.files &&
-      fileInputRef.current.files[0]
-    ) {
-      formData.append('avatar', fileInputRef.current.files[0]);
-    } else if (pictureDeleted) {
+    formData.append('username', data.username);
+    formData.append('first_name', data.first_name);
+    formData.append('last_name', data.last_name);
+    if (data.bio) {
+      formData.append('bio', data.bio);
+    }
+    if (data.avatar && data.avatar?.length > 0) {
+      formData.append('avatar', data.avatar[0]);
+    } else if (!data.avatar && !avatar) {
       formData.append('avatar_deleted', '');
     }
     try {
@@ -123,61 +124,103 @@ const Settings = () => {
         headers: { 'Content-type': 'multipart/form-data' },
       });
       dispatch(setUser(res.data));
-      const userData = res.data.user;
-      updateUserData(userData);
-      resetFormErrors(formErrors, setFormErrors);
       toast.success('Your profile has been successfully updated!', {
         duration: 5000,
       });
-    } catch (err: any) {
-      console.log('Error during form submission:', err);
-      if (err.response && err.response.status === 400) {
-        handleInputErrors(err.response.data.errors, setFormErrors);
+    } catch (error: any) {
+      if (error.response && error.response.status === 400) {
+        (
+          Object.keys(error.response.data) as Array<keyof PersonalInfoSchema>
+        ).forEach((field) => {
+          setError(field, { message: error.response.data[field] });
+        });
       } else {
-        handleInputErrors(
-          { updateInfo: 'Something went wrong. Please try again later.' },
-          setFormErrors,
-        );
+        setError('root', {
+          message: 'Something went wrong, please try again later.',
+        });
       }
-    } finally {
-      setSubmitInfoLoading(false);
     }
   };
 
-  const submitPwdChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitPwdLoading(true);
-    const cleanedValues: FormValues = removeBlankFields(pwdFormValues);
+  const infoHasChanges = () => {
+    if (avatarModified) return true;
+    if (!initialValues || !currentInfoTextValues) return false;
+    return (Object.keys(dirtyFields) as Array<keyof PersonalInfoSchema>).some(
+      (key) => {
+        return initialValues[key] !== currentInfoTextValues[key];
+      },
+    );
+  };
+
+  // Reset Password
+  const {
+    register: registerPwd,
+    handleSubmit: handleSubmitPwd,
+    setError: setErrorPwd,
+    watch: watchPwd,
+    formState: { errors: errorsPwd, isSubmitting: isSubmittingPwd },
+  } = useForm<ResetPwdSchema>({ resolver: zodResolver(pwdSchema) });
+
+  const currentPwdValues = watchPwd();
+
+  const pwdFieldsBlank = () => {
+    if (!currentPwdValues) return true;
+    return (Object.keys(currentPwdValues) as Array<keyof ResetPwdSchema>).some(
+      (key) => {
+        return currentPwdValues[key] === '';
+      },
+    );
+  };
+
+  const onPwdSubmit: SubmitHandler<ResetPwdSchema> = async (data) => {
     try {
-      const res = await api.post('/auth/user/change-password/', {
-        ...cleanedValues,
-      });
-      dispatch(setUser(res.data))
+      const res = await api.post('/auth/user/change-password/', data);
+      dispatch(setUser(res.data));
       toast.success('Your password has been successfully changed!', {
         duration: 5000,
       });
-      resetFormValues(pwdFormValues, setPwdFormValues);
-      resetFormErrors(pwdFormErrors, setPwdFormErrors);
-    } catch (err: any) {
-      console.log('Error during form submission:', err);
-      if (err.response && err.response.status === 400) {
-        handleInputErrors(err.response.data.errors, setPwdFormErrors);
+    } catch (error: any) {
+      console.log('Error during form submission:', error);
+      if (error.response && error.response.status === 400) {
+        (
+          Object.keys(error.response.data) as Array<keyof ResetPwdSchema>
+        ).forEach((field) => {
+          setErrorPwd(field, { message: error.response.data[field] });
+        });
       } else {
-        handleInputErrors(
-          { updatePwd: 'Something went wrong. Please try again later.' },
-          setPwdFormErrors,
-        );
+        setErrorPwd('root', {
+          message: 'Something went wrong, please try again later.',
+        });
       }
-    } finally {
-      setSubmitPwdLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      updateUserData(user);
-    }
+    const loadData = () => {
+      if (user) {
+        if (user.avatar) setAvatar(user.avatar);
+        const formData = {
+          ...user,
+          avatar:
+            typeof user.avatar === 'string' || !user.avatar
+              ? undefined
+              : user.avatar,
+        };
+        setInitialValues(formData);
+        reset(formData);
+      }
+    };
+
+    loadData();
   }, [user]);
+
+  useEffect(() => {
+    infoHasChanges();
+  }, [user, initialValues, currentInfoTextValues]);
+
+  useEffect(() => {
+    pwdFieldsBlank();
+  }, [currentPwdValues]);
 
   useEffect(() => {
     return () => {
@@ -187,18 +230,10 @@ const Settings = () => {
     };
   }, [previewAvatarUrl]);
 
-  useEffect(() => {
-    setModified(JSON.stringify(formValues) !== JSON.stringify(initialUserData));
-  }, [formValues, initialUserData]);
-
-  useEffect(() => {
-    setPwdModified(areFieldsFilled(pwdFormValues));
-  }, [pwdFormValues]);
-
   return (
     <>
       <div className="mx-auto max-w-270">
-        <Breadcrumb pageName="Settings" />
+        <Breadcrumb main={user && user.username} pageName="Settings" />
 
         <div className="grid grid-cols-5 gap-8">
           {/* Personal Information */}
@@ -210,7 +245,7 @@ const Settings = () => {
                 </h3>
               </div>
               <div className="p-7">
-                <form onSubmit={submitPersonalInfo}>
+                <form onSubmit={handleSubmit(onSubmit)}>
                   {/* Username */}
                   <div className="mb-5.5">
                     <label
@@ -248,15 +283,12 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 pl-11.5 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="text"
-                        name="username"
-                        id="username"
-                        value={formValues.username}
-                        onChange={handleInfoInputChange}
+                        {...register('username')}
                       />
                     </div>
-                    {formErrors.username && (
+                    {errors.username && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.username}
+                        {errors.username.message}
                       </p>
                     )}
                   </div>
@@ -275,14 +307,11 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="text"
-                        name="first_name"
-                        id="first_name"
-                        value={formValues.first_name}
-                        onChange={handleInfoInputChange}
+                        {...register('first_name')}
                       />
-                      {formErrors.fist_name && (
+                      {errors.first_name && (
                         <p className="text-red-500 font-medium text-sm italic mt-2">
-                          {formErrors.fist_name}
+                          {errors.first_name.message}
                         </p>
                       )}
                     </div>
@@ -298,14 +327,11 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="text"
-                        name="last_name"
-                        id="last_name"
-                        value={formValues.last_name}
-                        onChange={handleInfoInputChange}
+                        {...register('last_name')}
                       />
-                      {formErrors.last_name && (
+                      {errors.last_name && (
                         <p className="text-red-500 font-medium text-sm italic mt-2">
-                          {formErrors.last_name}
+                          {errors.last_name.message}
                         </p>
                       )}
                     </div>
@@ -352,17 +378,14 @@ const Settings = () => {
 
                       <textarea
                         className="w-full rounded border border-stroke bg-gray py-3 pl-11.5 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
-                        name="bio"
-                        id="bio"
-                        value={formValues.bio}
-                        onChange={handleInfoInputChange}
+                        {...register('bio')}
                         rows={6}
                         placeholder="Write your bio here"
                       ></textarea>
                     </div>
-                    {formErrors.bio && (
+                    {errors.bio && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.bio}
+                        {errors.bio.message}
                       </p>
                     )}
                   </div>
@@ -375,7 +398,7 @@ const Settings = () => {
                       Your Photo
                     </label>
                     <div className="mb-4 flex items-center gap-3 ">
-                      <div className="h-14 w-14 rounded-full">
+                      <div className="h-15 w-15 rounded-full">
                         {previewAvatarUrl ? (
                           <img
                             src={previewAvatarUrl}
@@ -406,9 +429,8 @@ const Settings = () => {
                           )}
                           <input
                             type="file"
-                            id="avatar"
-                            name="avatar"
-                            ref={fileInputRef}
+                            {...register('avatar')}
+                            onChange={handleFileChange}
                             accept="image/*"
                             className="text-sm font-bold rounded
                                         cursor-pointer
@@ -419,33 +441,36 @@ const Settings = () => {
                                         hover:file:bg-slate-600
                                         dark:file:bg-slate-500
                                         dark:hover:file:bg-slate-600"
-                            onChange={handleFileChange}
                           />
                         </span>
                       </div>
                     </div>
-                    
-                  </div>
-                  <div className="text-center mb-3">
-                  {formErrors.updateInfo && (
+                    {errors.avatar && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {formErrors.updateInfo}
+                        {errors.avatar.message}
                       </p>
-                  )}
+                    )}
                   </div>
+                  {errors.root && (
+                    <div className="text-center mb-3">
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {errors.root.message}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-4.5">
                     <button
                       className={
                         'flex justify-center ' +
-                        (!modified
+                        (!infoHasChanges()
                           ? 'cursor-not-allowed bg-blue-400 '
                           : 'bg-primary hover:bg-opacity-90 ') +
                         'rounded py-2 px-6 font-medium text-gray'
                       }
                       type="submit"
-                      disabled={!modified}
+                      disabled={!infoHasChanges() || isSubmitting}
                     >
-                      {submitInfoLoading ? (
+                      {isSubmitting ? (
                         <ClipLoader color="#ffffff" size={23} />
                       ) : (
                         'Save'
@@ -465,7 +490,7 @@ const Settings = () => {
                 </h3>
               </div>
               <div className="p-7">
-                <form onSubmit={submitPwdChange}>
+                <form onSubmit={handleSubmitPwd(onPwdSubmit)}>
                   {/* Old Password */}
                   <div className="mb-5.5">
                     <label
@@ -478,17 +503,12 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="password"
-                        name="old_password"
-                        id="old_password"
-                        value={pwdFormValues.old_password}
-                        onChange={(e) =>
-                          handleInputChange(e, pwdFormValues, setPwdFormValues)
-                        }
+                        {...registerPwd('old_password')}
                       />
                     </div>
-                    {pwdFormErrors.old_password && (
+                    {errorsPwd.old_password && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {pwdFormErrors.old_password}
+                        {errorsPwd.old_password.message}
                       </p>
                     )}
                   </div>
@@ -504,17 +524,12 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="password"
-                        name="new_password1"
-                        id="new_password1"
-                        value={pwdFormValues.new_password1}
-                        onChange={(e) =>
-                          handleInputChange(e, pwdFormValues, setPwdFormValues)
-                        }
+                        {...registerPwd('new_password1')}
                       />
                     </div>
-                    {pwdFormErrors.new_password1 && (
+                    {errorsPwd.new_password1 && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {pwdFormErrors.new_password1}
+                        {errorsPwd.new_password1.message}
                       </p>
                     )}
                   </div>
@@ -530,34 +545,32 @@ const Settings = () => {
                       <input
                         className="w-full rounded border border-stroke bg-gray py-3 pl-4 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
                         type="password"
-                        name="new_password2"
-                        id="new_password2"
-                        value={pwdFormValues.new_password2}
-                        onChange={(e) =>
-                          handleInputChange(e, pwdFormValues, setPwdFormValues)
-                        }
+                        {...registerPwd('new_password2')}
                       />
                     </div>
-                    {pwdFormErrors.new_password2 &&
-                      (Array.isArray(pwdFormErrors.new_password2) ? (
-                        pwdFormErrors.new_password2.map(
-                          (error: string, index: number) => (
-                            <p
-                              key={index}
-                              className="text-red-500 font-medium text-sm italic mt-2"
-                            >
-                              {error}
-                            </p>
-                          ),
-                        )
-                      ) : (
-                        <p className="text-red-500 font-medium text-sm italic mt-2">
-                          {pwdFormErrors.new_password2}
-                        </p>
-                      ))}
-                    {pwdFormErrors.updatePwd && (
+                    {errorsPwd.new_password2 && (
+                      <div>
+                        {Array.isArray(errorsPwd.new_password2.message) ? (
+                          errorsPwd.new_password2.message.map(
+                            (errorMessage: string, index: number) => (
+                              <p
+                                key={index}
+                                className="text-red-500 font-medium text-sm italic mt-2"
+                              >
+                                {errorMessage}
+                              </p>
+                            ),
+                          )
+                        ) : (
+                          <p className="text-red-500 font-medium text-sm italic mt-2">
+                            {errorsPwd.new_password2.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {errorsPwd.root && (
                       <p className="text-red-500 font-medium text-sm italic mt-2">
-                        {pwdFormErrors.updatePwd}
+                        {errorsPwd.root.message}
                       </p>
                     )}
                   </div>
@@ -566,15 +579,15 @@ const Settings = () => {
                     <button
                       className={
                         'flex justify-center ' +
-                        (!pwdModified
+                        (pwdFieldsBlank()
                           ? 'cursor-not-allowed bg-blue-400 '
                           : 'bg-primary hover:bg-opacity-90 ') +
                         'rounded py-2 px-6 font-medium text-gray'
                       }
                       type="submit"
-                      disabled={!pwdModified}
+                      disabled={pwdFieldsBlank() || isSubmittingPwd}
                     >
-                      {submitPwdLoading ? (
+                      {isSubmittingPwd ? (
                         <ClipLoader color="#ffffff" size={23} />
                       ) : (
                         'Save'

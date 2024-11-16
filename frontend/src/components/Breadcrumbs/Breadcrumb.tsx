@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 interface BreadcrumbProps {
-  main?: string;
+  main?: string | null;
   pageName: string;
 }
 

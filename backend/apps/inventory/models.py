@@ -1,6 +1,7 @@
 from django.db import models
 from apps.base.models import User
 from utils.models import BaseModel
+from ..client_orders.models import ClientOrderedItem
 
 
 class Category(BaseModel):
@@ -62,6 +63,10 @@ class Item(BaseModel):
     def total_price(self):
         """Returns Quantity times Price"""
         return self.quantity * self.price
+    
+    @property
+    def total_orders(self):
+        return ClientOrderedItem.objects.filter(item__id=self.id).count()
 
     def __str__(self) -> str:
         if self.user:

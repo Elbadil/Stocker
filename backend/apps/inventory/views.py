@@ -3,6 +3,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import CharField
+from django.db.models.functions import Cast
+from utils.tokens import Token
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Item, Category, Supplier, Variant
@@ -35,7 +38,7 @@ class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
     
     def delete(self, request, *args, **kwargs):
         item = self.get_object()
-        is_ordered = OrderedItem.objects.filter(item=item).exists()
+        is_ordered = ClientOrderedItem.objects.filter(item=item).exists()
         if is_ordered:
             return Response(
                     {'error': f'Item {item.name} is linked to existing orders. Manage orders before deletion.'},
@@ -63,21 +66,69 @@ class ItemsBulkDelete(generics.GenericAPIView):
         if not ids:
             return Response({"error": "No IDs provided."},
                             status=status.HTTP_400_BAD_REQUEST)
-
-        ordered_items = list(ClientOrderedItem.objects.filter(
-                            item__id__in=ids).values_list('item__name', flat=True))
-        if ordered_items:
+        # Validate ids
+        items_invalid_ids = Token.validate_uuids(ids)
+        if items_invalid_ids:
             return Response(
-            {
-                'error': {
-                    'message': 'Some items are linked to existing orders. Manage orders before deletion.',
-                    'linked_items': ordered_items
-                }
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
-        delete_count, _ = Item.objects.filter(id__in=ids).delete()
-        return Response({'message': f'{delete_count} items deleted'},
+                {
+                    'error': {
+                        'message': 'Some or all provided IDs are not valid UUIDs.',
+                        'invalid_ids': items_invalid_ids
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        items_found_ids = set(Item.objects.filter(id__in=ids) \
+                                          .annotate(id_str=Cast('id', CharField())) \
+                                          .values_list('id_str', flat=True))
+        missing_ids = set(ids) - items_found_ids
+        if missing_ids:
+            return Response(
+                {
+                    'error': 'Some or all items could not be found.',
+                    'missing_ids': list(missing_ids)
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Handle items with orders and without orders cases
+        items_with_orders = Item.objects.filter(id__in=ids,
+                                                clientordereditem__isnull=False) \
+                                                .values('id', 'name') \
+                                                .distinct()
+        items_without_orders = Item.objects.filter(id__in=ids,
+                                                   clientordereditem__isnull=True)
+        items_without_orders_count = items_without_orders.count()
+        # Case 1: All item items are linked to orders
+        if items_with_orders.exists() and not items_without_orders.exists():
+            return Response(
+                {
+                    'error': {
+                        'message': 'All selected items are linked to '
+                                   'existing orders. Manage orders before deletion.',
+                        'linked_items': items_with_orders,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Case 2: Some items are linked to orders
+        if items_with_orders.exists() and items_without_orders.exists():
+            items_without_orders.delete()
+            items_with_orders_count = items_with_orders.count()
+            item_text = "items" if items_without_orders_count > 1 else "item"
+            linked_item_text = "items" if items_with_orders_count > 1 else "item"
+            return Response(
+                {
+                    'message': f'{items_without_orders_count} {item_text} deleted successfully, '
+                               f'but {items_with_orders_count} {linked_item_text} '
+                               f'could not be deleted because they are linked '
+                                'to existing orders.',
+                    'linked_items': items_with_orders
+                },
+                status=status.HTTP_207_MULTI_STATUS
+            )
+        # Case 3: None of the items are linked to orders
+        items_without_orders.delete()
+        return Response({'message': f'{items_without_orders_count} items successfully deleted.'},
                          status=status.HTTP_200_OK)
 
 

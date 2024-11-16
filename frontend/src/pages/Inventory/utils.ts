@@ -96,6 +96,7 @@ export const itemDataFlattener = (items: ItemProps[]) =>
     total_price: item.total_price.toFixed(2),
     variants: item.variants ? `variants types: ${item.variants.length}` : null,
     ...(item.variants ? variantsExcelFormat(item.variants) : {}),
+    updated_at: item.updated ? item.updated_at : null,
   }));
 
 export const createSheetFile = (items: ItemProps[]) => {

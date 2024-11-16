@@ -161,6 +161,7 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
     onChange: (value: string | null) => void,
     option: SingleValue<{ value: string; label: string }>,
   ) => {
+    console.log('Changing the client');
     if (newClient) {
       dispatch((dispatch, getState) => {
         const { clientOrders } = getState();
@@ -306,6 +307,10 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
       reset();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (newClient) setValue('client', newClient);
+  }, [newClient]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">

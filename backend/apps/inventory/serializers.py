@@ -80,6 +80,7 @@ class ItemSerializer(serializers.ModelSerializer):
             'supplier',
             'picture',
             'variants',
+            'total_orders',
             'created_at',
             'updated_at',
             'updated',
@@ -152,7 +153,6 @@ class ItemSerializer(serializers.ModelSerializer):
         for variant_data in variants:
             variant_name = variant_data.get('name')
             options = variant_data.get('options', [])
-            print(f"Processing variant: {variant_name} with options: {options}")
             # Getting or creating variant
             variant, created = Variant.objects.get_or_create(
                 name__iexact=variant_name,

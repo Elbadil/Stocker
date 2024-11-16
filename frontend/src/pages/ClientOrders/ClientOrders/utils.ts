@@ -74,6 +74,7 @@ export const orderDataFlattener = (orders: ClientOrderProps[]) =>
     shipping_address: order.shipping_address
       ? Object.values(order.shipping_address).reverse().join(', ')
       : null,
+    updated_at: order.updated ? order.updated_at : null,
   }));
 
 export const createSheetFile = (orders: ClientOrderProps[]) => {

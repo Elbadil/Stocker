@@ -7,16 +7,17 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import AgGridTable, {
   dateFilterParams,
+  AddressRenderer,
 } from '../../../components/Tables/AgGridTable';
 import ModalOverlay from '../../../components/ModalOverlay';
 import Loader from '../../../common/Loader';
-import { ColDef } from '@ag-grid-community/core';
+import { ColDef, ValueGetterParams } from '@ag-grid-community/core';
 import { useAlert } from '../../../contexts/AlertContext';
 import { Alert } from '../../UiElements/Alert';
 import { api } from '../../../api/axios';
 import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
 import { handleBulkExport, handleClientExport } from './utils';
-import Client, { ClientProps } from './Client';
+import Client, { ClientProps, Location } from './Client';
 import AddClient from './AddClient';
 import EditClient from './EditClient';
 import DeleteClient from './DeleteClient';
@@ -79,6 +80,16 @@ const Clients = () => {
     },
     {
       field: 'email',
+      flex: 3,
+      minWidth: 165,
+    },
+    {
+      field: 'location',
+      valueGetter: (params: ValueGetterParams<ClientProps, Location>) => {
+        if (!params.data?.location) return null;
+        return Object.values(params.data.location).join(', ');
+      },
+      cellRenderer: AddressRenderer,
       flex: 3,
       minWidth: 165,
     },

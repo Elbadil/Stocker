@@ -660,6 +660,7 @@ const EditItem = ({
                           type="file"
                           {...register('picture')}
                           onChange={handleFileChange}
+                          accept="image/*"
                           className="text-sm font-bold rounded
                                       cursor-pointer
                                       file:me-2 file:py-1 file:px-4

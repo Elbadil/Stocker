@@ -71,7 +71,7 @@ const SignUp: React.FC = () => {
 
   return (
     <>
-      <Breadcrumb pageName="Sign Up" />
+      <Breadcrumb main="Authentication" pageName="Sign Up" />
 
       <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
         <div className="flex flex-wrap items-center">
@@ -270,7 +270,7 @@ const SignUp: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-8 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                       {...register('first_name')}
                       placeholder="Enter your first name"
                     />
@@ -291,7 +291,7 @@ const SignUp: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-10 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+                      className="w-full rounded-lg border border-stroke bg-transparent py-4 pl-6 pr-8 text-black outline-none focus:border-primary focus-visible:shadow-none dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
                       {...register('last_name')}
                       placeholder="Enter your last name"
                     />

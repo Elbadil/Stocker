@@ -13,6 +13,7 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import AgGridTable, {
   dateFilterParams,
+  AddressRenderer,
 } from '../../../components/Tables/AgGridTable';
 import ModalOverlay from '../../../components/ModalOverlay';
 import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
@@ -116,24 +117,6 @@ const ClientOrders = () => {
         >
           {params.value}
         </span>
-      </div>
-    );
-  };
-
-  const AddressRenderer = (params: CustomCellRendererProps) => {
-    if (!params.value) return null;
-
-    return (
-      <div className="mb-1">
-        {params.value.split(', ').map((prop: string, index: number) => (
-          <div
-            key={index}
-            className="m-0 p-0 whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ lineHeight: '2' }}
-          >
-            {prop}
-          </div>
-        ))}
       </div>
     );
   };

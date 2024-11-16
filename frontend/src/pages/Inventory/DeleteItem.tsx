@@ -32,53 +32,54 @@ const DeleteItem = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [deleteErrors, setDeleteErrors] = useState<string>('');
 
-  const itemsSummary = {
-    ids: selectedItems.map((item) => item.id),
-    names: selectedItems.map((item) => item.name),
-    totalQuantity: selectedItems.reduce(
-      (prevQuantity, item) => prevQuantity + item.quantity,
-      0,
-    ),
-    totalValue: selectedItems.reduce(
-      (prevValue, item) => prevValue + item.total_price,
-      0,
-    ),
-  };
+  const [itemsWithOrders, itemsWithoutOrders] = useMemo(() => {
+    const withOrders: ItemProps[] = [];
+    const withoutOrders: ItemProps[] = [];
+    selectedItems.forEach((item) => {
+      if (item.total_orders > 0) {
+        withOrders.push(item);
+      } else {
+        withoutOrders.push(item);
+      }
+    });
+    return [withOrders, withoutOrders];
+  }, [selectedItems, items]);
+
+  const itemsForDeletion = useMemo(
+    () => ({
+      ids: itemsWithoutOrders.map((item) => item.id),
+      names: itemsWithoutOrders.map((item) => item.name),
+      totalQuantity: itemsWithoutOrders.reduce(
+        (prevQuantity, item) => prevQuantity + item.quantity,
+        0,
+      ),
+      totalValue: itemsWithoutOrders.reduce(
+        (prevValue, item) => prevValue + item.total_price,
+        0,
+      ),
+    }),
+    [itemsWithoutOrders, selectedItems],
+  );
 
   const removeDeletedRows = () => {
-    const itemsIds = new Set(itemsSummary.ids);
+    const itemsIds = new Set(itemsForDeletion.ids);
     const filteredRows = rowData.filter(
       (item: ItemProps) => !itemsIds.has(item.id),
     );
     setRowData(filteredRows);
   };
 
-  const isItemOrdered = (selectedItem: ItemProps) => {
-    const itemFound = items.find((item) => item.name === selectedItem.name);
-    return itemFound ? itemFound.ordered : false;
-  };
-
-  const orderedItems = useMemo(() => {
-    const itemsNames = new Set(itemsSummary.names);
-    return items.filter((item) => itemsNames.has(item.name) && item.ordered);
-  }, [items, selectedItems]);
-
   const handleDelete = async () => {
     setLoading(true);
     setDeleteErrors('');
     try {
-      if (selectedItems.length === 0) {
-        throw new Error('No items to delete');
-      }
-
       let res;
-      if (selectedItems.length > 1) {
-        console.log('items length', selectedItems.length);
+      if (itemsWithoutOrders.length > 1) {
         res = await api.delete('/inventory/items/bulk_delete/', {
-          data: { ids: itemsSummary.ids },
+          data: { ids: itemsForDeletion.ids },
         });
       } else {
-        res = await api.delete(`/inventory/items/${selectedItems[0].id}/`);
+        res = await api.delete(`/inventory/items/${itemsWithoutOrders[0].id}/`);
       }
       console.log(res.status);
       dispatch((dispatch, getState) => {
@@ -87,11 +88,12 @@ const DeleteItem = ({
           setInventory({
             ...inventory,
             items: items.filter(
-              (item) => !itemsSummary.names.includes(item.name),
+              (item) => !itemsForDeletion.names.includes(item.name),
             ),
-            totalItems: inventory.totalItems - selectedItems.length,
-            totalQuantity: inventory.totalQuantity - itemsSummary.totalQuantity,
-            totalValue: inventory.totalValue - itemsSummary.totalValue,
+            totalItems: inventory.totalItems - itemsWithoutOrders.length,
+            totalQuantity:
+              inventory.totalQuantity - itemsForDeletion.totalQuantity,
+            totalValue: inventory.totalValue - itemsForDeletion.totalValue,
           }),
         );
       });
@@ -99,13 +101,13 @@ const DeleteItem = ({
       setAlert({
         type: 'success',
         title:
-          selectedItems.length > 1
-            ? `${selectedItems.length} Items Deleted`
+          itemsWithoutOrders.length > 1
+            ? `${itemsWithoutOrders.length} Items Deleted`
             : 'Item Deleted',
         description:
-          selectedItems.length > 1
-            ? `You have successfully deleted ${selectedItems.length} items from your inventory.`
-            : `You have successfully deleted ${selectedItems[0].name} from your inventory.`,
+          itemsWithoutOrders.length > 1
+            ? `You have successfully deleted ${itemsWithoutOrders.length} items from your inventory.`
+            : `You have successfully deleted ${itemsWithoutOrders[0].name} from your inventory.`,
       });
       setOpen(false);
       if (setItemOpen) setItemOpen(false);
@@ -150,7 +152,7 @@ const DeleteItem = ({
             {selectedItems.map((selectedItem, index: number) => (
               <li className="mt-2" key={index}>
                 {selectedItem.name}
-                {isItemOrdered(selectedItem) && (
+                {selectedItem.total_orders > 0 && (
                   <WarningAmberOutlinedIcon
                     sx={{
                       color: '#f97316',
@@ -165,7 +167,7 @@ const DeleteItem = ({
           </ol>
 
           {/* Delete Errors */}
-          {orderedItems.length > 0 && (
+          {itemsWithOrders.length > 0 && (
             <div className="mt-3 text-sm text-orange-500 flex justify-start gap-0.5">
               <WarningAmberOutlinedIcon
                 sx={{
@@ -174,12 +176,13 @@ const DeleteItem = ({
                 }}
               />
               <p>
-                {orderedItems.length > 1
-                  ? orderedItems.length === selectedItems.length
+                {itemsWithOrders.length > 1
+                  ? itemsWithOrders.length === selectedItems.length
                     ? 'All selected items are '
                     : 'Some selected items are '
-                  : `${orderedItems[0].name} is `}
-                linked to existing orders. Please manage orders before deletion.
+                  : `${itemsWithOrders[0].name} is `}
+                linked to existing orders and won't be deleted. Please manage
+                linked orders before deletion.
               </p>
             </div>
           )}
@@ -202,14 +205,14 @@ const DeleteItem = ({
         <button
           className={
             'flex justify-center ' +
-            (orderedItems.length > 0
+            (itemsWithOrders.length === selectedItems.length
               ? 'cursor-not-allowed bg-red-400 '
               : 'bg-red-500 hover:bg-opacity-90 ') +
             'rounded py-2 px-6 font-medium text-gray'
           }
           type="submit"
           onClick={handleDelete}
-          disabled={orderedItems.length > 0}
+          disabled={itemsWithOrders.length === selectedItems.length}
         >
           {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Delete'}
         </button>

@@ -2,8 +2,10 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q, CharField
+from django.db.models.functions import Cast
+from utils.tokens import Token
 from ..base.auth import TokenVersionAuthentication
-from django.db.models import Q
 from .utils import reset_client_ordered_items
 from . import serializers
 from .models import (Client,
@@ -30,6 +32,15 @@ class GetUpdateDeleteClient(generics.RetrieveUpdateDestroyAPIView):
     queryset = Client.objects.all()
     lookup_field = 'id'
 
+    def delete(self, request, *args, **kwargs):
+        client = self.get_object()
+        if client.total_orders > 0:
+            return Response(
+                    {'error': f'Client {client.name} is linked to existing orders. '
+                               'Manage orders before deletion.'},
+                    status=status.HTTP_400_BAD_REQUEST)
+        return super().delete(request, *args, **kwargs)
+
 
 class BulkDeleteClients(generics.DestroyAPIView):
     """Handles Client Bulk Deletion"""
@@ -41,8 +52,70 @@ class BulkDeleteClients(generics.DestroyAPIView):
         if not clients_ids:
             return Response({"error": "No IDs provided."},
                             status=status.HTTP_400_BAD_REQUEST)
-        delete_count, _ = Client.objects.filter(id__in=clients_ids).delete()
-        return Response({'message': f'{delete_count} clients deleted'},
+        # Validate ids
+        clients_invalid_ids = Token.validate_uuids(clients_ids)
+        if clients_invalid_ids:
+            return Response(
+                {
+                    'error': {
+                        'message': 'Some or all provided IDs are not valid UUIDs.',
+                        'invalid_ids': clients_invalid_ids
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        clients_found_ids = set(Client.objects.filter(id__in=clients_ids) \
+                                 .annotate(id_str=Cast('id', CharField())) \
+                                 .values_list('id_str', flat=True))
+        missing_ids = set(clients_ids) - clients_found_ids
+        if missing_ids:
+            return Response(
+                {
+                    'error': {
+                        'message': 'Some or all clients could not be found.',
+                        'missing_ids': list(missing_ids)
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Handle client with orders and without orders cases
+        clients_with_orders = Client.objects.filter(id__in=clients_ids,
+                                                    orders__isnull=False)\
+                                                    .values('id', 'name')\
+                                                    .distinct()
+        clients_without_orders = Client.objects.filter(id__in=clients_ids,
+                                                       orders__isnull=True)
+        # Case 1: All clients have orders
+        if clients_with_orders.exists() and not clients_without_orders.exists():
+            return Response(
+                {
+                    'error': {
+                        'message': 'All selected clients are linked to '
+                                   'existing orders. Manage orders before deletion.',
+                        'linked_clients': clients_with_orders,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Case 2: Some clients have orders
+        if clients_with_orders.exists() and clients_without_orders.exists():
+            delete_count, _ = clients_without_orders.delete()
+            clients_with_orders_count = clients_with_orders.count()
+            client_text = "clients" if delete_count > 1 else "client"
+            linked_client_text = "clients" if clients_with_orders_count > 1 else "client"
+            return Response(
+                {
+                    'message': f'{delete_count} {client_text} deleted successfully, '
+                               f'but {clients_with_orders_count} {linked_client_text} '
+                               f'could not be deleted because they are linked '
+                                'to existing orders.',
+                    'linked_clients': clients_with_orders
+                },
+                status=status.HTTP_207_MULTI_STATUS
+            )
+        # Case 3: None of the clients have orders
+        delete_count, _ = clients_without_orders.delete()
+        return Response({'message': f'{delete_count} clients successfully deleted.'},
                          status=status.HTTP_200_OK)
 
 
@@ -80,13 +153,42 @@ class BulkDeleteClientOrders(generics.DestroyAPIView):
         if not order_ids:
             return Response({'error': 'No IDs provided.'},
                             status=status.HTTP_400_BAD_REQUEST)
-
+        # Validate ids
+        orders_invalid_ids = Token.validate_uuids(order_ids)
+        if orders_invalid_ids:
+            return Response(
+                {
+                    'error': {
+                        'message': 'Some or all provided IDs are not valid UUIDs.',
+                        'invalid_ids': orders_invalid_ids
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        orders_found_ids = set(ClientOrder.objects.filter(id__in=order_ids) \
+                                                  .annotate(id_str=Cast('id', CharField())) \
+                                                  .values_list('id_str',flat=True))
+        missing_ids = set(order_ids) - orders_found_ids
+        print(missing_ids)
+        if missing_ids:
+            return Response(
+                {
+                    'error': {
+                        'message': 'Some or all orders could not be found.',
+                        'missing_ids': list(missing_ids)
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Reset items quantities linked to the orders and delete
         orders = ClientOrder.objects.filter(id__in=order_ids)
+        delete_count = 0
         for order in orders:
             reset_client_ordered_items(order)
             order.delete()
+            delete_count += 1
 
-        return Response({'message': 'orders have been successfully deleted'},
+        return Response({'message': f'{delete_count} orders successfully deleted.'},
                          status=status.HTTP_200_OK)
 
 

@@ -41,6 +41,7 @@ export const clientDataFlattener = (clients: ClientProps[]) =>
     location: client.location
       ? Object.values(client.location).reverse().join(', ')
       : null,
+    updated_at: client.updated ? client.updated_at : null,
   }));
 
 export const createSheetFile = (clients: ClientProps[]) => {

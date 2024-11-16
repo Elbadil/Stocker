@@ -3,7 +3,6 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 from shortuuid.django_fields import ShortUUIDField
 from utils.models import BaseModel
-from ..inventory.models import Item
 
 
 User = get_user_model()
@@ -119,7 +118,7 @@ class ClientOrder(BaseModel):
                                    help_text="The user who created this order",
                                    null=True,
                                    blank=True)
-    client = models.ForeignKey(Client, on_delete=models.SET_NULL,
+    client = models.ForeignKey(Client, on_delete=models.PROTECT,
                                related_name="orders",
                                null=True)
     status = models.ForeignKey(ClientOrderStatus, on_delete=models.SET_NULL,
@@ -164,7 +163,7 @@ class ClientOrderedItem(BaseModel):
     order = models.ForeignKey(ClientOrder, on_delete=models.CASCADE,
                               null=True, blank=True,
                               related_name="ordered_items")
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    item = models.ForeignKey('inventory.Item', on_delete=models.PROTECT)
     ordered_quantity = models.IntegerField(validators=[MinValueValidator(1)])
     ordered_price = models.DecimalField(max_digits=6, decimal_places=2)
 

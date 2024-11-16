@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { ClientProps } from './Client';
 import { api } from '../../../api/axios';
 import { useAlert } from '../../../contexts/AlertContext';
@@ -29,13 +30,29 @@ const DeleteClient = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [deleteErrors, setDeleteErrors] = useState<string>('');
 
-  const clientsData = {
-    ids: clients.map((client) => client.id),
-    names: clients.map((client) => client.name),
-  };
+  const [clientsWithOrders, clientsWithoutOrders] = useMemo(() => {
+    const withOrders: ClientProps[] = [];
+    const withoutOrders: ClientProps[] = [];
+    clients.forEach((client) => {
+      if (client.total_orders > 0) {
+        withOrders.push(client);
+      } else {
+        withoutOrders.push(client);
+      }
+    });
+    return [withOrders, withoutOrders];
+  }, [clients]);
+
+  const clientsForDeletion = useMemo(
+    () => ({
+      ids: clientsWithoutOrders.map((client) => client.id),
+      names: clientsWithoutOrders.map((client) => client.name),
+    }),
+    [clients, clientsWithoutOrders],
+  );
 
   const removeDeletedClientsRows = () => {
-    const clientsIds = new Set(clientsData.ids);
+    const clientsIds = new Set(clientsForDeletion.ids);
     const filteredRows = rowData.filter((row) => !clientsIds.has(row.id));
     setRowData(filteredRows);
   };
@@ -45,12 +62,14 @@ const DeleteClient = ({
     setDeleteErrors('');
     try {
       let res;
-      if (clients.length > 1) {
+      if (clientsWithoutOrders.length > 1) {
         res = await api.delete(`/client_orders/clients/bulk_delete/`, {
-          data: { ids: clientsData.ids },
+          data: { ids: clientsForDeletion.ids },
         });
       } else {
-        res = await api.delete(`/client_orders/clients/${clients[0].id}/`);
+        res = await api.delete(
+          `/client_orders/clients/${clientsWithoutOrders[0].id}/`,
+        );
       }
       console.log(res.data);
       removeDeletedClientsRows();
@@ -60,9 +79,9 @@ const DeleteClient = ({
           setClientOrders({
             ...clientOrders,
             clients: {
-              count: clientOrders.clients.count - clients.length,
+              count: clientOrders.clients.count - clientsWithoutOrders.length,
               names: clientOrders.clients.names.filter(
-                (name) => !new Set(clientsData.names).has(name),
+                (name) => !new Set(clientsForDeletion.names).has(name),
               ),
             },
           }),
@@ -71,13 +90,13 @@ const DeleteClient = ({
       setAlert({
         type: 'success',
         title:
-          clients.length > 1
-            ? `${clients.length} Clients Deleted`
+          clientsWithoutOrders.length > 1
+            ? `${clientsWithoutOrders.length} Clients Deleted`
             : 'Client Deleted',
         description: `You successfully deleted ${
-          clients.length > 1
-            ? `${clients.length} clients`
-            : `client ${clients[0].name}`
+          clientsWithoutOrders.length > 1
+            ? `${clientsWithoutOrders.length} clients`
+            : `client ${clientsWithoutOrders[0].name}`
         }.`,
       });
       setOpen(false);
@@ -123,9 +142,38 @@ const DeleteClient = ({
             {clients.map((client, index: number) => (
               <li className="mt-2" key={index}>
                 {client.name}
+                {client.total_orders > 0 && (
+                  <WarningAmberOutlinedIcon
+                    sx={{
+                      color: '#f97316',
+                      fontSize: '22px',
+                      paddingBottom: '4px',
+                      marginLeft: '1.5px',
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ol>
+          {clientsWithOrders.length > 0 && (
+            <div className="mt-3 text-sm text-orange-500 flex justify-start gap-0.5">
+              <WarningAmberOutlinedIcon
+                sx={{
+                  fontSize: '17.5px',
+                  paddingTop: '3px',
+                }}
+              />
+              <p>
+                {clientsWithOrders.length > 1
+                  ? clientsWithOrders.length === clients.length
+                    ? 'All selected clients are '
+                    : 'Some selected clients are '
+                  : `Client ${clientsWithOrders[0].name} is `}
+                linked to existing orders and won't be deleted. Please manage
+                their orders before deletion.
+              </p>
+            </div>
+          )}
           {deleteErrors && (
             <p className="mt-2 text-red-500 font-medium text-sm italic">
               {deleteErrors}
@@ -143,9 +191,16 @@ const DeleteClient = ({
           Cancel
         </button>
         <button
-          className="flex justify-center bg-red-500 hover:bg-opacity-90 rounded py-2 px-4 font-medium text-gray"
+          className={
+            'flex justify-center ' +
+            (clientsWithOrders.length === clients.length
+              ? 'cursor-not-allowed bg-red-400 '
+              : 'bg-red-500 hover:bg-opacity-90 ') +
+            'rounded py-2 px-6 font-medium text-gray'
+          }
           type="submit"
           onClick={handleClientDeletion}
+          disabled={clientsWithOrders.length === clients.length}
         >
           {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Delete'}
         </button>

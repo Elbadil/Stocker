@@ -388,6 +388,10 @@ const EditClientOrder = ({
   }, [open]);
 
   useEffect(() => {
+    if (newClient) setValue('client', newClient);
+  }, [newClient]);
+
+  useEffect(() => {
     orderHasChanges();
   }, [initialValues, currentValues]);
 

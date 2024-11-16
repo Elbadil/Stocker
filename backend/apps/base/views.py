@@ -38,8 +38,8 @@ class CustomTokenRefreshView(APIView):
                                 status=status.HTTP_403_FORBIDDEN)
             new_access_token = str(refresh.access_token)
             user_data = UserSerializer(user, context={'request': request}).data
-            return Response({'user': user_data,
-                             'access_token': new_access_token},
+            return Response({'access_token': new_access_token,
+                             'user': user_data},
                             status=status.HTTP_200_OK)
         except TokenError:
             return Response({'errors': 'Invalid refresh token.'},
@@ -138,8 +138,6 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
             user = serializer.save();
             if 'avatar_deleted' in request.data:
                 user.avatar = None
-            elif 'avatar' in request.FILES:
-                user.avatar = request.FILES.get('avatar');
             user.save()
             user_data = UserSerializer(user, context={'request': request}).data
             return Response({'user': user_data},

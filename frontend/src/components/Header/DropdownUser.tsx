@@ -45,7 +45,7 @@ const DropdownUser = () => {
         <span className="h-12 w-12 object-cover rounded-full">
           <img
             src={user?.avatar || DefaultPfp}
-            className="rounded-full"
+            className="w-full h-full object-cover rounded-full"
             alt="User"
           />
         </span>
