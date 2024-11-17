@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'apps.base',
     'apps.inventory',
     'apps.client_orders',
+    'apps.supplier_orders',
     'django_extensions',
     'rest_framework',
     'rest_framework_simplejwt',

@@ -205,10 +205,19 @@ const ClientOrders = () => {
       minWidth: 110,
     },
     {
-      field: 'status',
+      field: 'delivery_status',
+      headerName: 'Delivery Status',
       cellRenderer: StatusRenderer,
-      flex: 1.8,
-      minWidth: 115,
+      flex: 3,
+      minWidth: 160,
+      sortable: false,
+    },
+    {
+      field: 'payment_status',
+      headerName: 'Payment Status',
+      cellRenderer: StatusRenderer,
+      flex: 3,
+      minWidth: 167,
       sortable: false,
     },
     {
@@ -234,6 +243,12 @@ const ClientOrders = () => {
       filter: 'agNumberColumnFilter',
       flex: 3,
       minWidth: 155,
+    },
+    {
+      field: 'tracking_number',
+      headerName: 'Tracking Number',
+      flex: 3,
+      minWidth: 177,
     },
     {
       field: 'net_profit',

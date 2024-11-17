@@ -10,7 +10,7 @@ import { handleItemExport } from './utils';
 
 export interface ItemProps {
   id: string;
-  user: string;
+  created_by: string;
   name: string;
   quantity: number;
   price: number;

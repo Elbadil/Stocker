@@ -99,7 +99,12 @@ const EditClientOrder = ({
   const itemOptions = selectOptionsFromObjects(items);
   const sourceOptions = selectOptionsFromStrings(acqSources);
   const countryOptions = selectOptionsFromObjects(countries);
-  const statusOptions = selectOptionsFromStrings(orderStatus.names);
+  const deliveryStatusOptions = selectOptionsFromStrings(
+    orderStatus.delivery_status,
+  );
+  const paymentStatusOptions = selectOptionsFromStrings(
+    orderStatus.payment_status,
+  );
 
   const handleClientChange = (
     onChange: (value: string | null) => void,
@@ -193,10 +198,10 @@ const EditClientOrder = ({
     return quantityErrors;
   };
 
-  const updateOrderStatusState = (newOrderStatus: string) => {
-    if (newOrderStatus !== order.status) {
-      const newStatusType = statusType(newOrderStatus);
-      const oldStatusType = statusType(order.status);
+  const updateOrderStatusState = (newOrderDeliveryStatus: string) => {
+    if (newOrderDeliveryStatus !== order.delivery_status) {
+      const newStatusType = statusType(newOrderDeliveryStatus);
+      const oldStatusType = statusType(order.delivery_status);
       return {
         ...orderStatus,
         [newStatusType]: orderStatus[newStatusType] + 1,
@@ -268,7 +273,7 @@ const EditClientOrder = ({
         dispatch(
           setClientOrders({
             ...clientOrders,
-            orderStatus: updateOrderStatusState(orderUpdate.status),
+            orderStatus: updateOrderStatusState(orderUpdate.delivery_status),
           }),
         );
         dispatch(
@@ -611,18 +616,18 @@ const EditClientOrder = ({
                 </div>
               ))}
             </div>
-            {/* Status */}
-            <div className="mb-3 pb-4 border-b border-stroke dark:border-slate-600">
+                        {/* Delivery Status */}
+                        <div className="mb-3 pb-4 border-b border-stroke dark:border-slate-600">
               <label
                 className="block mb-2 text-base font-medium text-black dark:text-white"
                 htmlFor="status"
               >
-                Status
+                Delivery status
               </label>
               <div className="w-full">
                 {open && (
                   <Controller
-                    name="status"
+                    name="delivery_status"
                     control={control}
                     rules={{ required: false }}
                     render={({ field: { value, onChange, ...field } }) => (
@@ -631,23 +636,63 @@ const EditClientOrder = ({
                         isClearable
                         value={
                           value
-                            ? statusOptions.find(
+                            ? deliveryStatusOptions.find(
                                 (option) => option.value === value,
                               )
                             : null
                         }
                         onChange={(option) => onChange(option?.value || null)}
-                        options={statusOptions}
+                        options={deliveryStatusOptions}
                         styles={customSelectStyles(isDarkMode)}
-                        placeholder={<span>Select order status...</span>}
+                        placeholder={<span>Select delivery status...</span>}
                       />
                     )}
                   />
                 )}
               </div>
-              {errors.status && (
+              {errors.delivery_status && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
-                  {errors.status.message}
+                  {errors.delivery_status.message}
+                </p>
+              )}
+            </div>
+            {/* Payment Status */}
+            <div className="mb-3 pb-4 border-b border-stroke dark:border-slate-600">
+              <label
+                className="block mb-2 text-base font-medium text-black dark:text-white"
+                htmlFor="status"
+              >
+                Payment status
+              </label>
+              <div className="w-full">
+                {open && (
+                  <Controller
+                    name="payment_status"
+                    control={control}
+                    rules={{ required: false }}
+                    render={({ field: { value, onChange, ...field } }) => (
+                      <CreatableSelect
+                        {...field}
+                        isClearable
+                        value={
+                          value
+                            ? paymentStatusOptions.find(
+                                (option) => option.value === value,
+                              )
+                            : null
+                        }
+                        onChange={(option) => onChange(option?.value || null)}
+                        options={paymentStatusOptions}
+                        styles={customSelectStyles(isDarkMode)}
+                        placeholder={<span>Select payment status...</span>}
+                      />
+                    )}
+                  />
+                )}
+              </div>
+              {errors.payment_status && (
+                <p className="text-red-500 font-medium text-sm italic mt-2">
+                  {errors.payment_status.message}
                 </p>
               )}
             </div>
@@ -800,7 +845,8 @@ const EditClientOrder = ({
                 </p>
               )}
             </div>
-            <div className="mb-3">
+            {/* Shipping Cost */}
+            <div className="mb-3 pb-3 border-b border-stroke dark:border-slate-600">
               <label
                 className="mb-2 block text-base font-medium text-black dark:text-white"
                 htmlFor="shipping_cost"
@@ -816,6 +862,26 @@ const EditClientOrder = ({
               {errors.shipping_cost && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
                   {errors.shipping_cost.message}
+                </p>
+              )}
+            </div>
+            {/* Tracking Number */}
+            <div className="mb-3">
+              <label
+                className="mb-2 block text-base font-medium text-black dark:text-white"
+                htmlFor="shipping_cost"
+              >
+                Tracking Number
+              </label>
+              <input
+                className="w-full rounded border border-stroke bg-gray py-2 pl-3 pr-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                type="text"
+                placeholder="Enter tracking number"
+                {...register('tracking_number')}
+              />
+              {errors.tracking_number && (
+                <p className="text-red-500 font-medium text-sm italic mt-2">
+                  {errors.tracking_number.message}
                 </p>
               )}
             </div>

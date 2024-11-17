@@ -10,7 +10,7 @@ from .models import (Client,
                      Location,
                      AcquisitionSource,
                      ClientOrderedItem,
-                     ClientOrderStatus,
+                     OrderStatus,
                      ClientOrder)
 from ..inventory.models import Item
 from ..base.models import User
@@ -210,7 +210,7 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
         ordered_quantity = attrs['ordered_quantity']
 
         # Check if the item exists in the user's inventory
-        item = Item.objects.filter(user=user, name__iexact=item_name).first()
+        item = Item.objects.filter(created_by=user, name__iexact=item_name).first()
         if not item:
             raise serializers.ValidationError(
                 {'item': f"Item {item_name} does not exist in your inventory."}
@@ -227,7 +227,7 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         item_name = validated_data.pop('item', None)
         item = Item.objects.filter(
-            user=validated_data['created_by'],
+            created_by=validated_data['created_by'],
             name__iexact=item_name
         ).first()
         item.quantity -= validated_data['ordered_quantity']
@@ -250,7 +250,10 @@ class ClientOrderSerializer(serializers.ModelSerializer):
     ordered_items = serializers.ListField(child=serializers.DictField(),
                                           write_only=True,
                                           required=True)
-    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    delivery_status = serializers.CharField(required=False, allow_blank=True,
+                                            allow_null=True)
+    payment_status = serializers.CharField(required=False, allow_blank=True,
+                                           allow_null=True)
     shipping_address = LocationSerializer(many=False, required=False)
     source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
@@ -262,7 +265,9 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             'created_by',
             'client',
             'ordered_items',
-            'status',
+            'delivery_status',
+            'payment_status',
+            'tracking_number',
             'shipping_address',
             'shipping_cost',
             'net_profit',
@@ -320,12 +325,28 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                 unique_items.append(item_name)
         return value
 
-    def validate_status(self, value):
+    def validate_delivery_status(self, value):
         if value:
-            status = ClientOrderStatus.objects.filter(name__iexact=value).first()
-            if not status:
-                raise serializers.ValidationError("Invalid order status.")
-            return status
+            status_options = ['pending',
+                              'shipped',
+                              'delivered',
+                              'returned',
+                              'canceled',
+                              'failed']
+            if value.lower() not in status_options:
+                raise serializers.ValidationError("Invalid order delivery status.")
+            return OrderStatus.objects.filter(name__iexact=value).first()
+        return None
+    
+    def validate_payment_status(self, value):
+        if value:
+            status_options = ['pending',
+                              'paid',
+                              'failed',
+                              'refunded']
+            if value.lower() not in status_options:
+                raise serializers.ValidationError("Invalid order payment status.")
+            return OrderStatus.objects.filter(name__iexact=value).first()
         return None
 
     def validate(self, attrs):
@@ -353,7 +374,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         ordered_items = validated_data.pop('ordered_items', None)
         shipping_address = validated_data.pop('shipping_address', None)
         source = validated_data.pop('source', None)
-        status = validated_data.pop('status', None)
+        delivery_status = validated_data.pop('delivery_status', None)
+        payment_status = validated_data.pop('payment_status', None)
 
         # Create order with remaining data
         order = ClientOrder.objects.create(created_by=user, **validated_data)
@@ -367,12 +389,16 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         )
 
         # Update shipping address and source of acquisition and status to the order
-        order.shipping_address = get_or_create_location(user, shipping_address)
-        order.source = get_or_create_source(user, source)
-        if status:
-            order.status = status
-        order.save()
+        if shipping_address:
+            order.shipping_address = get_or_create_location(user, shipping_address)
+        if source:
+            order.source = get_or_create_source(user, source)
+        if delivery_status:
+            order.delivery_status = delivery_status
+        if payment_status:
+            order.payment_status = payment_status
 
+        order.save()
         return order
 
     @transaction.atomic
@@ -385,7 +411,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         ordered_items = validated_data.pop('ordered_items', None)
         shipping_address = validated_data.pop('shipping_address', None)
         source = validated_data.pop('source', None)
-        status = validated_data.pop('status', None)
+        delivery_status = validated_data.pop('delivery_status', None)
+        payment_status = validated_data.pop('payment_status', None)
 
         # Update order with remaining data
         order = super().update(instance, validated_data)
@@ -405,9 +432,12 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             order.shipping_address = get_or_create_location(user, shipping_address)
         if source:
             order.source = get_or_create_source(user, source)
-        if status:
-            order.status = status
+        if delivery_status:
+            order.delivery_status = delivery_status
+        if payment_status:
+            order.payment_status = payment_status
         order.updated = True
+
         order.save()
         return order
 

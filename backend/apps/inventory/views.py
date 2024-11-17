@@ -53,7 +53,7 @@ class ListUserItems(generics.ListAPIView):
     serializer_class = serializers.ItemSerializer
 
     def get_queryset(self):
-        return Item.objects.filter(user=self.request.user)
+        return Item.objects.filter(created_by=self.request.user)
 
 
 class ItemsBulkDelete(generics.GenericAPIView):
@@ -141,18 +141,18 @@ class GetUserInventoryData(generics.GenericAPIView):
         user = request.user
         # Categories
         categories = {
-            'count': Category.objects.filter(user=user).count(),
-            'names': list(Category.objects.filter(user=user).values_list('name', flat=True))
+            'count': Category.objects.filter(created_by=user).count(),
+            'names': list(Category.objects.filter(created_by=user).values_list('name', flat=True))
         }
         # Suppliers
         suppliers = {
-            'count': Supplier.objects.filter(user=user).count(),
-            'names': list(Supplier.objects.filter(user=user).values_list('name', flat=True))
+            'count': Supplier.objects.filter(created_by=user).count(),
+            'names': list(Supplier.objects.filter(created_by=user).values_list('name', flat=True))
         }
         # Variants
-        variants = list(Variant.objects.filter(user=user).values_list('name', flat=True))
+        variants = list(Variant.objects.filter(created_by=user).values_list('name', flat=True))
         # Items
-        user_items = Item.objects.filter(user=user)
+        user_items = Item.objects.filter(created_by=user)
         items = []
         for item in user_items:
             client_ordered = ClientOrderedItem.objects.filter(item=item).exists()

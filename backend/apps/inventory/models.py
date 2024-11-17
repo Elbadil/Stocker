@@ -2,51 +2,40 @@ from django.db import models
 from apps.base.models import User
 from utils.models import BaseModel
 from ..client_orders.models import ClientOrderedItem
+from ..supplier_orders.models import Supplier
 
 
 class Category(BaseModel):
     """Item's Category Model"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=200, blank=False)
 
     def __str__(self) -> str:
-        if self.user:
-            return f'Category: -{self.name}- Added by -{self.user.username}-'
-        return self.name
-
-
-class Supplier(BaseModel):
-    """Item's Supplier Model"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    name = models.CharField(max_length=200)
-    phone_number = models.CharField(max_length=200, null=True, blank=True)
-
-    def __str__(self) -> str:
-        if self.user:
-            return f'Supplier: -{self.name}- Added by -{self.user.username}-'
+        if self.created_by:
+            return f'Category: -{self.name}- Added by -{self.created_by.username}-'
         return self.name
 
 
 class Variant(BaseModel):
     """Item's Variants"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
 
     class Meta:
         db_table = 'inventory_variant'
 
     def __str__(self) -> str:
-        if self.user:
-            return f'Variant: -{self.name}- Added by -{self.user.username}-'
+        if self.created_by:
+            return f'Variant: -{self.name}- Added by -{self.created_by.username}-'
         return self.name
 
 
 def item_picture_path(item, filename):
-    return f"inventory/images/{item.user.id}/{filename}"
+    return f"inventory/images/{item.created_by.id}/{filename}"
 
 class Item(BaseModel):
     """Item Model"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
     name = models.CharField(max_length=300, blank=False)
@@ -69,8 +58,8 @@ class Item(BaseModel):
         return ClientOrderedItem.objects.filter(item__id=self.id).count()
 
     def __str__(self) -> str:
-        if self.user:
-            return f'{self.name} added by - {self.user.username} -'
+        if self.created_by:
+            return f'{self.name} added by - {self.created_by.username} -'
         return self.name
 
 
@@ -84,4 +73,4 @@ class VariantOption(BaseModel):
         db_table = 'inventory_variant_option'
 
     def __str__(self) -> str:
-        return f'{self.item.name} added by - {self.item.user.username} - is available on {self.variant.name}: {self.body}'
+        return f'{self.item.name} added by - {self.item.created_by.username} - is available on {self.variant.name}: {self.body}'

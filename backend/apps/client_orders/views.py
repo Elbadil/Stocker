@@ -13,7 +13,7 @@ from .models import (Client,
                      Country,
                      City,
                      AcquisitionSource,
-                     ClientOrderStatus)
+                     OrderStatus)
 
 
 class CreateListClient(generics.ListCreateAPIView):
@@ -22,6 +22,9 @@ class CreateListClient(generics.ListCreateAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ClientSerializer
     queryset = Client.objects.all()
+
+    def get_queryset(self):
+        return Client.objects.filter(created_by=self.request.user)
 
 
 class GetUpdateDeleteClient(generics.RetrieveUpdateDestroyAPIView):
@@ -125,6 +128,9 @@ class CreateListClientOrder(generics.ListCreateAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ClientOrderSerializer
     queryset = ClientOrder.objects.all()
+
+    def get_queryset(self):
+        return ClientOrder.objects.filter(created_by=self.request.user)
 
 
 class GetUpdateDeleteClientOrder(generics.RetrieveUpdateDestroyAPIView):
@@ -235,21 +241,23 @@ class GetClientOrdersData(generics.GenericAPIView):
                            Q(added_by=user) | Q(added_by__isnull=True)
                            ).values_list('name', flat=True))
         # Status Names
-        status_names = list(ClientOrderStatus.objects.all().values_list('name', flat=True))
+        delivery_status = ['Pending', 'Shipped', 'Delivered', 'Canceled', 'Returned', 'Failed']
+        payment_status = ['Pending', 'Paid', 'Failed', 'Refunded']
         # Completed orders
         completed_status = ['Paid', 'Delivered']
         completed_orders = ClientOrder.objects.filter(created_by=user,
-                                                      status__name__in=completed_status).count()
+                                                      delivery_status__name__in=completed_status).count()
         # Active Orders
         active_status = ['Pending', 'Shipped']
         active_orders = ClientOrder.objects.filter(created_by=user,
-                                                   status__name__in=active_status).count()
+                                                   delivery_status__name__in=active_status).count()
         # Failed Orders
         failed_status = ['Canceled', 'Failed', 'Refunded', 'Returned']
         failed_orders = ClientOrder.objects.filter(created_by=user,
-                                                   status__name__in=failed_status).count()
+                                                   delivery_status__name__in=failed_status).count()
         # Orders Status
-        orders_status = {'names': status_names,
+        orders_status = {'delivery_status': delivery_status,
+                         'payment_status': payment_status,
                          'active': active_orders,
                          'completed': completed_orders,
                          'failed': failed_orders}

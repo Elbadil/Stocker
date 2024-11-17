@@ -4,7 +4,8 @@ from rest_framework.validators import ValidationError
 import json
 from typing import Union
 from ..base.models import User
-from .models import Item, Category, Supplier, Variant, VariantOption
+from .models import Item, Category, Variant, VariantOption
+from ..supplier_orders.models import Supplier
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -30,9 +31,9 @@ class VariantOptionSerializer(serializers.ModelSerializer):
 
 class VariantSerializer(serializers.ModelSerializer):
     """Variant Serializer"""
-    user_id = serializers.PrimaryKeyRelatedField(
+    created_by_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
-        source='user',
+        source='created_by',
         required=False
     )
     name = serializers.CharField()
@@ -71,7 +72,7 @@ class ItemSerializer(serializers.ModelSerializer):
         model = Item
         fields = [
             'id',
-            'user',
+            'created_by',
             'name',
             'quantity',
             'price',
@@ -97,7 +98,7 @@ class ItemSerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         user = self.context.get('request').user
         if Item.objects.filter(
-            user=user,
+            created_by=user,
             name__iexact=value).exclude(pk=self.instance.id
                                         if self.instance
                                         else None).exists():
@@ -112,7 +113,7 @@ class ItemSerializer(serializers.ModelSerializer):
     ) -> Union[None, Category, Supplier]:
         if value:
             obj, created = model.objects.get_or_create(
-                user=user,
+                created_by=user,
                 name__iexact=value,
                 defaults={'name': value})
             return obj
@@ -157,7 +158,7 @@ class ItemSerializer(serializers.ModelSerializer):
             variant, created = Variant.objects.get_or_create(
                 name__iexact=variant_name,
                 defaults={'name': variant_name},
-                user=user
+                created_by=user
             )
             # Adding variant to item's variants
             item.variants.add(variant)
@@ -179,7 +180,7 @@ class ItemSerializer(serializers.ModelSerializer):
         supplier_name = validated_data.pop('supplier', None)
 
         # Creating Item's main fields
-        item = Item.objects.create(user=user, **validated_data)
+        item = Item.objects.create(created_by=user, **validated_data)
 
         # Creating Item's category and supplier
         item.category = self._get_or_create_category_supplier(user, Category, category_name)
@@ -218,7 +219,7 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance: Item):
         representation = super().to_representation(instance)
-        representation['user'] = instance.user.username
+        representation['created_by'] = instance.created_by.username
         representation['category'] = instance.category.name if instance.category else None
         representation['supplier'] = instance.supplier.name if instance.supplier else None
         representation['variants'] = self.get_variants(instance)

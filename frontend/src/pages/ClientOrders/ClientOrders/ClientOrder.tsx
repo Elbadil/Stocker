@@ -23,7 +23,9 @@ export interface ClientOrderProps {
   created_by: string;
   client: string;
   ordered_items: ClientOrderedItem[];
-  status: string;
+  delivery_status: string;
+  payment_status: string;
+  tracking_number?: string | null;
   shipping_address: Location;
   shipping_cost?: number | null;
   net_profit: number;
@@ -219,20 +221,38 @@ const ClientOrder = ({
                 ))}
               </ol>
             </div>
-            {/* Status */}
-            <div className="mb-2">
-              <div className="mb-1 pt-2 block text-base font-medium text-black dark:text-white">
-                Status
+            {/* Delivery | Payment Status */}
+            <div className="mb-3 flex flex-row gap-9.5">
+              {/* Delivery Status */}
+              <div className="">
+                <div className="mb-1 pt-2 block text-base font-medium text-black dark:text-white">
+                  Delivery Status
+                </div>
+                <p className="text-base py-1.5 text-slate-900 truncate dark:text-slate-300">
+                  <span
+                    className={`${statusStyle(
+                      order.delivery_status,
+                    )} text-white p-1.5 font-semibold rounded-md`}
+                  >
+                    {order.delivery_status}
+                  </span>
+                </p>
               </div>
-              <p className="text-base py-1.5 text-slate-900 truncate dark:text-slate-300">
-                <span
-                  className={`${statusStyle(
-                    order.status,
-                  )} text-white p-1.5 font-semibold rounded-md`}
-                >
-                  {order.status}
-                </span>
-              </p>
+              {/* Payment Status */}
+              <div className="">
+                <div className="mb-1 pt-2 block text-base font-medium text-black dark:text-white">
+                  Payment Status
+                </div>
+                <p className="text-base py-1.5 text-slate-900 truncate dark:text-slate-300">
+                  <span
+                    className={`${statusStyle(
+                      order.payment_status,
+                    )} text-white p-1.5 font-semibold rounded-md`}
+                  >
+                    {order.payment_status}
+                  </span>
+                </p>
+              </div>
             </div>
             {/* Source of Acquisition */}
             {order.source && (
@@ -253,6 +273,17 @@ const ClientOrder = ({
                 </div>
                 <p className="text-base text-slate-900 truncate dark:text-slate-300">
                   {Object.values(order.shipping_address).reverse().join(', ')}.
+                </p>
+              </div>
+            )}
+            {/* Tracking Number */}
+            {order.tracking_number && (
+              <div className="mb-2 pt-3">
+                <div className="mb-1 block text-base font-medium text-black dark:text-white">
+                  Tracking Number
+                </div>
+                <p className="text-base text-slate-900 truncate dark:text-slate-300">
+                  {order.tracking_number}
                 </p>
               </div>
             )}

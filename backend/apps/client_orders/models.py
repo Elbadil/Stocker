@@ -100,7 +100,7 @@ class Client(BaseModel):
         return self.name
 
 
-class ClientOrderStatus(BaseModel):
+class OrderStatus(BaseModel):
     """Order Status Model"""
     name = models.CharField(max_length=50, unique=True)
 
@@ -109,21 +109,28 @@ class ClientOrderStatus(BaseModel):
 
 
 class ClientOrder(BaseModel):
-    """Order Model"""
+    """Client Order Model"""
     reference_id = ShortUUIDField(length=7,
                                   max_length=12,
                                   prefix="ID_")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
-                                   related_name='created_orders',
+                                   related_name='created_client_orders',
                                    help_text="The user who created this order",
                                    null=True,
                                    blank=True)
     client = models.ForeignKey(Client, on_delete=models.PROTECT,
                                related_name="orders",
                                null=True)
-    status = models.ForeignKey(ClientOrderStatus, on_delete=models.SET_NULL,
-                               null=True, blank=True,
-                               default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+    delivery_status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
+                                        related_name='client_delivery_status',
+                                        null=True, blank=True,
+                                        default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+    payment_status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
+                                       related_name='client_payment_status',
+                                       null=True, blank=True,
+                                       default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+    tracking_number = models.CharField(max_length=50, null=True, blank=True,
+                                       help_text="Tracking number for the shipment")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,
                                          null=True)
     shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
