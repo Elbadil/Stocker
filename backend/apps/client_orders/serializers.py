@@ -2,8 +2,10 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import F
 from typing import List
-from .utils import get_or_create_location, get_or_create_source, get_location
-from utils.serializers import datetime_repr_format
+from .utils import get_or_create_source
+from utils.serializers import (datetime_repr_format,
+                               get_location,
+                               get_or_create_location)
 from .models import (Client,
                      Country,
                      City,

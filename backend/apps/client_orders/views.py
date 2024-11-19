@@ -21,7 +21,6 @@ class CreateListClient(generics.ListCreateAPIView):
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ClientSerializer
-    queryset = Client.objects.all()
 
     def get_queryset(self):
         return Client.objects.filter(created_by=self.request.user)
@@ -127,7 +126,6 @@ class CreateListClientOrder(generics.ListCreateAPIView):
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ClientOrderSerializer
-    queryset = ClientOrder.objects.all()
 
     def get_queryset(self):
         return ClientOrder.objects.filter(created_by=self.request.user)

@@ -15,13 +15,6 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class SupplierSerializer(serializers.ModelSerializer):
-    """Supplier Serializer"""
-    class Meta:
-        model = Supplier
-        fields = "__all__"
-
-
 class VariantOptionSerializer(serializers.ModelSerializer):
     """Variant Serializer"""
     class Meta:

@@ -8,23 +8,6 @@ from .models import (Location,
 from ..inventory.models import Item
 
 
-def get_or_create_location(
-        user,
-        data,
-    ) -> Union[Location, None]:
-    from .serializers import LocationSerializer
-
-    if data:
-        serializer = LocationSerializer(data=data,
-                                        context={'user': user})
-        if serializer.is_valid():
-            obj = serializer.save()
-            return obj
-        else:
-            raise serializers.ValidationError(serializer.errors)
-    return None
-
-
 def get_or_create_source(
     user,
     value
@@ -37,16 +20,6 @@ def get_or_create_source(
                       'name': value}
         )
         return acq_source
-    return None
-
-
-def get_location(instance_attribute):
-    if instance_attribute:
-        return {
-            'country': instance_attribute.country.name,
-            'city': instance_attribute.city.name,
-            'street_address': instance_attribute.street_address,
-        }
     return None
 
 

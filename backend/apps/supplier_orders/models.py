@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 from shortuuid.django_fields import ShortUUIDField
 from utils.models import BaseModel
@@ -52,5 +53,38 @@ class SupplierOrder(BaseModel):
                                         null=True, blank=True)
     updated = models.BooleanField(default=False)
 
+    @property
+    def items(self):
+        return self.ordered_items.all()
+
+    @property
+    def total_quantity(self):
+        return sum(item.ordered_quantity for item in self.items)
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items)
+
     def __str__(self) -> str:
         return f'Order from {self.supplier.name}'
+
+
+class SupplierOrderedItem(BaseModel):
+    """Supplier Ordered Item Model"""
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE,
+                                   null=True, blank=True)
+    order = models.ForeignKey(SupplierOrder, on_delete=models.CASCADE,
+                              null=True, blank=True)
+    item = models.ForeignKey('inventory.Item', on_delete=models.PROTECT,
+                             null=True, blank=True,
+                             related_name="ordered_items")
+    ordered_quantity = models.IntegerField(validators=[MinValueValidator(1)])
+    ordered_price = models.DecimalField(max_digits=6, decimal_places=2)
+
+    @property
+    def total_price(self):
+        return self.ordered_quantity * self.ordered_price
+
+    def __str__(self) -> str:
+        return (f'{self.created_by.username} ordered {self.ordered_quantity} '
+                f'of {self.item.name} from {self.order.supplier.name}')
