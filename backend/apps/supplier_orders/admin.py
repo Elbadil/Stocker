@@ -3,7 +3,7 @@ from .models import Supplier, SupplierOrder, SupplierOrderedItem
 
 
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ['name', 'created_by']
+    list_display = ['id', 'name', 'created_by']
     
     @admin.display(ordering='created_by__username', description='Created By')
     def created_by(self, obj):
@@ -15,7 +15,8 @@ class SupplierOrderedItemAdmin(admin.ModelAdmin):
                     'supplier_name',
                     'item_name',
                     'ordered_quantity',
-                    'ordered_price']
+                    'ordered_price',
+                    'in_inventory']
 
     @admin.display(ordering='order__reference_id', description='Order Reference ID')
     def order_reference_id(self, obj):
@@ -29,7 +30,19 @@ class SupplierOrderedItemAdmin(admin.ModelAdmin):
     def item_name(self, obj):
         return obj.item.name
 
+    @admin.display(ordering='item__in_inventory', description='In Inventory')
+    def in_inventory(self, obj):
+        return obj.item.in_inventory
+
+
+class SupplierOrderAdmin(admin.ModelAdmin):
+    list_display = ['id', 'reference_id', 'supplier_name', 'delivery_status']
+
+    @admin.display(ordering='supplier__name', description='Supplier')
+    def supplier_name(self, obj):
+        return obj.supplier.name
+
 
 admin.site.register(Supplier, SupplierAdmin)
-admin.site.register(SupplierOrder)
+admin.site.register(SupplierOrder, SupplierOrderAdmin)
 admin.site.register(SupplierOrderedItem, SupplierOrderedItemAdmin)

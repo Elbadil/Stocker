@@ -3,7 +3,7 @@ from .models import Item, Category, Variant, VariantOption
 
 
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ['created_by', 'name', 'quantity', 'price']
+    list_display = ['name', 'quantity', 'price', 'in_inventory', 'created_by']
 
     @admin.display(ordering='created_by__username', description='Created By')
     def created_by(self, obj):

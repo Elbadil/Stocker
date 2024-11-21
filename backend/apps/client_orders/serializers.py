@@ -1,11 +1,13 @@
 from rest_framework import serializers
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Q
 from typing import List
-from .utils import get_or_create_source
+from .utils import get_or_create_source, update_item_quantity
 from utils.serializers import (datetime_repr_format,
                                get_location,
-                               get_or_create_location)
+                               get_or_create_location,
+                               DELIVERY_STATUS_OPTIONS,
+                               PAYMENT_STATUS_OPTIONS)
 from .models import (Client,
                      Country,
                      City,
@@ -212,7 +214,9 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
         ordered_quantity = attrs['ordered_quantity']
 
         # Check if the item exists in the user's inventory
-        item = Item.objects.filter(created_by=user, name__iexact=item_name).first()
+        item = Item.objects.filter(created_by=user,
+                                   name__iexact=item_name,
+                                   in_inventory=True).first()
         if not item:
             raise serializers.ValidationError(
                 {'item': f"Item {item_name} does not exist in your inventory."}
@@ -296,6 +300,63 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError(serializer.errors)
 
+    def update_ordered_items_for_client_order(
+        self,
+        request,
+        order: ClientOrder,
+        user: User,
+        ordered_items: List[dict]):
+        # Filter inventory items by old and new ordered items
+        names_query = Q()
+        items_names = [old_ordered_item.item.name for old_ordered_item in order.items]
+        items_names.extend([new_ordered_item['item'] for new_ordered_item in ordered_items])
+        for name in items_names:
+            names_query |= Q(name__iexact=name)
+        inventory_items = Item.objects.filter(names_query, created_by=user)
+        # Create an inventory items map for all necessary items
+        inventory_items_map = {
+            item.name.lower(): item for item in inventory_items
+        }
+        # Create map of old/existing ordered items
+        existing_items = {
+            ordered_item.item.name.lower(): ordered_item for ordered_item in order.items
+        }
+
+        for new_item in ordered_items:
+            existing_item = existing_items.pop(new_item['item'].lower(), None)
+            # Update existing ordered item and item's quantity in inventory
+            if existing_item:
+                inventory_item = inventory_items_map.get(new_item['item'].lower())
+                item_new_quantity = update_item_quantity(inventory_item,
+                                                         existing_item.ordered_quantity,
+                                                         new_item['ordered_quantity'])
+                # Validate new item's quantity
+                if item_new_quantity < 0:
+                    raise serializers.ValidationError({
+                        'ordered_items': {
+                            'ordered_quantity': f"The ordered quantity for {inventory_item.name} exceeds available stock."
+                        }
+                    })
+                else:
+                    inventory_item.quantity = item_new_quantity
+                    inventory_item.save()
+                    existing_item.ordered_quantity = new_item['ordered_quantity']
+                    existing_item.ordered_price = new_item['ordered_price']
+                    existing_item.save()        
+            # Create new ordered item
+            else:
+                self.create_ordered_items_for_client_order(request,
+                                                           order,
+                                                           user,
+                                                           [new_item])
+
+        # Delete remaining ordered items and update item's quantity in inventory
+        for item_to_delete in existing_items.values():
+            inventory_item = inventory_items_map.get(item_to_delete.item.name.lower())
+            inventory_item.quantity += item_to_delete.ordered_quantity
+            inventory_item.save()
+            item_to_delete.delete()
+
     def get_ordered_items(self, order: ClientOrder):
         ordered_items = []
         for ordered_item in order.items:
@@ -307,14 +368,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                 'total_profit': ordered_item.total_profit,
             })
         return ordered_items
-
-    def reset_client_ordered_items(self, instance: ClientOrder):
-        prev_items = instance.items
-        for ordered_item in prev_items:
-            Item.objects.filter(id=ordered_item.item.id).update(
-                quantity=F('quantity') + ordered_item.ordered_quantity
-            )
-        ClientOrderedItem.objects.filter(order=instance).delete()
 
     def validate_ordered_items(self, value: List[ClientOrderedItem]):
         unique_items = []
@@ -329,24 +382,14 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
     def validate_delivery_status(self, value):
         if value:
-            status_options = ['pending',
-                              'shipped',
-                              'delivered',
-                              'returned',
-                              'canceled',
-                              'failed']
-            if value.lower() not in status_options:
+            if value.lower() not in DELIVERY_STATUS_OPTIONS:
                 raise serializers.ValidationError("Invalid order delivery status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
     
     def validate_payment_status(self, value):
         if value:
-            status_options = ['pending',
-                              'paid',
-                              'failed',
-                              'refunded']
-            if value.lower() not in status_options:
+            if value.lower() not in PAYMENT_STATUS_OPTIONS:
                 raise serializers.ValidationError("Invalid order payment status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
@@ -421,8 +464,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
         # Update ordered items of the order
         if ordered_items:
-            self.reset_client_ordered_items(instance)
-            self.create_ordered_items_for_client_order(
+            self.update_ordered_items_for_client_order(
                 request,
                 order,
                 user,

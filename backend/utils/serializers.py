@@ -3,6 +3,22 @@ from typing import Union
 from apps.client_orders.models import Location
 
 
+DELIVERY_STATUS_OPTIONS = [
+    'pending',
+    'shipped',
+    'delivered',
+    'returned',
+    'canceled',
+    'failed'
+]
+
+PAYMENT_STATUS_OPTIONS = [
+    'pending',
+    'paid',
+    'failed',
+    'refunded'
+]
+
 def datetime_repr_format(datetime):
     """Returns the correct format for datetime data representation"""
     return datetime.strftime('%d/%m/%Y')

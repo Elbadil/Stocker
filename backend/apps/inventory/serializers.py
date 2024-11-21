@@ -178,6 +178,7 @@ class ItemSerializer(serializers.ModelSerializer):
         # Creating Item's category and supplier
         item.category = self._get_or_create_category_supplier(user, Category, category_name)
         item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
+        item.in_inventory = True
         item.save()
 
         # Creating and Adding Item's variants with options

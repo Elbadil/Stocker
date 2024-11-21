@@ -74,12 +74,18 @@ class SupplierOrderedItem(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                    null=True, blank=True)
     order = models.ForeignKey(SupplierOrder, on_delete=models.CASCADE,
-                              null=True, blank=True)
+                              null=True, blank=True,
+                              related_name="ordered_items")
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, null=True,
+                                 related_name='ordered_items')
     item = models.ForeignKey('inventory.Item', on_delete=models.PROTECT,
-                             null=True, blank=True,
-                             related_name="ordered_items")
+                             null=True, blank=True)
     ordered_quantity = models.IntegerField(validators=[MinValueValidator(1)])
     ordered_price = models.DecimalField(max_digits=6, decimal_places=2)
+
+    @property
+    def in_inventory(self):
+        return self.item.in_inventory
 
     @property
     def total_price(self):

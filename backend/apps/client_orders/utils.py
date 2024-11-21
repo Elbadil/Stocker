@@ -30,3 +30,9 @@ def reset_client_ordered_items(instance: ClientOrder):
             quantity=F('quantity') + ordered_item.ordered_quantity
         )
     ClientOrderedItem.objects.filter(order=instance).delete()
+
+def update_item_quantity(item: Item, old_ordered_quantity, new_ordered_quantity):
+    if old_ordered_quantity == new_ordered_quantity:
+        return item.quantity
+    quantity_diff = new_ordered_quantity - old_ordered_quantity
+    return item.quantity - quantity_diff

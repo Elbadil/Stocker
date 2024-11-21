@@ -43,6 +43,7 @@ class Item(BaseModel):
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
     picture = models.ImageField(null=True, upload_to=item_picture_path, blank=True)
     variants = models.ManyToManyField(Variant, related_name='variants', blank=True)
+    in_inventory = models.BooleanField(default=False)
     updated = models.BooleanField(default=False)
 
     class Meta:
