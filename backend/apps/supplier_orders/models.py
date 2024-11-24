@@ -23,6 +23,10 @@ class Supplier(BaseModel):
                                  null=True, blank=True)
     updated = models.BooleanField(default=False)
 
+    @property
+    def total_orders(self):
+        return self.orders.all().count()
+
     def __str__(self) -> str:
         if self.created_by:
             return f'Supplier: -{self.name}- Added by -{self.created_by.username}-'

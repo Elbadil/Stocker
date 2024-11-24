@@ -27,6 +27,7 @@ class SupplierSerializer(serializers.ModelSerializer):
             'phone_number',
             'email',
             'location',
+            'total_orders',
             'created_at',
             'updated_at',
             'updated',

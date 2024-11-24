@@ -19,10 +19,12 @@ import DefaultLayout from './layout/DefaultLayout';
 import Items from './pages/Inventory/Items';
 import Clients from './pages/ClientOrders/Clients/Clients';
 import ClientOrders from './pages/ClientOrders/ClientOrders/ClientOrders';
+import Suppliers from './pages/SupplierOrders/Suppliers/Suppliers';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { ClientOrdersProvider } from './contexts/ClientOrdersContext';
+import { SupplierOrdersProvider } from './contexts/SupplierOrdersContext';
 
 function App() {
   const { pathname } = useLocation();
@@ -48,7 +50,7 @@ function App() {
               />
               {/* Inventory */}
               <Route
-                path="inventory/items"
+                path="/inventory/items"
                 element={
                   <>
                     <PageTitle title="Inventory | Stocker" />
@@ -58,18 +60,18 @@ function App() {
               />
               {/* Client Orders */}
               <Route
-                path="client_orders/orders"
+                path="/client_orders/orders"
                 element={
                   <ClientOrdersProvider>
                     <>
-                      <PageTitle title="Client Orders | Stocker" />
+                      <PageTitle title="Clients | Stocker" />
                       <ClientOrders />
                     </>
                   </ClientOrdersProvider>
                 }
               />
               <Route
-                path="client_orders/clients"
+                path="/client_orders/clients"
                 element={
                   <ClientOrdersProvider>
                     <>
@@ -77,6 +79,18 @@ function App() {
                       <Clients />
                     </>
                   </ClientOrdersProvider>
+                }
+              />
+              {/* Supplier Orders */}
+              <Route
+                path="/supplier_orders/suppliers"
+                element={
+                  <SupplierOrdersProvider>
+                    <>
+                      <PageTitle title="Suppliers | Stocker" />
+                      <Suppliers />
+                    </>
+                  </SupplierOrdersProvider>
                 }
               />
               {/* Calender */}
