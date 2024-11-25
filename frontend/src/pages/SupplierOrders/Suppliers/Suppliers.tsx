@@ -20,6 +20,7 @@ import { handleSupplierBulkExport, handleSupplierExport } from './utils';
 import { AgGridReact } from '@ag-grid-community/react';
 import { ColDef, ValueGetterParams } from '@ag-grid-community/core';
 import AddSupplier from './AddSupplier';
+import EditSupplier from './EditSupplier';
 
 export interface SupplierProps {
   id: string;
@@ -135,6 +136,10 @@ const Suppliers = () => {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedRows) getAndSetSelectRows();
+  }, [openEditSupplier]);
 
   return (
     <>
@@ -272,14 +277,13 @@ const Suppliers = () => {
                           isOpen={openEditSupplier}
                           onClose={() => setOpenEditSupplier(false)}
                         >
-                          <div>Hi</div>
-                          {/* <EditClient
-                            open={openEditClient}
-                            setOpen={setOpenEditClient}
-                            client={selectedRows[0]}
+                          <EditSupplier
+                            supplier={selectedRows[0]}
+                            open={openEditSupplier}
+                            setOpen={setOpenEditSupplier}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Add Supplier */}
