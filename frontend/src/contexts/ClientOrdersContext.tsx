@@ -26,10 +26,10 @@ export const ClientOrdersProvider: React.FC<{ children: ReactNode }> = ({
   } = useSelector((state: RootState) => state.clientOrders);
 
   useEffect(() => {
-      if (pathname.startsWith('/client_orders/')) {
-        dispatch(getClientOrdersData());
-      }
-  }, [dispatch, pathname])
+    if (pathname.startsWith('/client') || pathname.startsWith('/supplier')) {
+      dispatch(getClientOrdersData());
+    }
+  }, [dispatch, pathname]);
 
   return (
     <ClientOrdersContext.Provider

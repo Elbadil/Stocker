@@ -118,6 +118,31 @@ export const fileField = () => {
     );
 };
 
+export const optionalEmailField = () =>
+  z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.string().email().optional().nullable(),
+  );
+
+export const locationField = () =>
+  z
+    .object({
+      country: z.string().optional().nullable(),
+      city: z.string().optional().nullable(),
+      street_address: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.string().optional().nullable(),
+      ),
+    })
+    .transform((loc) => {
+      // If all properties are null or undefined, return undefined
+      return Object.values(loc).every(
+        (val) => val === null || val === undefined,
+      )
+        ? undefined
+        : loc;
+    });
+
 export const selectOptionsFromStrings = (options: string[]) =>
   options.map((option) => ({ value: option, label: option }));
 

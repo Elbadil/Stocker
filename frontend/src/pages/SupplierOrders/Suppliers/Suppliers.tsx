@@ -19,6 +19,7 @@ import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { handleSupplierBulkExport, handleSupplierExport } from './utils';
 import { AgGridReact } from '@ag-grid-community/react';
 import { ColDef, ValueGetterParams } from '@ag-grid-community/core';
+import AddSupplier from './AddSupplier';
 
 export interface SupplierProps {
   id: string;
@@ -294,12 +295,11 @@ const Suppliers = () => {
                         isOpen={openAddSupplier}
                         onClose={() => setOpenAddSupplier(false)}
                       >
-                        <div>Hi</div>
-                        {/* <AddClient
-                          open={openAddClient}
-                          setOpen={setOpenAddClient}
+                        <AddSupplier
+                          open={openAddSupplier}
+                          setOpen={setOpenAddSupplier}
                           setRowData={setRowData}
-                        /> */}
+                        />
                       </ModalOverlay>
                     </div>
                   </div>
