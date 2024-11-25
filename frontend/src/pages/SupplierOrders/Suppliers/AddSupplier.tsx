@@ -16,7 +16,7 @@ import { findCountryAndSetCitiesForSupplier } from './utils';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
-import { SupplierProps } from './Suppliers';
+import { SupplierProps } from './Supplier';
 import { Location } from '../../ClientOrders/Clients/Client';
 import { api } from '../../../api/axios';
 import { useDispatch } from 'react-redux';

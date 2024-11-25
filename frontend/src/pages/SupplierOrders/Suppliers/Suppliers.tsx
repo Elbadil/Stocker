@@ -17,23 +17,11 @@ import { Alert } from '../../UiElements/Alert';
 import { api } from '../../../api/axios';
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { handleSupplierBulkExport, handleSupplierExport } from './utils';
-import { AgGridReact } from '@ag-grid-community/react';
+import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import { ColDef, ValueGetterParams } from '@ag-grid-community/core';
+import Supplier, { SupplierProps } from './Supplier';
 import AddSupplier from './AddSupplier';
 import EditSupplier from './EditSupplier';
-
-export interface SupplierProps {
-  id: string;
-  created_by: string;
-  name: string;
-  phone_number?: string | null;
-  email?: string | null;
-  location?: Location;
-  total_orders: number;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
 
 const Suppliers = () => {
   const { alert } = useAlert();
@@ -52,6 +40,21 @@ const Suppliers = () => {
     setSearchTerm(e.target.value);
   };
 
+  const NameRenderer = (params: CustomCellRendererProps) => {
+    if (!params.value) return null;
+    return (
+      <div
+        className="hover:underline cursor-pointer"
+        onClick={() => {
+          setSelectedSupplier(params.data);
+          setOpenSupplier(true);
+        }}
+      >
+        {params.value}
+      </div>
+    );
+  };
+
   const gridRef = useRef<AgGridReact>(null);
   const [selectedRows, setSelectedRows] = useState<SupplierProps[] | undefined>(
     undefined,
@@ -62,6 +65,7 @@ const Suppliers = () => {
     {
       field: 'name',
       flex: 3,
+      cellRenderer: NameRenderer,
       minWidth: 150,
     },
     {
@@ -206,15 +210,14 @@ const Suppliers = () => {
                           isOpen={openSupplier}
                           onClose={() => setOpenSupplier(false)}
                         >
-                          <div>Hi</div>
-                          {/* <Client
-                            client={selectedClient}
-                            setClient={setSelectedClient}
-                            clientRowNode={getRowNode(selectedClient.id)}
-                            setOpen={setOpenClient}
+                          <Supplier
+                            supplier={selectedSupplier}
+                            setSupplier={setSelectedSupplier}
+                            rowNode={getRowNode(selectedSupplier.id)}
+                            setOpen={setOpenSupplier}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Export Supplier(s) */}

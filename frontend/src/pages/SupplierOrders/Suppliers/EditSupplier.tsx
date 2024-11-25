@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Select, { SingleValue } from 'react-select';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { customSelectStyles } from '../../../utils/form';
-import { SupplierProps } from './Suppliers';
+import { SupplierProps } from './Supplier';
 import { SupplierSchema, schema } from './AddSupplier';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
@@ -17,9 +17,11 @@ import { IRowNode } from '@ag-grid-community/core';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
 import { api } from '../../../api/axios';
+import toast from 'react-hot-toast';
 
 interface EditSupplier {
   supplier: SupplierProps;
+  setSupplier?: React.Dispatch<React.SetStateAction<SupplierProps | null>>;
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rowNode?: IRowNode<SupplierProps>;
@@ -28,6 +30,7 @@ interface EditSupplier {
 
 const EditSupplier = ({
   supplier,
+  setSupplier,
   open,
   setOpen,
   rowNode,
@@ -113,6 +116,12 @@ const EditSupplier = ({
         ),
       );
       // Set and display success Alert
+      if (setSupplier) {
+        setSupplier(supplierUpdate);
+        toast.success('Supplier has been successfully updated!', {
+          duration: 5000,
+        });
+      }
       setAlert({
         type: 'success',
         title: 'Supplier Updated',
