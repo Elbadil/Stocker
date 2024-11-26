@@ -73,6 +73,7 @@ const DeleteClient = ({
       }
       console.log(res.data);
       removeDeletedClientsRows();
+      const clientNamesSet = new Set(clientsForDeletion.names);
       dispatch((dispatch, getState) => {
         const { clientOrders } = getState();
         dispatch(
@@ -81,7 +82,7 @@ const DeleteClient = ({
             clients: {
               count: clientOrders.clients.count - clientsWithoutOrders.length,
               names: clientOrders.clients.names.filter(
-                (name) => !new Set(clientsForDeletion.names).has(name),
+                (name) => !clientNamesSet.has(name),
               ),
             },
           }),

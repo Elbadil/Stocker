@@ -3,9 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import CharField
+from django.db.models import CharField, Q
 from django.db.models.functions import Cast
 from utils.tokens import Token
+from utils.views import CreatedByUserMixin
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Item, Category, Supplier, Variant
@@ -20,7 +21,8 @@ class CreateItem(generics.CreateAPIView):
     parser_classes = (FormParser, MultiPartParser)
 
 
-class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
+class GetUpdateDeleteItem(CreatedByUserMixin,
+                          generics.RetrieveUpdateDestroyAPIView):
     """Handles Item's Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -38,28 +40,31 @@ class GetUpdateDeleteItem(generics.RetrieveUpdateDestroyAPIView):
     
     def delete(self, request, *args, **kwargs):
         item = self.get_object()
-        is_ordered = ClientOrderedItem.objects.filter(item=item).exists()
-        if is_ordered:
+        if item.total_client_orders > 0 or item.total_supplier_orders > 0 :
             return Response(
-                    {'error': f'Item {item.name} is linked to existing orders. Manage orders before deletion.'},
-                    status=status.HTTP_400_BAD_REQUEST)
+                {
+                    'error': f'Item {item.name} is linked to existing orders. '
+                                'Manage orders before deletion.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
         return super().delete(request, *args, **kwargs)
 
 
-class ListUserItems(generics.ListAPIView):
+class ListUserItems(CreatedByUserMixin, generics.ListAPIView):
     """Handles User Items Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ItemSerializer
-
-    def get_queryset(self):
-        return Item.objects.filter(created_by=self.request.user)
+    queryset = Item.objects.all()
 
 
-class ItemsBulkDelete(generics.GenericAPIView):
+class ItemsBulkDelete(CreatedByUserMixin,
+                      generics.GenericAPIView):
     """Handles Items Bulk Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
+    queryset = Item.objects.all()
 
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
@@ -78,9 +83,12 @@ class ItemsBulkDelete(generics.GenericAPIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        items_found_ids = set(Item.objects.filter(id__in=ids) \
-                                          .annotate(id_str=Cast('id', CharField())) \
-                                          .values_list('id_str', flat=True))
+        items_found_ids = set(
+            self.get_queryset()
+            .filter(id__in=ids)
+            .annotate(id_str=Cast('id', CharField()))
+            .values_list('id_str', flat=True)
+        )
         missing_ids = set(ids) - items_found_ids
         if missing_ids:
             return Response(
@@ -91,12 +99,23 @@ class ItemsBulkDelete(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         # Handle items with orders and without orders cases
-        items_with_orders = Item.objects.filter(id__in=ids,
-                                                clientordereditem__isnull=False) \
-                                                .values('id', 'name') \
-                                                .distinct()
-        items_without_orders = Item.objects.filter(id__in=ids,
-                                                   clientordereditem__isnull=True)
+        items_with_orders = (
+            self.get_queryset()
+            .filter(
+                Q(clientordereditem__isnull=False) | Q(supplierordereditem__isnull=False),
+                id__in=ids
+            )
+            .values('id', 'name')
+            .distinct()
+        )
+
+        items_without_orders = (
+            self.get_queryset()
+            .filter(
+                id__in=ids,
+                clientordereditem__isnull=True,
+                supplierordereditem__isnull=True)
+        )
         items_without_orders_count = items_without_orders.count()
         # Case 1: All item items are linked to orders
         if items_with_orders.exists() and not items_without_orders.exists():
@@ -153,12 +172,7 @@ class GetUserInventoryData(generics.GenericAPIView):
         variants = list(Variant.objects.filter(created_by=user).values_list('name', flat=True))
         # Items
         user_items = Item.objects.filter(created_by=user)
-        items = []
-        for item in user_items:
-            client_ordered = ClientOrderedItem.objects.filter(item=item).exists()
-            items.append({'name': item.name,
-                          'quantity': item.quantity,
-                          'ordered': client_ordered})
+        items = user_items.values('name', 'quantity')
         # Total Value & Total Quantity
         total_value = sum([item.total_price for item in user_items])
         total_quantity = sum(list(user_items.values_list('quantity', flat=True)))
@@ -171,18 +185,3 @@ class GetUserInventoryData(generics.GenericAPIView):
                          'variants': variants},
                          status=status.HTTP_200_OK)
 
-
-class CreateCategory(generics.CreateAPIView):
-    """Handles Item's Category Retrieval Update and Deletion"""
-    authentication_classes = (TokenVersionAuthentication,)
-    permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.CategorySerializer
-
-
-class GetUpdateDeleteCategory(generics.RetrieveUpdateDestroyAPIView):
-    """Handles Item's Category Retrieval Update and Deletion"""
-    authentication_classes = (TokenVersionAuthentication,)
-    permission_classes = (IsAuthenticated,)
-    queryset = Category.objects.all()
-    serializer_class = serializers.CategorySerializer
-    lookup_field = 'id'

@@ -3,11 +3,7 @@ from .models import Supplier, SupplierOrder, SupplierOrderedItem
 
 
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'created_by']
-    
-    @admin.display(ordering='created_by__username', description='Created By')
-    def created_by(self, obj):
-        return obj.created_by.username
+    list_display = ['id', 'name', 'total_orders']
 
 
 class SupplierOrderedItemAdmin(admin.ModelAdmin):

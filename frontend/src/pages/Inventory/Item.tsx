@@ -18,8 +18,10 @@ export interface ItemProps {
   category: string | null;
   supplier: string | null;
   variants: { name: string; options: string[] }[] | null;
-  total_orders: number;
+  total_client_orders: number;
+  total_supplier_orders: number;
   picture: string | null;
+  in_inventory: boolean;
   created_at: string;
   updated_at: string;
   updated: boolean;

@@ -2,7 +2,7 @@ from django.db import models
 from apps.base.models import User
 from utils.models import BaseModel
 from ..client_orders.models import ClientOrderedItem
-from ..supplier_orders.models import Supplier
+from ..supplier_orders.models import Supplier, SupplierOrderedItem
 
 
 class Category(BaseModel):
@@ -55,8 +55,12 @@ class Item(BaseModel):
         return self.quantity * self.price
     
     @property
-    def total_orders(self):
+    def total_client_orders(self):
         return ClientOrderedItem.objects.filter(item__id=self.id).count()
+
+    @property
+    def total_supplier_orders(self):
+        return SupplierOrderedItem.objects.filter(item__id=self.id).count()
 
     def __str__(self) -> str:
         if self.created_by:

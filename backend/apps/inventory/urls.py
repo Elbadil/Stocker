@@ -17,7 +17,4 @@ urlpatterns = [
     path('data/',
          views.GetUserInventoryData.as_view(),
          name='inventory_data'),
-    path('categories/<str:id>/',
-         views.GetUpdateDeleteCategory.as_view(),
-         name='get_update_delete_category'),
 ]

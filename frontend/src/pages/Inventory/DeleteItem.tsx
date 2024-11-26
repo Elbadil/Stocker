@@ -36,7 +36,7 @@ const DeleteItem = ({
     const withOrders: ItemProps[] = [];
     const withoutOrders: ItemProps[] = [];
     selectedItems.forEach((item) => {
-      if (item.total_orders > 0) {
+      if (item.total_supplier_orders > 0 || item.total_client_orders > 0) {
         withOrders.push(item);
       } else {
         withoutOrders.push(item);
@@ -152,7 +152,8 @@ const DeleteItem = ({
             {selectedItems.map((selectedItem, index: number) => (
               <li className="mt-2" key={index}>
                 {selectedItem.name}
-                {selectedItem.total_orders > 0 && (
+                {(selectedItem.total_supplier_orders > 0 ||
+                  selectedItem.total_client_orders > 0) && (
                   <WarningAmberOutlinedIcon
                     sx={{
                       color: '#f97316',

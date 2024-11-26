@@ -2,6 +2,9 @@ from django.contrib import admin
 from . import models
 
 
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'total_orders']
+
 class ClientOrderedItemAdmin(admin.ModelAdmin):
     list_display = ['order_reference_id',
                     'client_name',
@@ -30,7 +33,7 @@ class ClientOrderAdmin(admin.ModelAdmin):
 
 
 admin.site.register(models.Location)
-admin.site.register(models.Client)
+admin.site.register(models.Client, ClientAdmin)
 admin.site.register(models.AcquisitionSource)
 admin.site.register(models.OrderStatus)
 admin.site.register(models.ClientOrder, ClientOrderAdmin)

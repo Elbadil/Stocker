@@ -36,6 +36,7 @@ const Supplier = ({
   supplier,
   setSupplier,
   rowNode,
+  rowData,
   setRowData,
 }: Supplier) => {
   const [openEditSupplier, setOpenEditSupplier] = useState<boolean>(false);
@@ -110,15 +111,14 @@ const Supplier = ({
               isOpen={openDeleteSupplier}
               onClose={() => setOpenDeleteSupplier(false)}
             >
-              <div>Hi</div>
-              {/* <DeleteClient
+              <DeleteSupplier
                 suppliers={[supplier]}
-                open={openDeleteClient}
-                setOpen={setOpenDeleteClient}
+                open={openDeleteSupplier}
+                setOpen={setOpenDeleteSupplier}
                 rowData={rowData}
                 setRowData={setRowData}
-                setClientOpen={setOpen}
-              /> */}
+                setSupplierOpen={setOpen}
+              />
             </ModalOverlay>
           </div>
         </div>

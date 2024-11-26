@@ -22,6 +22,7 @@ import { ColDef, ValueGetterParams } from '@ag-grid-community/core';
 import Supplier, { SupplierProps } from './Supplier';
 import AddSupplier from './AddSupplier';
 import EditSupplier from './EditSupplier';
+import DeleteSupplier from './DeleteSupplier';
 
 const Suppliers = () => {
   const { alert } = useAlert();
@@ -252,14 +253,13 @@ const Suppliers = () => {
                           isOpen={openDeleteSupplier}
                           onClose={() => setOpenDeleteSupplier(false)}
                         >
-                          <div>Hi</div>
-                          {/* <DeleteClient
-                            clients={selectedRows}
-                            open={openDeleteClient}
-                            setOpen={setOpenDeleteClient}
+                          <DeleteSupplier
+                            suppliers={selectedRows}
+                            open={openDeleteSupplier}
+                            setOpen={setOpenDeleteSupplier}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Edit Supplier */}

@@ -41,7 +41,7 @@ const supplierOrdersSlice = createSlice({
   reducers: {
     setSupplierOrders(state, { payload }) {
       state.suppliers = payload.suppliers;
-      state.ordersCount = payload.orders_count;
+      state.ordersCount = payload.ordersCount;
     },
   },
   extraReducers: (builder) => {
