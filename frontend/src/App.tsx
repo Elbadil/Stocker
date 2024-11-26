@@ -20,6 +20,7 @@ import Items from './pages/Inventory/Items';
 import Clients from './pages/ClientOrders/Clients/Clients';
 import ClientOrders from './pages/ClientOrders/ClientOrders/ClientOrders';
 import Suppliers from './pages/SupplierOrders/Suppliers/Suppliers';
+import SupplierOrders from './pages/SupplierOrders/SupplierOrders/SupplierOrders';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
@@ -86,6 +87,17 @@ function App() {
                       <>
                         <PageTitle title="Suppliers | Stocker" />
                         <Suppliers />
+                      </>
+                    </SupplierOrdersProvider>
+                  }
+                />
+                <Route
+                  path="/supplier_orders/orders"
+                  element={
+                    <SupplierOrdersProvider>
+                      <>
+                        <PageTitle title="Supplier Orders | Stocker" />
+                        <SupplierOrders />
                       </>
                     </SupplierOrdersProvider>
                   }

@@ -1,54 +1,68 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import {
   ColDef,
-  ValueGetterParams,
-  ModuleRegistry,
   GetQuickFilterTextParams,
+  ValueGetterParams,
 } from '@ag-grid-community/core';
-import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
+import { Alert } from '../../UiElements/Alert';
+import Loader from '../../../common/Loader';
 import AgGridTable, {
   dateFilterParams,
-  AddressRenderer,
   StatusRenderer,
 } from '../../../components/Tables/AgGridTable';
-import ModalOverlay from '../../../components/ModalOverlay';
-import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
-import Loader from '../../../common/Loader';
-import { api } from '../../../api/axios';
-import { useAlert } from '../../../contexts/AlertContext';
-import { Alert } from '../../UiElements/Alert';
-import { useClientOrders } from '../../../contexts/ClientOrdersContext';
-import { handleBulkExport, handleOrderExport } from './utils';
-import { Location } from '../Clients/Client';
 import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
 import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
-import ClientOrder, {
-  ClientOrderProps,
-  ClientOrderedItem,
-} from './ClientOrder';
-import AddClientOrder from './AddClientOrder';
-import EditClientOrder from './EditClientOrder';
-import DeleteClientOrder from './DeleteClientOrder';
+import ModalOverlay from '../../../components/ModalOverlay';
+import { useAlert } from '../../../contexts/AlertContext';
+import {
+  handleSupplierOrderBulkExport,
+  handleSupplierOrderExport,
+} from './utils';
+import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
+import { api } from '../../../api/axios';
 
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
+interface SupplierOrderedItem {
+  id: string;
+  order: string;
+  created_by: string;
+  item: string;
+  supplier: string;
+  ordered_quantity: number;
+  ordered_price: number;
+  total_price: number;
+  in_inventory: boolean;
+}
 
-const ClientOrders = () => {
+interface SupplierOrdersProps {
+  id: string;
+  reference_id: string;
+  created_by: string;
+  supplier: string;
+  ordered_items: SupplierOrderedItem[];
+  total_price: number;
+  delivery_status: string;
+  payment_status: string;
+  tracking_number?: string | null;
+  shipping_cost?: number | null;
+  created_at: string;
+  updated_at: string;
+  updated: boolean;
+}
+
+const SupplierOrders = () => {
   const { alert } = useAlert();
-  const { loading, ordersCount, orderStatus } = useClientOrders();
+  const { loading, ordersCount } = useSupplierOrders();
   const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [selectedOrder, setSelectedOrder] =
+    useState<SupplierOrdersProps | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedRows, setSelectedRows] = useState<
-    ClientOrderProps[] | undefined
-  >(undefined);
-  const [selectedOrder, setSelectedOrder] = useState<ClientOrderProps | null>(
-    null,
-  );
   const [openOrder, setOpenOrder] = useState<boolean>(false);
   const [openAddOrder, setOpenAddOrder] = useState<boolean>(false);
   const [openEditOrder, setOpenEditOrder] = useState<boolean>(false);
@@ -73,46 +87,46 @@ const ClientOrders = () => {
     );
   };
 
-  const OrderedItemRenderer = (
+  const orderedItemValueGetter = (
+    params: ValueGetterParams<SupplierOrdersProps, SupplierOrderedItem[]>,
+    key: keyof SupplierOrderedItem,
+  ) => {
+    if (!params.data?.ordered_items) return [];
+    return params.data.ordered_items.map((orderedItem) => orderedItem[key]);
+  };
+
+  const OrderedItemCellRenderer = (
     params: CustomCellRendererProps,
-    key: keyof ClientOrderedItem,
+    key: keyof SupplierOrderedItem,
   ) => {
     if (!params.value) return null;
-    const decimalFields = ['ordered_price', 'total_profit', 'total_price'];
     return (
-      <>
-        {params.value.map((prop: string | number, index: number) => (
-          <div
-            key={index}
-            className="whitespace-nowrap overflow-hidden text-ellipsis"
-          >
-            {decimalFields.includes(key) && typeof prop === 'number'
-              ? prop.toFixed(2)
-              : prop}
+      <div>
+        {params.value.map((value: string | number) => (
+          <div>
+            {(key === 'ordered_price' || key === 'total_price') &&
+            typeof value === 'number'
+              ? value.toFixed(2)
+              : value}
           </div>
         ))}
-      </>
+      </div>
     );
   };
 
-  const createValueGetter = (
-    params: ValueGetterParams<ClientOrderProps, ClientOrderedItem[]>,
-    key: keyof ClientOrderedItem,
-  ) => {
-    if (!params.data?.ordered_items) return [];
-    return params.data.ordered_items.map((item) => item[key]);
-  };
-
   const numberGetQuickFilterText = (
-    params: GetQuickFilterTextParams<ClientOrderProps, number[]>,
+    params: GetQuickFilterTextParams<SupplierOrdersProps, number[]>,
   ) => {
     if (!params.value) return '';
-    return params.value.map((value: number) => value.toFixed(2)).join(', ');
+    return params.value.map((value) => value.toFixed(2)).join(', ');
   };
 
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<ClientOrderProps[]>([]);
-  const [colDefs] = useState<ColDef<ClientOrderProps>[]>([
+  const [selectedRows, setSelectedRows] = useState<
+    SupplierOrdersProps[] | undefined
+  >(undefined);
+  const [rowData, setRowData] = useState<SupplierOrdersProps[]>([]);
+  const [colDefs] = useState<ColDef<SupplierOrdersProps>[]>([
     {
       field: 'created_at',
       headerName: 'Created',
@@ -130,16 +144,16 @@ const ClientOrders = () => {
       flex: 1,
     },
     {
-      field: 'client',
+      field: 'supplier',
       minWidth: 120,
       flex: 1,
     },
     {
       field: 'ordered_items',
       headerName: 'Item',
-      valueGetter: (params) => createValueGetter(params, 'item'),
+      valueGetter: (params) => orderedItemValueGetter(params, 'item'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'item'),
+        OrderedItemCellRenderer(params, 'item'),
       filter: MultiTextFilter,
       flex: 3,
       minWidth: 150,
@@ -147,20 +161,20 @@ const ClientOrders = () => {
     {
       field: 'ordered_items',
       headerName: 'Quantity',
-      valueGetter: (params) => createValueGetter(params, 'ordered_quantity'),
+      valueGetter: (params) =>
+        orderedItemValueGetter(params, 'ordered_quantity'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'ordered_quantity'),
+        OrderedItemCellRenderer(params, 'ordered_quantity'),
       filter: MultiNumberFilter,
-      getQuickFilterText: numberGetQuickFilterText,
       flex: 1.5,
       minWidth: 115,
     },
     {
       field: 'ordered_items',
-      headerName: 'Unit Price',
-      valueGetter: (params) => createValueGetter(params, 'ordered_price'),
+      headerName: 'Price',
+      valueGetter: (params) => orderedItemValueGetter(params, 'ordered_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'ordered_price'),
+        OrderedItemCellRenderer(params, 'ordered_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
       flex: 1.5,
@@ -169,13 +183,13 @@ const ClientOrders = () => {
     {
       field: 'ordered_items',
       headerName: 'T. Price',
-      valueGetter: (params) => createValueGetter(params, 'total_price'),
+      valueGetter: (params) => orderedItemValueGetter(params, 'total_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'total_price'),
+        OrderedItemCellRenderer(params, 'total_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
-      flex: 1,
-      minWidth: 110,
+      flex: 1.5,
+      minWidth: 123,
     },
     {
       field: 'delivery_status',
@@ -192,15 +206,6 @@ const ClientOrders = () => {
       flex: 3,
       minWidth: 167,
       sortable: false,
-    },
-    {
-      field: 'shipping_address',
-      headerName: 'Address',
-      valueGetter: (params: ValueGetterParams<ClientOrderProps, Location>) => {
-        if (!params.data?.shipping_address) return null;
-        return Object.values(params.data.shipping_address).join(', ');
-      },
-      cellRenderer: AddressRenderer,
     },
     {
       field: 'shipping_cost',
@@ -224,19 +229,6 @@ const ClientOrders = () => {
       minWidth: 177,
     },
     {
-      field: 'net_profit',
-      headerName: 'Net Profit',
-      valueFormatter: (params) => params.value.toFixed(2),
-      flex: 2,
-      minWidth: 130,
-    },
-    {
-      field: 'source',
-      headerName: 'Source',
-      flex: 2,
-      minWidth: 130,
-    },
-    {
       field: 'updated_at',
       headerName: 'Updated',
       valueGetter: (params) => {
@@ -253,23 +245,19 @@ const ClientOrders = () => {
   ]);
 
   const getAndSetSelectRows = () => {
-    const selectedOrders: ClientOrderProps[] | undefined =
+    const selectedOrders: SupplierOrdersProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
     setSelectedRows(selectedOrders);
-  };
-
-  const getRowNode = (rowId: string) => {
-    return gridRef.current?.api.getRowNode(rowId);
   };
 
   useEffect(() => {
     const loadData = async () => {
       setOrdersLoading(true);
       try {
-        const res = await api.get('/client_orders/orders/');
+        const res = await api.get('/supplier_orders/orders/');
         setRowData(res.data);
-      } catch (error: any) {
-        console.log('Error getting orders list', error);
+      } catch (error) {
+        console.log('Error getting supplier orders', error);
       } finally {
         setOrdersLoading(false);
       }
@@ -278,14 +266,10 @@ const ClientOrders = () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (openEditOrder) getAndSetSelectRows();
-  }, [openEditOrder]);
-
   return (
     <>
       <div className="mx-auto max-w-full">
-        <Breadcrumb main="Client Orders" pageName="Orders" />
+        <Breadcrumb main="Supplier Orders" pageName="Orders" />
         {loading || ordersLoading ? (
           <Loader />
         ) : (
@@ -294,7 +278,7 @@ const ClientOrders = () => {
             <div className="col-span-5 xl:col-span-3 relative">
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
-                  {/* Search | Order CRUD */}
+                  {/* Search | Supplier Order CRUD */}
                   <div className="flex flex-col gap-3 sm:flex-row justify-between sm:items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
@@ -333,7 +317,7 @@ const ClientOrders = () => {
                     <div>
                       <button
                         className="flex font-medium items-center hover:text-primary"
-                        onClick={handleBulkExport}
+                        onClick={handleSupplierOrderBulkExport}
                       >
                         <FileDownloadOutlinedIcon sx={{ marginRight: '2px' }} />
                         Bulk Export
@@ -347,14 +331,15 @@ const ClientOrders = () => {
                           isOpen={openOrder}
                           onClose={() => setOpenOrder(false)}
                         >
-                          <ClientOrder
+                          <div>Hi</div>
+                          {/* <ClientOrder
                             order={selectedOrder}
                             setOrder={setSelectedOrder}
                             orderRowNode={getRowNode(selectedOrder.id)}
                             setOpen={setOpenOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          />
+                          /> */}
                         </ModalOverlay>
                       )}
                       {/* Export Order(s) */}
@@ -365,7 +350,7 @@ const ClientOrders = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => handleOrderExport(selectedRows)}
+                        onClick={handleSupplierOrderExport}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
@@ -389,13 +374,14 @@ const ClientOrders = () => {
                           isOpen={openDeleteOrder}
                           onClose={() => setOpenDeleteOrder(false)}
                         >
-                          <DeleteClientOrder
+                          <div>Hi</div>
+                          {/* <DeleteClientOrder
                             orders={selectedRows}
                             open={openDeleteOrder}
                             setOpen={setOpenDeleteOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          />
+                          /> */}
                         </ModalOverlay>
                       )}
                       {/* Edit Order */}
@@ -416,13 +402,14 @@ const ClientOrders = () => {
                           isOpen={openEditOrder}
                           onClose={() => setOpenEditOrder(false)}
                         >
-                          <EditClientOrder
+                          <div>Hi</div>
+                          {/* <EditClientOrder
                             open={openEditOrder}
                             setOpen={setOpenEditOrder}
                             order={selectedRows[0]}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          />
+                          /> */}
                         </ModalOverlay>
                       )}
                       {/* Add Order */}
@@ -438,11 +425,12 @@ const ClientOrders = () => {
                         isOpen={openAddOrder}
                         onClose={() => setOpenAddOrder(false)}
                       >
-                        <AddClientOrder
+                        <div>Hi</div>
+                        {/* <AddClientOrder
                           open={openAddOrder}
                           setOpen={setOpenAddOrder}
                           setRowData={setRowData}
-                        />
+                        /> */}
                       </ModalOverlay>
                     </div>
                   </div>
@@ -456,7 +444,7 @@ const ClientOrders = () => {
                         {ordersCount}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
+                    {/* <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Active:</span>
                       <span className="font-semibold text-black dark:text-white">
                         {orderStatus.active}
@@ -473,7 +461,7 @@ const ClientOrders = () => {
                       <span className="font-semibold text-black dark:text-white">
                         {orderStatus.failed}
                       </span>
-                    </div>
+                    </div> */}
                   </div>
                   {/* AG Grid DataTable */}
                   <AgGridTable
@@ -493,4 +481,4 @@ const ClientOrders = () => {
   );
 };
 
-export default ClientOrders;
+export default SupplierOrders;

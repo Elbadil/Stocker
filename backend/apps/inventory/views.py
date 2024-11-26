@@ -58,6 +58,13 @@ class ListUserItems(CreatedByUserMixin, generics.ListAPIView):
     serializer_class = serializers.ItemSerializer
     queryset = Item.objects.all()
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        in_inventory = self.request.GET.get('in_inventory', None)
+        if in_inventory and in_inventory.lower() == 'true':
+            queryset = queryset.filter(in_inventory=True)
+        return queryset
+
 
 class ItemsBulkDelete(CreatedByUserMixin,
                       generics.GenericAPIView):
@@ -171,7 +178,7 @@ class GetUserInventoryData(generics.GenericAPIView):
         # Variants
         variants = list(Variant.objects.filter(created_by=user).values_list('name', flat=True))
         # Items
-        user_items = Item.objects.filter(created_by=user)
+        user_items = Item.objects.filter(created_by=user, in_inventory=True)
         items = user_items.values('name', 'quantity')
         # Total Value & Total Quantity
         total_value = sum([item.total_price for item in user_items])

@@ -10,7 +10,7 @@ import {
   ITextFilterParams,
   INumberFilterParams,
   GetRowIdParams,
-} from '@ag-grid-community/core'
+} from '@ag-grid-community/core';
 import { useAlert } from '../../contexts/AlertContext';
 import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import { ModuleRegistry } from '@ag-grid-community/core';
@@ -62,6 +62,33 @@ export const AddressRenderer = (params: CustomCellRendererProps) => {
           {prop}
         </div>
       ))}
+    </div>
+  );
+};
+
+export const StatusRenderer = (params: CustomCellRendererProps) => {
+  if (!params.value) return null;
+
+  const status = params.value;
+  const success = ['Paid', 'Delivered'];
+  const failure = ['Failed', 'Canceled', 'Returned', 'Refunded'];
+
+  const statusStyle = () => {
+    if (success.includes(status)) {
+      return 'bg-lime-500';
+    } else if (failure.includes(status)) {
+      return 'bg-red-500';
+    }
+    return 'bg-cyan-500';
+  };
+
+  return (
+    <div className="whitespace-nowrap overflow-hidden text-ellipsis">
+      <span
+        className={`${statusStyle()} text-white p-1 font-semibold rounded-md`}
+      >
+        {params.value}
+      </span>
     </div>
   );
 };

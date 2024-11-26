@@ -155,6 +155,8 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             'created_by',
             'supplier',
             'ordered_items',
+            'total_quantity',
+            'total_price',
             'delivery_status',
             'payment_status',
             'tracking_number',

@@ -186,7 +186,7 @@ const Items = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await api.get('/inventory/user/items/');
+        const res = await api.get('/inventory/user/items/?in_inventory=true');
         setRowData(res.data);
       } catch (err) {
         console.log('Error getting user items', err);
