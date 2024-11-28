@@ -8,6 +8,7 @@ import {
 } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Select, { SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
@@ -18,6 +19,8 @@ import {
   requiredPositiveNumberField,
   nonBlankField,
   customSelectStyles,
+  selectOptionsFromObjects,
+  selectOptionsFromStrings,
 } from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
@@ -28,6 +31,10 @@ import { AppDispatch } from '../../store/store';
 import { useAlert } from '../../contexts/AlertContext';
 import { ItemProps } from './Item';
 import { getUpdatedInventory } from './utils';
+import AddSupplier from '../SupplierOrders/Suppliers/AddSupplier';
+import ModalOverlay from '../../components/ModalOverlay';
+import { useSupplierOrders } from '../../contexts/SupplierOrdersContext';
+import { setSupplierOrders } from '../../store/slices/supplierOrdersSlice';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
@@ -69,11 +76,19 @@ interface AddItemProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setRowData?: React.Dispatch<React.SetStateAction<ItemProps[]>>;
+  fromSupplierOrder?: boolean;
 }
 
-const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
+const AddItem = ({
+  open,
+  setOpen,
+  setRowData,
+  fromSupplierOrder,
+}: AddItemProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert, isDarkMode } = useAlert();
+  const [openAddSupplier, setOpenAddSupplier] = useState<boolean>(false);
+
   const {
     register,
     handleSubmit,
@@ -96,30 +111,44 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
     loading,
     items,
     categories,
-    suppliers,
     variants,
     totalItems,
     totalQuantity,
     totalValue,
   } = useInventory();
-  const categoryOptions = categories.names.map((name) => ({
-    value: name,
-    label: name,
-  }));
-  const supplierOptions = suppliers.names.map((name) => ({
-    value: name,
-    label: name,
-  }));
 
-  const variantsOptions = variants.map((name) => ({
-    value: name,
-    label: name,
-  }));
+  const { suppliers, newSupplier } = useSupplierOrders();
+
+  const categoryOptions = selectOptionsFromStrings(categories.names);
+  const supplierOptions = selectOptionsFromObjects(suppliers);
+  const variantsOptions = selectOptionsFromStrings(variants);
 
   const [hasVariants, setHasVariants] = useState<boolean>(false);
   const [previewPictureUrl, setPreviewPictureUrl] = useState<string | null>(
     null,
   );
+
+  const handleSupplierChange = (
+    onChange: (value: string | null) => void,
+    option: SingleValue<{ value: string; label: string }>,
+  ) => {
+    if (newSupplier) {
+      dispatch((dispatch, getState) => {
+        const { supplierOrders } = getState();
+        dispatch(
+          setSupplierOrders({
+            ...supplierOrders,
+            newSupplier: null,
+          }),
+        );
+      });
+    }
+    if (option) {
+      onChange(option.value);
+    } else {
+      onChange('');
+    }
+  };
 
   const handleFileClear = () => {
     setValue('picture', undefined);
@@ -176,6 +205,27 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
     }
   };
 
+  const updateSuppliersState = (newItem: ItemProps) => {
+    dispatch((dispatch, getState) => {
+      const { supplierOrders } = getState();
+      const updatedSuppliers = suppliers.map((supplier) =>
+        supplier.name === newItem.supplier
+          ? {
+              ...supplier,
+              item_names: [...supplier.item_names, newItem.name],
+            }
+          : supplier,
+      );
+
+      dispatch(
+        setSupplierOrders({
+          ...supplierOrders,
+          suppliers: updatedSuppliers,
+        }),
+      );
+    });
+  };
+
   const onSubmit: SubmitHandler<ItemSchema> = async (data) => {
     const formData = new FormData();
     formData.append('name', data.name);
@@ -187,9 +237,16 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
     if (data.supplier) {
       formData.append('supplier', data.supplier);
     }
-    formData.append('variants', JSON.stringify(data.variants));
+    if (data.variants.length > 0) {
+      formData.append('variants', JSON.stringify(data.variants));
+    }
     if (data.picture && data.picture?.length > 0) {
       formData.append('picture', data.picture[0]);
+    }
+    if (fromSupplierOrder) {
+      formData.append('in_inventory', 'false');
+    } else {
+      formData.append('in_inventory', 'true');
     }
     try {
       const res = await api.post('/inventory/items/', formData, {
@@ -203,12 +260,27 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
         items,
         newItem,
         categories.names,
-        suppliers.names,
+        suppliers.map((supplier) => supplier.name),
         variants,
         totalItems,
         totalValue,
         totalQuantity,
       );
+
+      dispatch((dispatch, getState) => {
+        const { inventory } = getState();
+        dispatch(
+          setInventory({
+            ...inventory,
+            ...inventoryPlusNewItem,
+          }),
+        );
+      });
+
+      if (data.supplier) {
+        updateSuppliersState(newItem);
+      }
+
       if (setRowData) {
         setAlert({
           type: 'success',
@@ -221,17 +293,7 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
           duration: 5000,
         });
       }
-      dispatch((dispatch, getState) => {
-        const { inventory } = getState();
-        dispatch(
-          setInventory({
-            ...inventory,
-            ...inventoryPlusNewItem,
-          }),
-        );
-      });
       setOpen(false);
-      console.log(newItem);
     } catch (error: any) {
       console.log('Error during form submission:', error);
       if (error.response && error.response.status === 400) {
@@ -266,6 +328,10 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
       setPreviewPictureUrl(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (newSupplier) setValue('supplier', newSupplier);
+  }, [newSupplier]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
@@ -403,44 +469,59 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
                 </div>
 
                 {/* Supplier */}
-                <div className="mb-4">
-                  <label
-                    className="mb-2 block text-sm font-medium text-black dark:text-white"
-                    htmlFor="supplier"
-                  >
-                    Supplier
-                  </label>
-                  {open && (
-                    <Controller
-                      name="supplier"
-                      control={control}
-                      rules={{ required: false }}
-                      render={({ field: { value, onChange, ...field } }) => (
-                        <CreatableSelect
-                          {...field}
-                          isClearable
-                          value={
-                            value
-                              ? supplierOptions.find(
-                                  (option) => option.value === value,
-                                )
-                              : null
-                          }
-                          onChange={(option) => onChange(option?.value || null)}
-                          options={supplierOptions}
-                          styles={customSelectStyles(isDarkMode)}
-                          placeholder={<div>Create or Select...</div>}
-                        />
-                      )}
-                    />
-                  )}
+                {!fromSupplierOrder && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <label
+                        className="block text-sm font-medium text-black dark:text-white"
+                        htmlFor="supplier_name"
+                      >
+                        Supplier
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setOpenAddSupplier(true)}
+                        className="text-sm font-sm text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                      >
+                        new supplier?
+                      </button>
+                    </div>
 
-                  {errors.supplier && (
-                    <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {errors.supplier.message}
-                    </p>
-                  )}
-                </div>
+                    {open && (
+                      <Controller
+                        name="supplier"
+                        control={control}
+                        rules={{ required: false }}
+                        render={({ field: { value, onChange, ...field } }) => (
+                          <Select
+                            {...field}
+                            isClearable
+                            value={
+                              newSupplier
+                                ? { value: newSupplier, label: newSupplier }
+                                : value
+                                ? supplierOptions.find(
+                                    (option) => option.value === value,
+                                  )
+                                : null
+                            }
+                            onChange={(option) =>
+                              handleSupplierChange(onChange, option)
+                            }
+                            options={supplierOptions}
+                            styles={customSelectStyles(isDarkMode)}
+                          />
+                        )}
+                      />
+                    )}
+
+                    {errors.supplier && (
+                      <p className="text-red-500 font-medium text-sm italic mt-2">
+                        {errors.supplier.message}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Variants */}
                 <div
@@ -653,6 +734,13 @@ const AddItem = ({ open, setOpen, setRowData }: AddItemProps) => {
               </button>
             </div>
           </form>
+          {/* Add Supplier Form Modal */}
+          <ModalOverlay
+            isOpen={openAddSupplier}
+            onClose={() => setOpenAddSupplier(false)}
+          >
+            <AddSupplier open={openAddSupplier} setOpen={setOpenAddSupplier} />
+          </ModalOverlay>
         </>
       )}
     </div>

@@ -39,190 +39,188 @@ function App() {
       <AuthProvider>
         <InventoryProvider>
           <ClientOrdersProvider>
-            <DefaultLayout>
-              <Routes>
-                <Route
-                  index
-                  element={
-                    <>
-                      <PageTitle title="eCommerce Dashboard | Stocker" />
-                      <ECommerce />
-                    </>
-                  }
-                />
-                {/* Inventory */}
-                <Route
-                  path="/inventory/items"
-                  element={
-                    <>
-                      <PageTitle title="Inventory | Stocker" />
-                      <Items />
-                    </>
-                  }
-                />
-                {/* Client Orders */}
-                <Route
-                  path="/client_orders/orders"
-                  element={
-                    <>
-                      <PageTitle title="Clients | Stocker" />
-                      <ClientOrders />
-                    </>
-                  }
-                />
-                <Route
-                  path="/client_orders/clients"
-                  element={
-                    <>
-                      <PageTitle title="Client Orders | Stocker" />
-                      <Clients />
-                    </>
-                  }
-                />
-                {/* Supplier Orders */}
-                <Route
-                  path="/supplier_orders/suppliers"
-                  element={
-                    <SupplierOrdersProvider>
+            <SupplierOrdersProvider>
+              <DefaultLayout>
+                <Routes>
+                  <Route
+                    index
+                    element={
+                      <>
+                        <PageTitle title="eCommerce Dashboard | Stocker" />
+                        <ECommerce />
+                      </>
+                    }
+                  />
+                  {/* Inventory */}
+                  <Route
+                    path="/inventory/items"
+                    element={
+                      <>
+                        <PageTitle title="Inventory | Stocker" />
+                        <Items />
+                      </>
+                    }
+                  />
+                  {/* Client Orders */}
+                  <Route
+                    path="/client_orders/orders"
+                    element={
+                      <>
+                        <PageTitle title="Clients | Stocker" />
+                        <ClientOrders />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/client_orders/clients"
+                    element={
+                      <>
+                        <PageTitle title="Client Orders | Stocker" />
+                        <Clients />
+                      </>
+                    }
+                  />
+                  {/* Supplier Orders */}
+                  <Route
+                    path="/supplier_orders/suppliers"
+                    element={
                       <>
                         <PageTitle title="Suppliers | Stocker" />
                         <Suppliers />
                       </>
-                    </SupplierOrdersProvider>
-                  }
-                />
-                <Route
-                  path="/supplier_orders/orders"
-                  element={
-                    <SupplierOrdersProvider>
+                    }
+                  />
+                  <Route
+                    path="/supplier_orders/orders"
+                    element={
                       <>
                         <PageTitle title="Supplier Orders | Stocker" />
                         <SupplierOrders />
                       </>
-                    </SupplierOrdersProvider>
-                  }
-                />
-                {/* Calender */}
-                <Route
-                  path="/calendar"
-                  element={
-                    <>
-                      <PageTitle title="Calendar | Stocker" />
-                      <Calendar />
-                    </>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <>
-                      <PageTitle title="Profile | Stocker" />
-                      <Profile />
-                    </>
-                  }
-                />
-                <Route
-                  path="/forms/form-elements"
-                  element={
-                    <>
-                      <PageTitle title="Form Elements | Stocker" />
-                      <FormElements />
-                    </>
-                  }
-                />
-                <Route
-                  path="/forms/form-layout"
-                  element={
-                    <>
-                      <PageTitle title="Form Layout | Stocker" />
-                      <FormLayout />
-                    </>
-                  }
-                />
-                <Route
-                  path="/tables"
-                  element={
-                    <>
-                      <PageTitle title="Tables | Stocker" />
-                      <Tables />
-                    </>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <>
-                      <PageTitle title="Settings | Stocker" />
-                      <Settings />
-                    </>
-                  }
-                />
-                <Route
-                  path="/chart"
-                  element={
-                    <>
-                      <PageTitle title="Basic Chart | Stocker" />
-                      <Chart />
-                    </>
-                  }
-                />
-                <Route
-                  path="/ui/alerts"
-                  element={
-                    <>
-                      <PageTitle title="Alerts | Stocker" />
-                      <Alerts />
-                    </>
-                  }
-                />
-                <Route
-                  path="/ui/buttons"
-                  element={
-                    <>
-                      <PageTitle title="Buttons | Stocker" />
-                      <Buttons />
-                    </>
-                  }
-                />
-                {/* Authentication */}
-                <Route
-                  path="/auth/signin"
-                  element={
-                    <>
-                      <PageTitle title="Signin | Stocker" />
-                      <SignIn />
-                    </>
-                  }
-                />
-                <Route
-                  path="/auth/signup"
-                  element={
-                    <>
-                      <PageTitle title="Signup | Stocker" />
-                      <SignUp />
-                    </>
-                  }
-                />
-                <Route
-                  path="/auth/password-reset/request"
-                  element={
-                    <>
-                      <PageTitle title="Request Password Reset | Stocker" />
-                      <RequestPasswordReset />
-                    </>
-                  }
-                />
-                <Route
-                  path="/auth/password-reset/:uidb64/:token"
-                  element={
-                    <>
-                      <PageTitle title="Reset Password | Stocker" />
-                      <ResetPassword />
-                    </>
-                  }
-                />
-              </Routes>
-            </DefaultLayout>
+                    }
+                  />
+                  {/* Calender */}
+                  <Route
+                    path="/calendar"
+                    element={
+                      <>
+                        <PageTitle title="Calendar | Stocker" />
+                        <Calendar />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <>
+                        <PageTitle title="Profile | Stocker" />
+                        <Profile />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/forms/form-elements"
+                    element={
+                      <>
+                        <PageTitle title="Form Elements | Stocker" />
+                        <FormElements />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/forms/form-layout"
+                    element={
+                      <>
+                        <PageTitle title="Form Layout | Stocker" />
+                        <FormLayout />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/tables"
+                    element={
+                      <>
+                        <PageTitle title="Tables | Stocker" />
+                        <Tables />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <>
+                        <PageTitle title="Settings | Stocker" />
+                        <Settings />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/chart"
+                    element={
+                      <>
+                        <PageTitle title="Basic Chart | Stocker" />
+                        <Chart />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/ui/alerts"
+                    element={
+                      <>
+                        <PageTitle title="Alerts | Stocker" />
+                        <Alerts />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/ui/buttons"
+                    element={
+                      <>
+                        <PageTitle title="Buttons | Stocker" />
+                        <Buttons />
+                      </>
+                    }
+                  />
+                  {/* Authentication */}
+                  <Route
+                    path="/auth/signin"
+                    element={
+                      <>
+                        <PageTitle title="Signin | Stocker" />
+                        <SignIn />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/auth/signup"
+                    element={
+                      <>
+                        <PageTitle title="Signup | Stocker" />
+                        <SignUp />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/auth/password-reset/request"
+                    element={
+                      <>
+                        <PageTitle title="Request Password Reset | Stocker" />
+                        <RequestPasswordReset />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/auth/password-reset/:uidb64/:token"
+                    element={
+                      <>
+                        <PageTitle title="Reset Password | Stocker" />
+                        <ResetPassword />
+                      </>
+                    }
+                  />
+                </Routes>
+              </DefaultLayout>
+            </SupplierOrdersProvider>
           </ClientOrdersProvider>
         </InventoryProvider>
       </AuthProvider>

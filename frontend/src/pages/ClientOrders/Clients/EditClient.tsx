@@ -5,7 +5,9 @@ import CreatableSelect from 'react-select/creatable';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
-import { customSelectStyles } from '../../../utils/form';
+import {
+  customSelectStyles,
+} from '../../../utils/form';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { schema, ClientSchema } from './AddClient';
@@ -32,7 +34,7 @@ const EditClient = ({
   client,
   setClient,
   rowNode,
-  setRowData
+  setRowData,
 }: EditClientProps) => {
   const { isDarkMode, setAlert } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
@@ -103,7 +105,9 @@ const EditClient = ({
       }
       rowNode?.setData(res.data);
       setRowData((prev) =>
-        prev.map((client) => (client.id === clientUpdate.id ? clientUpdate : client)),
+        prev.map((client) =>
+          client.id === clientUpdate.id ? clientUpdate : client,
+        ),
       );
       setAlert({
         type: 'success',

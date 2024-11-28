@@ -2,7 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import ValidationError
 import json
-from typing import Union
+from utils.serializers import handle_null_fields, update_field
 from ..base.models import User
 from .models import Item, Category, Variant, VariantOption
 from ..supplier_orders.models import Supplier
@@ -60,6 +60,7 @@ class ItemSerializer(serializers.ModelSerializer):
     supplier = serializers.CharField(allow_blank=True, required=False)
     price = serializers.FloatField()
     variants = serializers.CharField(write_only=True, required=False)
+    in_inventory = serializers.CharField(allow_blank=True, required=False)
 
     class Meta:
         model = Item
@@ -86,9 +87,50 @@ class ItemSerializer(serializers.ModelSerializer):
         variants = []
         for variant in item.variants.all():
             variant_options = VariantOption.objects.filter(variant=variant, item=item)
-            variants.append({'name': variant.name,
-                             'options': [option.body for option in variant_options]})
+            variants.append(
+                {'name': variant.name,
+                'options': [option.body for option in variant_options]}
+            )
         return variants if len(variants) > 0 else None
+
+    def _get_or_create_category(
+        self, 
+        user: User, 
+        value: str
+    ) -> Category:
+        obj, created = Category.objects.get_or_create(
+            created_by=user,
+            name__iexact=value,
+            defaults={'name': value})
+        return obj
+
+    def _get_or_create_variants_with_options(
+        self, 
+        item: Item, 
+        user: User, 
+        variants: list
+    ) -> None:
+        for variant_data in variants:
+            variant_name = variant_data.get('name')
+            options = variant_data.get('options', [])
+
+            # Getting or creating variant
+            variant, created = Variant.objects.get_or_create(
+                name__iexact=variant_name,
+                defaults={'name': variant_name},
+                created_by=user
+            )
+
+            # Adding variant to item's variants
+            item.variants.add(variant)
+
+            # Creating variant options
+            for option in options:
+                VariantOption.objects.create(
+                    item=item,
+                    variant=variant,
+                    body=option
+                )
 
     def validate_name(self, value):
         user = self.context.get('request').user
@@ -100,116 +142,114 @@ class ItemSerializer(serializers.ModelSerializer):
             raise ValidationError('Item with this name already exists.')
         return value
 
-    def _get_or_create_category_supplier(
-        self, 
-        user: User, 
-        model: Union[Category, Supplier],
-        value: str
-    ) -> Union[None, Category, Supplier]:
+    def validate_supplier(self, value):
         if value:
-            obj, created = model.objects.get_or_create(
-                created_by=user,
-                name__iexact=value,
-                defaults={'name': value})
-            return obj
+            if value == 'null':
+                return value
+            user = self.context.get('request').user
+            supplier = Supplier.objects.filter(created_by=user,
+                                               name__iexact=value).first()
+            if not supplier:
+                raise serializers.ValidationError(
+                    f"Supplier '{value}' does not exist. "
+                     "Please create a new supplier if this is a new entry.")
+
+            return supplier
+
         return None
 
     def validate_variants(self, value):
-        try:
-            unique_variants = []
-            variants = json.loads(value) if isinstance(value, str) else value
-            # Ensuring it's a list of dictionaries
-            if not isinstance(variants, list):
-                raise serializers.ValidationError("Variants must be a list.")
+        if value:
+            if value == 'null':
+                return value
+            try:
+                unique_variants = []
+                variants = json.loads(value) if isinstance(value, str) else value
+                # Ensuring it's a list of dictionaries
+                if not isinstance(variants, list):
+                    raise serializers.ValidationError("Variants must be a list.")
 
-            # Validating each variant object
-            for variant in variants:
-                if not isinstance(variant, dict):
-                    raise serializers.ValidationError(
-                        "Each variant must be an object with 'name' and 'options' as properties.")
-                # Checking required keys: 'name' and 'options'
-                if 'name' not in variant:
-                    raise serializers.ValidationError("Each variant must have a 'name'.")
-                if 'options' not in variant or not isinstance(variant['options'], list):
-                    raise serializers.ValidationError("Each variant must have an 'options' list.")
-                if variant['name'] in unique_variants:
-                    raise serializers.ValidationError("Each variant name should be unique.")
-                unique_variants.append(variant['name'])
+                # Validating each variant object
+                for variant in variants:
+                    if not isinstance(variant, dict):
+                        raise serializers.ValidationError(
+                            "Each variant must be an object with 'name' and 'options' as properties.")
+                    # Checking required keys: 'name' and 'options'
+                    if 'name' not in variant:
+                        raise serializers.ValidationError("Each variant must have a 'name'.")
+                    if 'options' not in variant or not isinstance(variant['options'], list):
+                        raise serializers.ValidationError("Each variant must have an 'options' list.")
+                    if variant['name'] in unique_variants:
+                        raise serializers.ValidationError("Each variant name should be unique.")
+                    unique_variants.append(variant['name'])
 
-            return variants
-        except json.JSONDecodeError:
-            raise serializers.ValidationError("Invalid JSON format for variants.")
+                return variants
+            except json.JSONDecodeError:
+                raise serializers.ValidationError("Invalid JSON format for variants.")
+        return None
 
-    def _get_or_create_variants_with_options(
-        self, 
-        item: Item, 
-        user: User, 
-        variants: list
-    ) -> None:
-        for variant_data in variants:
-            variant_name = variant_data.get('name')
-            options = variant_data.get('options', [])
-            # Getting or creating variant
-            variant, created = Variant.objects.get_or_create(
-                name__iexact=variant_name,
-                defaults={'name': variant_name},
-                created_by=user
-            )
-            # Adding variant to item's variants
-            item.variants.add(variant)
-            
-            # Creating variant options
-            for option in options:
-                VariantOption.objects.create(
-                    item=item,
-                    variant=variant,
-                    body=option
-                )
-
+    def validate(self, attrs):
+        return handle_null_fields(attrs)
 
     @transaction.atomic
     def create(self, validated_data):
         user = self.context.get('request').user
-        variants = validated_data.pop('variants', [])
+        variants = validated_data.pop('variants', None)
         category_name = validated_data.pop('category', None)
-        supplier_name = validated_data.pop('supplier', None)
+        supplier = validated_data.pop('supplier', None)
+        in_inventory = validated_data.pop('in_inventory', None)
 
         # Creating Item's main fields
         item = Item.objects.create(created_by=user, **validated_data)
 
-        # Creating Item's category and supplier
-        item.category = self._get_or_create_category_supplier(user, Category, category_name)
-        item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
-        item.in_inventory = True
+        # Creating Item's category
+        if category_name:
+            item.category = self._get_or_create_category(user, category_name)
+
+        # Creating Item's supplier
+        if supplier:
+            item.supplier = supplier
+
+        # Handle item's inventory state
+        if (in_inventory and in_inventory == 'true') or not in_inventory:
+            item.in_inventory = True
+
         item.save()
 
         # Creating and Adding Item's variants with options
-        self._get_or_create_variants_with_options(item, user, variants)
+        if variants:
+            self._get_or_create_variants_with_options(item, user, variants)
+
         return item
 
     @transaction.atomic
     def update(self, instance: Item, validated_data):
-        variants = validated_data.pop('variants', [])
+        variants = validated_data.pop('variants', None)
         category_name = validated_data.pop('category', None)
-        supplier_name = validated_data.pop('supplier', None)
+        supplier = validated_data.pop('supplier', None)
 
         # Updating Item's main fields
         item = super().update(instance, validated_data)
         user = self.context.get('request').user
 
-        # Updating Item's category and supplier
-        if category_name:
-            item.category = self._get_or_create_category_supplier(user, Category, category_name)
-        if supplier_name:
-            item.supplier = self._get_or_create_category_supplier(user, Supplier, supplier_name)
+        # Updating Item's category
+        update_field(item,
+                     'category',
+                      category_name,
+                      self._get_or_create_category,
+                      user)
+
+        # Updating Item's supplier
+        update_field(item, 'supplier', supplier)
+
         item.updated = True
         item.save()
 
         # Updating Item's variants
+        item.variants.clear()
+        VariantOption.objects.filter(item=item).delete()
         if variants:
-            item.variants.clear()
-            VariantOption.objects.filter(item=item).delete()
-        self._get_or_create_variants_with_options(item, user, variants)
+            self._get_or_create_variants_with_options(item, user, variants)
 
         return item
 

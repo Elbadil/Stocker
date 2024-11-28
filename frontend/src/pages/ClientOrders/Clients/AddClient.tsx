@@ -7,7 +7,14 @@ import React, { useEffect, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
 import toast from 'react-hot-toast';
 import Loader from '../../../common/Loader';
-import { requiredStringField, customSelectStyles } from '../../../utils/form';
+import {
+  requiredStringField,
+  customSelectStyles,
+  locationField,
+  optionalStringField,
+  optionalNumberField,
+  optionalEmailField,
+} from '../../../utils/form';
 import { useAlert } from '../../../contexts/AlertContext';
 import { ClientProps } from './Client';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
@@ -19,34 +26,12 @@ import { AppDispatch } from '../../../store/store';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
-  phone_number: z.string().optional().nullable(),
-  email: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.string().email().optional().nullable(),
-  ),
-  age: z.preprocess(
-    (val) => (val ? Number(val) : null),
-    z.number().optional().nullable(),
-  ),
-  sex: z.string().optional().nullable(),
-  location: z
-    .object({
-      country: z.string().optional().nullable(),
-      city: z.string().optional().nullable(),
-      street_address: z.preprocess(
-        (val) => (val === '' ? undefined : val),
-        z.string().optional().nullable(),
-      ),
-    })
-    .transform((loc) => {
-      // If all properties are null or undefined, return undefined
-      return Object.values(loc).every(
-        (val) => val === null || val === undefined,
-      )
-        ? undefined
-        : loc;
-    }),
-  source: z.string().optional().nullable(),
+  phone_number: optionalStringField(),
+  email: optionalEmailField(),
+  age: optionalNumberField(),
+  sex: optionalStringField(),
+  location: locationField(),
+  source: optionalStringField(),
 });
 
 export type ClientSchema = z.infer<typeof schema>;

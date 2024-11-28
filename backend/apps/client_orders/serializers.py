@@ -6,8 +6,9 @@ from .utils import get_or_create_source, update_item_quantity
 from utils.serializers import (datetime_repr_format,
                                get_location,
                                get_or_create_location,
-                               DELIVERY_STATUS_OPTIONS,
-                               PAYMENT_STATUS_OPTIONS)
+                               update_field)
+from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
+                                PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import (Client,
                      Country,
                      City,
@@ -36,13 +37,13 @@ class CitySerializer(serializers.ModelSerializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     """Location Serializer"""
-    country = serializers.CharField()
-    city = serializers.CharField()
+    country = serializers.CharField(error_messages={'null': 'Country is required to add a location'})
+    city = serializers.CharField(error_messages={'null': 'City is required to add a location'})
 
     class Meta:
         model = Location
         fields = '__all__'
-    
+
     def validate_country(self, value):
         if value:
             country = Country.objects.filter(name__iexact=value).exists()
@@ -104,7 +105,7 @@ class AcquisitionSourceSerializer(serializers.ModelSerializer):
 
 class ClientSerializer(serializers.ModelSerializer):
     """Client Serializer"""
-    location = LocationSerializer(many=False, required=False)
+    location = LocationSerializer(many=False, required=False, allow_null=True)
     source = serializers.CharField(allow_blank=True, allow_null=True, required=False)
 
     class Meta:
@@ -167,11 +168,22 @@ class ClientSerializer(serializers.ModelSerializer):
         # Update client with remaining validated data
         client = super().update(instance, validated_data)
 
-        # Update client's location and source of acquisition
-        if location:
-            client.location = get_or_create_location(user, location)
-        if source:
-            client.source = get_or_create_source(user, source)
+        # Update client's location
+        update_field(self,
+                     client,
+                     'location',
+                     location,
+                     get_or_create_location,
+                     user)
+
+        # Update client's source of acquisition
+        update_field(self,
+                     client,
+                     'source',
+                     source,
+                     get_or_create_source,
+                     user)
+
         client.updated = True
         client.save()
 
@@ -260,7 +272,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                                             allow_null=True)
     payment_status = serializers.CharField(required=False, allow_blank=True,
                                            allow_null=True)
-    shipping_address = LocationSerializer(many=False, required=False)
+    shipping_address = LocationSerializer(many=False, required=False, allow_null=True)
     source = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
@@ -382,14 +394,14 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
     def validate_delivery_status(self, value):
         if value:
-            if value.lower() not in DELIVERY_STATUS_OPTIONS:
+            if value.lower() not in DELIVERY_STATUS_OPTIONS_LOWER:
                 raise serializers.ValidationError("Invalid order delivery status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
-    
+
     def validate_payment_status(self, value):
         if value:
-            if value.lower() not in PAYMENT_STATUS_OPTIONS:
+            if value.lower() not in PAYMENT_STATUS_OPTIONS_LOWER:
                 raise serializers.ValidationError("Invalid order payment status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
@@ -404,7 +416,11 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             ).first()
             if not client:
                 raise serializers.ValidationError(
-                    {'client': f'Client {client_name} does not exist.'})
+                    {
+                        'client': f"Client '{client_name}' does not exist. "
+                                   "Please create a new client if this is a new entry."
+                    }
+                )
 
             attrs['client'] = client
         return attrs
@@ -471,15 +487,28 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                 ordered_items
             )
 
-        # Update shipping address and source of acquisition and status of the order
-        if shipping_address:
-            order.shipping_address = get_or_create_location(user, shipping_address)
-        if source:
-            order.source = get_or_create_source(user, source)
+        # Update order's shipping address
+        update_field(self,
+                     order,
+                     'shipping_address',
+                     shipping_address,
+                     get_or_create_location,
+                     user)
+
+        # Update order's source of acquisition
+        update_field(self,
+                     order,
+                     'source',
+                     source,
+                     get_or_create_source,
+                     user)
+
+        # Update order's delivery and payment status
         if delivery_status:
             order.delivery_status = delivery_status
         if payment_status:
             order.payment_status = payment_status
+
         order.updated = True
 
         order.save()

@@ -24,6 +24,10 @@ class Supplier(BaseModel):
     updated = models.BooleanField(default=False)
 
     @property
+    def total_items(self):
+        return self.items.all().count()
+
+    @property
     def total_orders(self):
         return self.orders.all().count()
 

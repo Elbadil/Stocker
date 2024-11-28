@@ -22,6 +22,7 @@ import { api } from '../../../api/axios';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
 import { setSupplierOrders } from '../../../store/slices/supplierOrdersSlice';
+import toast from 'react-hot-toast';
 
 export const schema = z.object({
   name: requiredStringField('Name'),
@@ -35,13 +36,13 @@ export type SupplierSchema = z.infer<typeof schema>;
 interface AddSupplier {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRowData: React.Dispatch<React.SetStateAction<SupplierProps[]>>;
+  setRowData?: React.Dispatch<React.SetStateAction<SupplierProps[]>>;
 }
 
 const AddSupplier = ({ open, setOpen, setRowData }: AddSupplier) => {
   const { isDarkMode, setAlert } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
-  const { loading, suppliers } = useSupplierOrders();
+  const { loading, suppliers, suppliersCount } = useSupplierOrders();
   const { countries } = useClientOrders();
 
   const {
@@ -93,19 +94,29 @@ const AddSupplier = ({ open, setOpen, setRowData }: AddSupplier) => {
         dispatch(
           setSupplierOrders({
             ...supplierOrders,
-            suppliers: {
-              count: suppliers.count + 1,
-              names: suppliers.names.concat([newSupplier.name]),
-            },
+            supplierCount: suppliersCount + 1,
+            suppliers: suppliers.concat([
+              { name: newSupplier.name, item_names: [] },
+            ]),
+            newSupplier: newSupplier.name,
           }),
         );
       });
-      setRowData((prev) => [newSupplier, ...prev]);
-      setAlert({
-        type: 'success',
-        title: 'New Supplier Added',
-        description: `Supplier ${newSupplier.name} has been successfully created.`,
-      });
+      if (setRowData) {
+        setRowData((prev) => [newSupplier, ...prev]);
+        setAlert({
+          type: 'success',
+          title: 'New Supplier Added',
+          description: `Supplier ${newSupplier.name} has been successfully created.`,
+        });
+      } else {
+        toast.success(
+          `Supplier ${newSupplier.name} has been successfully added.`,
+          {
+            duration: 5000,
+          },
+        );
+      }
       setOpen(false);
     } catch (error: any) {
       console.log('Error during form submission', error);

@@ -22,7 +22,7 @@ export interface ClientProps {
   phone_number?: string | null;
   email?: string | null;
   sex?: 'Male' | 'Female' | null;
-  location?: Location;
+  location: Location | null;
   source?: string | null;
   total_orders: number;
   created_at: string;

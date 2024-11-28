@@ -26,7 +26,7 @@ export interface ClientOrderProps {
   delivery_status: string;
   payment_status: string;
   tracking_number?: string | null;
-  shipping_address: Location;
+  shipping_address: Location | null;
   shipping_cost?: number | null;
   net_profit: number;
   source?: string | null;

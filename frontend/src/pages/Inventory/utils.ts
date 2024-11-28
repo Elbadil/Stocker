@@ -108,7 +108,7 @@ export const createSheetFile = (items: ItemProps[]) => {
   const dateNow = format(new Date(), 'dd-MM-yyyy');
   utils.book_append_sheet(wb, ws, `Inventory Items ${dateNow}`);
   if (items.length > 1) {
-    writeFile(wb, `${items[0].user}_inventory_${dateNow}.xlsx`);
+    writeFile(wb, `${items[0].created_by}_inventory_${dateNow}.xlsx`);
   } else {
     writeFile(wb, `${items[0].name}_${dateNow}.xlsx`);
   }

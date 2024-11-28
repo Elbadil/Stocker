@@ -2,22 +2,51 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../../api/axios';
 
 export interface SupplierOrdersState {
-  suppliers: { count: number; names: string[] };
+  suppliers: { name: string; item_names: string[] }[];
+  suppliersCount: number;
+  newSupplier: string | null;
   ordersCount: number;
+  orderStatus: {
+    delivery_status: string[];
+    payment_status: string[];
+    active: number;
+    completed: number;
+    failed: number;
+  };
   loading: boolean;
   error: string | null;
 }
 
 const initialState: SupplierOrdersState = {
-  suppliers: { count: 0, names: [] },
+  suppliers: [],
+  suppliersCount: 0,
+  newSupplier: null,
   ordersCount: 0,
+  orderStatus: {
+    delivery_status: [],
+    payment_status: [],
+    active: 0,
+    completed: 0,
+    failed: 0,
+  },
   loading: true,
   error: null,
 };
 
 export interface SupplierOrdersApiResponse
-  extends Omit<SupplierOrdersState, 'ordersCount'> {
+  extends Omit<
+    SupplierOrdersState,
+    'ordersCount' | 'orderStatus' | 'suppliersCount'
+  > {
   orders_count: number;
+  order_status: {
+    delivery_status: string[];
+    payment_status: string[];
+    active: number;
+    completed: number;
+    failed: number;
+  };
+  suppliers_count: number;
 }
 
 export const getSupplierOrdersData = createAsyncThunk<
@@ -41,7 +70,10 @@ const supplierOrdersSlice = createSlice({
   reducers: {
     setSupplierOrders(state, { payload }) {
       state.suppliers = payload.suppliers;
+      state.suppliersCount = payload.suppliersCount;
+      state.newSupplier = payload.newSupplier;
       state.ordersCount = payload.ordersCount;
+      state.orderStatus = payload.orderStatus;
     },
   },
   extraReducers: (builder) => {
@@ -52,6 +84,8 @@ const supplierOrdersSlice = createSlice({
       .addCase(getSupplierOrdersData.fulfilled, (state, { payload }) => {
         state.suppliers = payload.suppliers;
         state.ordersCount = payload.orders_count;
+        state.orderStatus = payload.order_status;
+        state.suppliersCount = payload.suppliers_count;
         state.loading = false;
       })
       .addCase(getSupplierOrdersData.rejected, (state, action) => {

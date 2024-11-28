@@ -78,8 +78,19 @@ const EditSupplier = ({
     } else {
       onChange(null);
       setCityOptions([]);
+      setValue('location.city', null);
     }
   };
+
+  const updateSuppliersState = (supplierUpdate: SupplierProps) =>
+    suppliers.map((existingSupplier) =>
+      existingSupplier.name === supplier.name
+        ? {
+            name: supplierUpdate.name,
+            item_names: existingSupplier.item_names,
+          }
+        : existingSupplier,
+    );
 
   const onSubmit: SubmitHandler<SupplierSchema> = async (data) => {
     console.log(data);
@@ -95,15 +106,7 @@ const EditSupplier = ({
         dispatch(
           setSupplierOrders({
             ...supplierOrders,
-            suppliers: {
-              ...suppliers,
-              names: suppliers.names.map((supplierName) =>
-                supplier.name === supplierName &&
-                supplierUpdate.name !== supplier.name
-                  ? supplierUpdate.name
-                  : supplierName,
-              ),
-            },
+            suppliers: updateSuppliersState(supplierUpdate),
           }),
         );
       });

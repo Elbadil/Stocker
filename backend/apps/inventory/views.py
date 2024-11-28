@@ -9,8 +9,8 @@ from utils.tokens import Token
 from utils.views import CreatedByUserMixin
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
-from .models import Item, Category, Supplier, Variant
-from ..client_orders.models import ClientOrderedItem
+from .models import Item, Category, Variant
+from ..supplier_orders.models import Supplier
 
 
 class CreateItem(generics.CreateAPIView):
@@ -37,7 +37,7 @@ class GetUpdateDeleteItem(CreatedByUserMixin,
             item.picture = None
             item.save()
         return super().put(request, *args, **kwargs)
-    
+
     def delete(self, request, *args, **kwargs):
         item = self.get_object()
         if item.total_client_orders > 0 or item.total_supplier_orders > 0 :
@@ -165,24 +165,29 @@ class GetUserInventoryData(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
+
         # Categories
         categories = {
             'count': Category.objects.filter(created_by=user).count(),
             'names': list(Category.objects.filter(created_by=user).values_list('name', flat=True))
         }
-        # Suppliers
+
         suppliers = {
             'count': Supplier.objects.filter(created_by=user).count(),
             'names': list(Supplier.objects.filter(created_by=user).values_list('name', flat=True))
         }
+        
         # Variants
         variants = list(Variant.objects.filter(created_by=user).values_list('name', flat=True))
+        
         # Items
         user_items = Item.objects.filter(created_by=user, in_inventory=True)
         items = user_items.values('name', 'quantity')
+        
         # Total Value & Total Quantity
         total_value = sum([item.total_price for item in user_items])
         total_quantity = sum(list(user_items.values_list('quantity', flat=True)))
+        
         return Response({'items': items,
                          'total_items': user_items.count(),
                          'total_value': total_value,
@@ -191,4 +196,3 @@ class GetUserInventoryData(generics.GenericAPIView):
                          'suppliers': suppliers,
                          'variants': variants},
                          status=status.HTTP_200_OK)
-

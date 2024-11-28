@@ -13,41 +13,20 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pathname } = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const {
-    loading,
-    error,
-    categories,
-    suppliers,
-    variants,
-    items,
-    totalItems,
-    totalValue,
-    totalQuantity,
-  } = useSelector((state: RootState) => state.inventory);
+  const inventory = useSelector((state: RootState) => state.inventory);
 
   useEffect(() => {
     if (
       pathname.startsWith('/inventory/') ||
-      pathname.startsWith('/client_orders/')
+      pathname.startsWith('/client_orders/') ||
+      pathname.startsWith('/supplier_orders/')
     ) {
       dispatch(getInventoryData());
     }
   }, [dispatch, pathname]);
 
   return (
-    <InventoryContext.Provider
-      value={{
-        loading,
-        categories,
-        suppliers,
-        variants,
-        items,
-        error,
-        totalItems,
-        totalValue,
-        totalQuantity,
-      }}
-    >
+    <InventoryContext.Provider value={inventory}>
       {children}
     </InventoryContext.Provider>
   );

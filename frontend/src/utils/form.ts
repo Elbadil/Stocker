@@ -120,8 +120,20 @@ export const fileField = () => {
 
 export const optionalEmailField = () =>
   z.preprocess(
-    (val) => (val === '' ? undefined : val),
+    (val) => (val === '' ? null : val),
     z.string().email().optional().nullable(),
+  );
+
+export const optionalStringField = () =>
+  z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.string().optional().nullable(),
+  );
+
+export const optionalNumberField = () =>
+  z.preprocess(
+    (val) => (val ? Number(val) : null),
+    z.number().optional().nullable(),
   );
 
 export const locationField = () =>
@@ -139,8 +151,34 @@ export const locationField = () =>
       return Object.values(loc).every(
         (val) => val === null || val === undefined,
       )
-        ? undefined
+        ? null
         : loc;
+    });
+
+export const orderedItemsField = () =>
+  z
+    .array(
+      z.object({
+        item: requiredStringField('Item name'),
+        ordered_quantity: requiredPositiveNumberField('Quantity'),
+        ordered_price: requiredPositiveNumberField('Price'),
+      }),
+    )
+    .superRefine((orderedItems, ctx) => {
+      // Collect all items names
+      const itemNames = orderedItems.map((orderedItem) => orderedItem.item);
+      const nameCount: { [key: string]: number } = {};
+      itemNames.forEach((name: string, index: number) => {
+        const nameLower = name.toLowerCase().trim();
+        nameCount[nameLower] = (nameCount[nameLower] || 0) + 1;
+        if (nameCount[nameLower] > 1) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'item'], // Point to the specific field in the array
+            message: `Item "${name.trim()}" has already been selected.`,
+          });
+        }
+      });
     });
 
 export const selectOptionsFromStrings = (options: string[]) =>

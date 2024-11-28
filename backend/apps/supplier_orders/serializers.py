@@ -3,9 +3,10 @@ from django.db import transaction
 from typing import List
 from utils.serializers import (datetime_repr_format,
                                get_location,
-                               get_or_create_location,
-                               DELIVERY_STATUS_OPTIONS,
-                               PAYMENT_STATUS_OPTIONS)
+                               get_or_create_location)
+from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
+                                PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.serializers import update_field
 from ..base.models import User
 from ..inventory.models import Item
 from ..client_orders.serializers import LocationSerializer
@@ -16,7 +17,7 @@ from .utils import average_price
 
 class SupplierSerializer(serializers.ModelSerializer):
     """Supplier Serializer"""
-    location = LocationSerializer(many=False, required=False)
+    location = LocationSerializer(many=False, required=False, allow_null=True)
 
     class Meta:
         model = Supplier
@@ -70,8 +71,12 @@ class SupplierSerializer(serializers.ModelSerializer):
         supplier = super().update(instance, validated_data)
 
         # Update location if any
-        if location:
-            supplier.location = get_or_create_location(user, location)
+        update_field(self,
+                     supplier,
+                     'location',
+                     location,
+                     get_or_create_location,
+                     user)
 
         supplier.updated = True
         supplier.save()
@@ -253,7 +258,9 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         supplier = Supplier.objects.filter(created_by=user,
                                            name__iexact=value).first()
         if not supplier:
-            raise serializers.ValidationError(f'Supplier {value} does not exist.')
+            raise serializers.ValidationError(
+                f"Supplier '{value}' does not exist. "
+                 "Please create a new supplier if this is a new entry.")
         return supplier
 
     def validate_ordered_items(self, value):
@@ -270,14 +277,14 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
 
     def validate_delivery_status(self, value):
         if value:
-            if value.lower() not in DELIVERY_STATUS_OPTIONS:
+            if value.lower() not in DELIVERY_STATUS_OPTIONS_LOWER:
                 raise serializers.ValidationError('Invalid delivery status.')
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
 
     def validate_payment_status(self, value):
         if value:
-            if value.lower() not in PAYMENT_STATUS_OPTIONS:
+            if value.lower() not in PAYMENT_STATUS_OPTIONS_LOWER:
                 raise serializers.ValidationError('Invalid payment status.')
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None

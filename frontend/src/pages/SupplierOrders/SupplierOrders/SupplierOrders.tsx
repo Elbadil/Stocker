@@ -27,8 +27,9 @@ import {
 } from './utils';
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { api } from '../../../api/axios';
+import AddSupplierOrder from './AddSupplierOrder';
 
-interface SupplierOrderedItem {
+export interface SupplierOrderedItem {
   id: string;
   order: string;
   created_by: string;
@@ -40,7 +41,7 @@ interface SupplierOrderedItem {
   in_inventory: boolean;
 }
 
-interface SupplierOrdersProps {
+export interface SupplierOrderProps {
   id: string;
   reference_id: string;
   created_by: string;
@@ -58,10 +59,11 @@ interface SupplierOrdersProps {
 
 const SupplierOrders = () => {
   const { alert } = useAlert();
-  const { loading, ordersCount } = useSupplierOrders();
+  const { loading, ordersCount, orderStatus } = useSupplierOrders();
   const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
-  const [selectedOrder, setSelectedOrder] =
-    useState<SupplierOrdersProps | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<SupplierOrderProps | null>(
+    null,
+  );
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [openOrder, setOpenOrder] = useState<boolean>(false);
   const [openAddOrder, setOpenAddOrder] = useState<boolean>(false);
@@ -88,34 +90,37 @@ const SupplierOrders = () => {
   };
 
   const orderedItemValueGetter = (
-    params: ValueGetterParams<SupplierOrdersProps, SupplierOrderedItem[]>,
+    params: ValueGetterParams<SupplierOrderProps, SupplierOrderedItem[]>,
     key: keyof SupplierOrderedItem,
   ) => {
     if (!params.data?.ordered_items) return [];
     return params.data.ordered_items.map((orderedItem) => orderedItem[key]);
   };
 
-  const OrderedItemCellRenderer = (
+  const OrderedItemRenderer = (
     params: CustomCellRendererProps,
     key: keyof SupplierOrderedItem,
   ) => {
     if (!params.value) return null;
+    const decimalFields = ['ordered_price', 'total_price'];
     return (
-      <div>
-        {params.value.map((value: string | number) => (
-          <div>
-            {(key === 'ordered_price' || key === 'total_price') &&
-            typeof value === 'number'
-              ? value.toFixed(2)
-              : value}
+      <>
+        {params.value.map((prop: string | number, index: number) => (
+          <div
+            key={index}
+            className="whitespace-nowrap overflow-hidden text-ellipsis"
+          >
+            {decimalFields.includes(key) && typeof prop === 'number'
+              ? prop.toFixed(2)
+              : prop}
           </div>
         ))}
-      </div>
+      </>
     );
   };
 
   const numberGetQuickFilterText = (
-    params: GetQuickFilterTextParams<SupplierOrdersProps, number[]>,
+    params: GetQuickFilterTextParams<SupplierOrderProps, number[]>,
   ) => {
     if (!params.value) return '';
     return params.value.map((value) => value.toFixed(2)).join(', ');
@@ -123,10 +128,10 @@ const SupplierOrders = () => {
 
   const gridRef = useRef<AgGridReact>(null);
   const [selectedRows, setSelectedRows] = useState<
-    SupplierOrdersProps[] | undefined
+    SupplierOrderProps[] | undefined
   >(undefined);
-  const [rowData, setRowData] = useState<SupplierOrdersProps[]>([]);
-  const [colDefs] = useState<ColDef<SupplierOrdersProps>[]>([
+  const [rowData, setRowData] = useState<SupplierOrderProps[]>([]);
+  const [colDefs] = useState<ColDef<SupplierOrderProps>[]>([
     {
       field: 'created_at',
       headerName: 'Created',
@@ -153,7 +158,7 @@ const SupplierOrders = () => {
       headerName: 'Item',
       valueGetter: (params) => orderedItemValueGetter(params, 'item'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemCellRenderer(params, 'item'),
+        OrderedItemRenderer(params, 'item'),
       filter: MultiTextFilter,
       flex: 3,
       minWidth: 150,
@@ -164,7 +169,7 @@ const SupplierOrders = () => {
       valueGetter: (params) =>
         orderedItemValueGetter(params, 'ordered_quantity'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemCellRenderer(params, 'ordered_quantity'),
+        OrderedItemRenderer(params, 'ordered_quantity'),
       filter: MultiNumberFilter,
       flex: 1.5,
       minWidth: 115,
@@ -174,7 +179,7 @@ const SupplierOrders = () => {
       headerName: 'Price',
       valueGetter: (params) => orderedItemValueGetter(params, 'ordered_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemCellRenderer(params, 'ordered_price'),
+        OrderedItemRenderer(params, 'ordered_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
       flex: 1.5,
@@ -185,7 +190,7 @@ const SupplierOrders = () => {
       headerName: 'T. Price',
       valueGetter: (params) => orderedItemValueGetter(params, 'total_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemCellRenderer(params, 'total_price'),
+        OrderedItemRenderer(params, 'total_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
       flex: 1.5,
@@ -245,7 +250,7 @@ const SupplierOrders = () => {
   ]);
 
   const getAndSetSelectRows = () => {
-    const selectedOrders: SupplierOrdersProps[] | undefined =
+    const selectedOrders: SupplierOrderProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
     setSelectedRows(selectedOrders);
   };
@@ -425,16 +430,15 @@ const SupplierOrders = () => {
                         isOpen={openAddOrder}
                         onClose={() => setOpenAddOrder(false)}
                       >
-                        <div>Hi</div>
-                        {/* <AddClientOrder
+                        <AddSupplierOrder
                           open={openAddOrder}
                           setOpen={setOpenAddOrder}
                           setRowData={setRowData}
-                        /> */}
+                        />
                       </ModalOverlay>
                     </div>
                   </div>
-                  {/* Orders Info | Clients Count | Orders Count */}
+                  {/* Orders Info | Orders Count | Orders status */}
                   <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-4 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">
@@ -444,7 +448,7 @@ const SupplierOrders = () => {
                         {ordersCount}
                       </span>
                     </div>
-                    {/* <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
+                    <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Active:</span>
                       <span className="font-semibold text-black dark:text-white">
                         {orderStatus.active}
@@ -461,7 +465,7 @@ const SupplierOrders = () => {
                       <span className="font-semibold text-black dark:text-white">
                         {orderStatus.failed}
                       </span>
-                    </div> */}
+                    </div>
                   </div>
                   {/* AG Grid DataTable */}
                   <AgGridTable

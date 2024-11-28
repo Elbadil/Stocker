@@ -16,20 +16,21 @@ export const SupplierOrdersProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pathname } = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const { suppliers, ordersCount, loading, error } = useSelector(
+  const supplierOrders = useSelector(
     (state: RootState) => state.supplierOrders,
   );
 
   useEffect(() => {
-    if (pathname.startsWith('/supplier_orders/')) {
+    if (
+      pathname.startsWith('/supplier_orders/') ||
+      pathname.startsWith('/inventory/')
+    ) {
       dispatch(getSupplierOrdersData());
     }
   }, [pathname]);
 
   return (
-    <SupplierOrdersContext.Provider
-      value={{ suppliers, ordersCount, loading, error }}
-    >
+    <SupplierOrdersContext.Provider value={supplierOrders}>
       {children}
     </SupplierOrdersContext.Provider>
   );

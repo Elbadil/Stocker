@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from utils.serializers import handle_null_fields
 from .models import User
 
 
@@ -22,6 +23,9 @@ class UserSerializer(serializers.ModelSerializer):
         if User.objects.filter(username=value.lower()).exclude(id=self.instance.id).exists():
             raise serializers.ValidationError('user with this username already exists.')
         return value.lower()
+    
+    def validate(self, attrs):
+        return handle_null_fields(attrs)
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):

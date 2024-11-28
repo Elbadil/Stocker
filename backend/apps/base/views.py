@@ -132,18 +132,12 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
         return self.request.user
 
     def put(self, request, *args, **kwargs):
+        print(request.data)
         user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data)
-        if serializer.is_valid():
-            user = serializer.save();
-            if 'avatar_deleted' in request.data:
-                user.avatar = None
+        if 'avatar_deleted' in request.data:
+            user.avatar = None
             user.save()
-            user_data = UserSerializer(user, context={'request': request}).data
-            return Response({'user': user_data},
-                            status=status.HTTP_200_OK)
-        return Response(serializer.errors,
-                        status=status.HTTP_400_BAD_REQUEST)
+        return super().put(request, *args, **kwargs)
 
 
 class ChangePasswordView(APIView):

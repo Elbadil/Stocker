@@ -7,12 +7,16 @@ import {
   Controller,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Select, { SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import toast from 'react-hot-toast';
 import Loader from '../../common/Loader';
-import { customSelectStyles } from '../../utils/form';
+import {
+  customSelectStyles,
+  selectOptionsFromStrings,
+} from '../../utils/form';
 import Default from '../../images/item/default.jpg';
 import { api } from '../../api/axios';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -25,6 +29,10 @@ import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../store/store';
 import { setInventory } from '../../store/slices/inventorySlice';
 import { getUpdatedInventory } from './utils';
+import { useSupplierOrders } from '../../contexts/SupplierOrdersContext';
+import ModalOverlay from '../../components/ModalOverlay';
+import { setSupplierOrders } from '../../store/slices/supplierOrdersSlice';
+import AddSupplier from '../SupplierOrders/Suppliers/AddSupplier';
 
 export interface EditItemProps {
   item: ItemProps;
@@ -55,6 +63,8 @@ const EditItem = ({
 }: EditItemProps) => {
   const { setAlert, isDarkMode } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
+  const [openAddSupplier, setOpenAddSupplier] = useState<boolean>(false);
+
   const {
     register,
     handleSubmit,
@@ -84,19 +94,12 @@ const EditItem = ({
     totalQuantity,
     totalValue,
   } = useInventory();
-  const categoryOptions = categories.names.map((name) => ({
-    value: name,
-    label: name,
-  }));
-  const supplierOptions = suppliers.names.map((name) => ({
-    value: name,
-    label: name,
-  }));
 
-  const variantsOptions = variants.map((name) => ({
-    value: name,
-    label: name,
-  }));
+  const { newSupplier } = useSupplierOrders();
+
+  const categoryOptions = selectOptionsFromStrings(categories.names);
+  const supplierOptions = selectOptionsFromStrings(suppliers.names);
+  const variantsOptions = selectOptionsFromStrings(variants);
 
   const [itemPicture, setItemPicture] = useState<string | null>(null);
   const [pictureModified, setPictureModified] = useState<boolean>(false);
@@ -110,6 +113,28 @@ const EditItem = ({
   const currentValues = watch();
   const currentTextValues = { ...currentValues };
   delete currentTextValues.picture;
+
+  const handleSupplierChange = (
+    onChange: (value: string | null) => void,
+    option: SingleValue<{ value: string; label: string }>,
+  ) => {
+    if (newSupplier) {
+      dispatch((dispatch, getState) => {
+        const { supplierOrders } = getState();
+        dispatch(
+          setSupplierOrders({
+            ...supplierOrders,
+            newSupplier: null,
+          }),
+        );
+      });
+    }
+    if (option) {
+      onChange(option.value);
+    } else {
+      onChange('');
+    }
+  };
 
   const handleFileClear = () => {
     setValue('picture', undefined);
@@ -175,13 +200,13 @@ const EditItem = ({
     formData.append('name', data.name);
     formData.append('price', data.price.toString());
     formData.append('quantity', data.quantity.toString());
-    if (data.category) {
-      formData.append('category', data.category);
+    formData.append('category', data.category || JSON.stringify(null));
+    formData.append('supplier', data.supplier || JSON.stringify(null));
+    if (data.variants.length > 0) {
+      formData.append('variants', JSON.stringify(data.variants));
+    } else {
+      formData.append('variants', JSON.stringify(null));
     }
-    if (data.supplier) {
-      formData.append('supplier', data.supplier);
-    }
-    formData.append('variants', JSON.stringify(data.variants));
     if (data.picture && data.picture?.length > 0) {
       formData.append('picture', data.picture[0]);
     }
@@ -313,6 +338,10 @@ const EditItem = ({
   useEffect(() => {
     itemHasChanges();
   }, [initialValues, currentValues, pictureModified]);
+
+  useEffect(() => {
+    if (newSupplier) setValue('supplier', newSupplier);
+  }, [newSupplier]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
@@ -453,32 +482,45 @@ const EditItem = ({
 
                 {/* Supplier */}
                 <div className="mb-4">
-                  <label
-                    className="mb-2 block text-sm font-medium text-black dark:text-white"
-                    htmlFor="supplier"
-                  >
-                    Supplier
-                  </label>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <label
+                      className="block text-sm font-medium text-black dark:text-white"
+                      htmlFor="supplier_name"
+                    >
+                      Supplier
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setOpenAddSupplier(true)}
+                      className="text-sm font-sm text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                    >
+                      new supplier?
+                    </button>
+                  </div>
+
                   {open && (
                     <Controller
                       name="supplier"
                       control={control}
                       rules={{ required: false }}
                       render={({ field: { value, onChange, ...field } }) => (
-                        <CreatableSelect
+                        <Select
                           {...field}
                           isClearable
                           value={
-                            value
+                            newSupplier
+                              ? { value: newSupplier, label: newSupplier }
+                              : value
                               ? supplierOptions.find(
                                   (option) => option.value === value,
                                 )
                               : null
                           }
-                          onChange={(option) => onChange(option?.value || null)}
+                          onChange={(option) =>
+                            handleSupplierChange(onChange, option)
+                          }
                           options={supplierOptions}
                           styles={customSelectStyles(isDarkMode)}
-                          placeholder={<div>Create or Select...</div>}
                         />
                       )}
                     />
@@ -710,6 +752,13 @@ const EditItem = ({
               </button>
             </div>
           </form>
+          {/* Add Supplier Form Modal */}
+          <ModalOverlay
+            isOpen={openAddSupplier}
+            onClose={() => setOpenAddSupplier(false)}
+          >
+            <AddSupplier open={openAddSupplier} setOpen={setOpenAddSupplier} />
+          </ModalOverlay>
         </>
       )}
     </div>

@@ -15,7 +15,7 @@ export interface SupplierProps {
   name: string;
   phone_number?: string | null;
   email?: string | null;
-  location?: Location;
+  location: Location | null;
   total_orders: number;
   created_at: string;
   updated_at: string;

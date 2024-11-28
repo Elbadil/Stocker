@@ -6,6 +6,11 @@ from django.db.models import Q, CharField
 from django.db.models.functions import Cast
 from utils.tokens import Token
 from utils.views import CreatedByUserMixin
+from utils.order_status import (DELIVERY_STATUS_OPTIONS,
+                                PAYMENT_STATUS_OPTIONS,
+                                COMPLETED_STATUS,
+                                ACTIVE_STATUS,
+                                FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from .utils import reset_client_ordered_items
 from . import serializers
@@ -13,8 +18,7 @@ from .models import (Client,
                      ClientOrder,
                      Country,
                      City,
-                     AcquisitionSource,
-                     OrderStatus)
+                     AcquisitionSource)
 
 
 class CreateListClient(CreatedByUserMixin,
@@ -243,16 +247,20 @@ class GetClientOrdersData(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
+       
         # Clients
         clients = list(Client.objects.filter(created_by=user).values_list('name', flat=True))
+       
         # Orders Count
         orders_count = ClientOrder.objects.filter(created_by=user).count()
+       
         # Countries and Cities
         countries = []
         for country in Country.objects.all():
             countries.append(
                 {'name': country.name,
                 'cities': [city.name for city in country.cities.all()]})
+       
         # Sources of Acquisition
         acq_sources = list(
             AcquisitionSource.objects
@@ -261,43 +269,36 @@ class GetClientOrdersData(generics.GenericAPIView):
             .values_list('name', flat=True)
         )
 
-        # Status Names
-        delivery_status = ['Pending', 'Shipped', 'Delivered', 'Canceled', 'Returned', 'Failed']
-        payment_status = ['Pending', 'Paid', 'Failed', 'Refunded']
-
         # Completed orders
-        completed_status = ['Paid', 'Delivered']
         completed_orders = (
             ClientOrder.objects
             .filter(
                 created_by=user,
-                delivery_status__name__in=completed_status)
+                delivery_status__name__in=COMPLETED_STATUS)
             .count()
         )
 
         # Active Orders
-        active_status = ['Pending', 'Shipped']
         active_orders = (
             ClientOrder.objects
             .filter(
                 created_by=user,
-                delivery_status__name__in=active_status)
+                delivery_status__name__in=ACTIVE_STATUS)
             .count()
         )
 
         # Failed Orders
-        failed_status = ['Canceled', 'Failed', 'Refunded', 'Returned']
         failed_orders = (
             ClientOrder.objects
             .filter(
                 created_by=user,
-                delivery_status__name__in=failed_status)
+                delivery_status__name__in=FAILED_STATUS)
             .count()
         )
 
         # Orders Status
-        orders_status = {'delivery_status': delivery_status,
-                         'payment_status': payment_status,
+        orders_status = {'delivery_status': DELIVERY_STATUS_OPTIONS,
+                         'payment_status': PAYMENT_STATUS_OPTIONS,
                          'active': active_orders,
                          'completed': completed_orders,
                          'failed': failed_orders}

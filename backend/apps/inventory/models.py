@@ -37,7 +37,8 @@ class Item(BaseModel):
     """Item Model"""
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='items')
     name = models.CharField(max_length=300, blank=False)
     quantity = models.IntegerField(blank=False)
     price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)

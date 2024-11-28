@@ -2,9 +2,15 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import CharField
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import Cast
 from utils.tokens import Token
 from utils.views import CreatedByUserMixin
+from utils.order_status import (DELIVERY_STATUS_OPTIONS,
+                                PAYMENT_STATUS_OPTIONS,
+                                COMPLETED_STATUS,
+                                ACTIVE_STATUS,
+                                FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Supplier, SupplierOrder
@@ -156,13 +162,52 @@ class GetSupplierOrdersData(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        suppliers = Supplier.objects.filter(created_by=user)\
-                                    .values_list('name', flat=True)
+
+        suppliers = (
+            Supplier.objects
+            .filter(created_by=user)
+            .annotate(items_names=ArrayAgg('items__name'))
+            .values('name', 'items_names')
+        )
+
         orders_count = SupplierOrder.objects.filter(created_by=user).count()
 
-        return Response({'suppliers': {
-                            'count': suppliers.count(),
-                            'names': suppliers
-                        },
-                        'orders_count': orders_count},
-                        status=status.HTTP_200_OK)
+        # Completed orders
+        completed_orders = (
+            SupplierOrder.objects
+            .filter(
+                created_by=user,
+                delivery_status__name__in=COMPLETED_STATUS)
+            .count()
+        )
+
+        # Active Orders
+        active_orders = (
+            SupplierOrder.objects
+            .filter(
+                created_by=user,
+                delivery_status__name__in=ACTIVE_STATUS)
+            .count()
+        )
+
+        # Failed Orders
+        failed_orders = (
+            SupplierOrder.objects
+            .filter(
+                created_by=user,
+                delivery_status__name__in=FAILED_STATUS)
+            .count()
+        )
+
+        # Orders Status
+        orders_status = {'delivery_status': DELIVERY_STATUS_OPTIONS,
+                         'payment_status': PAYMENT_STATUS_OPTIONS,
+                         'active': active_orders,
+                         'completed': completed_orders,
+                         'failed': failed_orders}
+
+        return Response({'suppliers': suppliers,
+                         'suppliers_count': suppliers.count(),
+                         'orders_count': orders_count,
+                         'order_status': orders_status},
+                         status=status.HTTP_200_OK)

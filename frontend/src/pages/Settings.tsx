@@ -5,9 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import ClipLoader from 'react-spinners/ClipLoader';
 import toast from 'react-hot-toast';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
-import {
-  requiredStringField,
-} from '../utils/form';
+import { requiredStringField, optionalStringField } from '../utils/form';
 import { api } from '../api/axios';
 import DefaultPfp from '../images/user/default.jpg';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +17,7 @@ const infoSchema = z.object({
   username: requiredStringField('Username'),
   first_name: requiredStringField('First name'),
   last_name: requiredStringField('Last name'),
-  bio: z.string().optional(),
+  bio: optionalStringField(),
   avatar: z.instanceof(FileList).optional(),
 });
 
@@ -111,9 +109,7 @@ const Settings = () => {
     formData.append('username', data.username);
     formData.append('first_name', data.first_name);
     formData.append('last_name', data.last_name);
-    if (data.bio) {
-      formData.append('bio', data.bio);
-    }
+    formData.append('bio', data.bio || JSON.stringify(null));
     if (data.avatar && data.avatar?.length > 0) {
       formData.append('avatar', data.avatar[0]);
     } else if (!data.avatar && !avatar) {
@@ -123,7 +119,15 @@ const Settings = () => {
       const res = await api.put(`/auth/user/`, formData, {
         headers: { 'Content-type': 'multipart/form-data' },
       });
-      dispatch(setUser(res.data));
+      dispatch((dispatch, getState) => {
+        const { auth } = getState();
+        dispatch(
+          setUser({
+            ...auth,
+            user: res.data,
+          }),
+        );
+      });
       toast.success('Your profile has been successfully updated!', {
         duration: 5000,
       });
@@ -201,6 +205,7 @@ const Settings = () => {
         if (user.avatar) setAvatar(user.avatar);
         const formData = {
           ...user,
+          bio: user.bio === null ? '' : user.bio,
           avatar:
             typeof user.avatar === 'string' || !user.avatar
               ? undefined

@@ -14,36 +14,20 @@ export const ClientOrdersProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { pathname } = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const {
-    clients,
-    newClient,
-    countries,
-    ordersCount,
-    orderStatus,
-    acqSources,
-    loading,
-    error,
-  } = useSelector((state: RootState) => state.clientOrders);
+  const clientOrders = useSelector((state: RootState) => state.clientOrders);
 
   useEffect(() => {
-    if (pathname.startsWith('/client') || pathname.startsWith('/supplier')) {
+    if (
+      pathname.startsWith('/client') ||
+      pathname.startsWith('/supplier') ||
+      pathname.startsWith('/inventory')
+    ) {
       dispatch(getClientOrdersData());
     }
   }, [dispatch, pathname]);
 
   return (
-    <ClientOrdersContext.Provider
-      value={{
-        clients,
-        newClient,
-        countries,
-        ordersCount,
-        orderStatus,
-        acqSources,
-        loading,
-        error,
-      }}
-    >
+    <ClientOrdersContext.Provider value={clientOrders}>
       {children}
     </ClientOrdersContext.Provider>
   );

@@ -94,6 +94,12 @@ const Clients = () => {
       minWidth: 165,
     },
     {
+      field: 'source',
+      headerName: 'Source',
+      flex: 2,
+      minWidth: 130,
+    },
+    {
       field: 'created_at',
       headerName: 'Created',
       filter: 'agDateColumnFilter',

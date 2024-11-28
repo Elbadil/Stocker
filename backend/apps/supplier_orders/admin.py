@@ -3,7 +3,7 @@ from .models import Supplier, SupplierOrder, SupplierOrderedItem
 
 
 class SupplierAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'total_orders']
+    list_display = ['id', 'name', 'total_orders', 'total_items']
 
 
 class SupplierOrderedItemAdmin(admin.ModelAdmin):
