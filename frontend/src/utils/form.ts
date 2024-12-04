@@ -69,6 +69,15 @@ export const areFieldsFilled = (fields: FormValues) => {
   return Object.values(fields).every((value) => value.trim() !== '');
 };
 
+export const areFieldsEmpty = (object: { [key: string]: string | number }) =>
+  Object.values(object).every(
+    (value) =>
+      value === null ||
+      value === undefined ||
+      (typeof value === 'string' && value.trim() === '') ||
+      value === '',
+  );
+
 export const minLengthWithMessage = (minValue: number, fieldName: string) =>
   z
     .string()
@@ -187,6 +196,18 @@ export const selectOptionsFromStrings = (options: string[]) =>
 export const selectOptionsFromObjects = (
   options: { name: string; [key: string]: any }[],
 ) => options.map((option) => ({ value: option.name, label: option.name }));
+
+export const statusType = (status: string) => {
+  const completedStatus = ['Paid', 'Delivered'];
+  const activeStatus = ['Pending', 'Shipped'];
+  if (completedStatus.includes(status)) {
+    return 'completed';
+  } else if (activeStatus.includes(status)) {
+    return 'active';
+  }
+  return 'failed';
+};
+
 
 export const customSelectStyles = (isDarkMode: boolean) => ({
   control: (provided: CSSObject, state: any) => ({

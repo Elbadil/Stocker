@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import CharField
+from django.db.models import CharField, Q
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import Cast
 from utils.tokens import Token
@@ -12,6 +12,7 @@ from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 ACTIVE_STATUS,
                                 FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
+from ..inventory.models import Item
 from . import serializers
 from .models import Supplier, SupplierOrder
 
@@ -163,13 +164,29 @@ class GetSupplierOrdersData(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         user = request.user
 
+        # Supplier with their linked items
         suppliers = (
             Supplier.objects
             .filter(created_by=user)
-            .annotate(items_names=ArrayAgg('items__name'))
-            .values('name', 'items_names')
+            .annotate(
+                item_names=ArrayAgg(
+                    'items__name',
+                    filter=Q(items__name__isnull=False))
+                )
+            .values('name', 'item_names')
         )
 
+        # Item without supplier
+        no_supplier_items = (
+            Item.objects
+            .filter(
+                created_by=user,
+                supplier=None
+            )
+            .values_list('name', flat=True)
+        )
+
+        # Total supplier orders count
         orders_count = SupplierOrder.objects.filter(created_by=user).count()
 
         # Completed orders
@@ -207,6 +224,7 @@ class GetSupplierOrdersData(generics.GenericAPIView):
                          'failed': failed_orders}
 
         return Response({'suppliers': suppliers,
+                         'no_supplier_items': no_supplier_items,
                          'suppliers_count': suppliers.count(),
                          'orders_count': orders_count,
                          'order_status': orders_status},

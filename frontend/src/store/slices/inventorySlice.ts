@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../../api/axios';
 
 export interface inventoryState {
-  items: { name: string; quantity: number, ordered: boolean}[];
+  items: { name: string; quantity: number; ordered: boolean }[];
   totalValue: number;
   totalQuantity: number;
   totalItems: number;
@@ -51,7 +51,7 @@ const inventorySlice = createSlice({
   reducers: {
     setInventory(state, { payload }) {
       state.items = payload.items.map(
-        (item: { name: string; quantity: number, ordered: boolean }) => ({
+        (item: { name: string; quantity: number; ordered: boolean }) => ({
           name: item.name,
           quantity: item.quantity,
           ordered: item.ordered,
@@ -80,7 +80,7 @@ const inventorySlice = createSlice({
       })
       .addCase(getInventoryData.fulfilled, (state, { payload }) => {
         state.items = payload.items.map(
-          (item: { name: string; quantity: number, ordered: boolean }) => ({
+          (item: { name: string; quantity: number; ordered: boolean }) => ({
             name: item.name,
             quantity: item.quantity,
             ordered: item.ordered,

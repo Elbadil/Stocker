@@ -76,15 +76,10 @@ interface AddItemProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setRowData?: React.Dispatch<React.SetStateAction<ItemProps[]>>;
-  fromSupplierOrder?: boolean;
+  supplier?: string;
 }
 
-const AddItem = ({
-  open,
-  setOpen,
-  setRowData,
-  fromSupplierOrder,
-}: AddItemProps) => {
+const AddItem = ({ open, setOpen, setRowData, supplier }: AddItemProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { setAlert, isDarkMode } = useAlert();
   const [openAddSupplier, setOpenAddSupplier] = useState<boolean>(false);
@@ -205,9 +200,11 @@ const AddItem = ({
     }
   };
 
-  const updateSuppliersState = (newItem: ItemProps) => {
+  const updateSupplierItemState = (newItem: ItemProps) => {
+    const { name, quantity, price } = newItem;
+
     dispatch((dispatch, getState) => {
-      const { supplierOrders } = getState();
+      const { supplierOrders, inventory } = getState();
       const updatedSuppliers = suppliers.map((supplier) =>
         supplier.name === newItem.supplier
           ? {
@@ -221,6 +218,11 @@ const AddItem = ({
         setSupplierOrders({
           ...supplierOrders,
           suppliers: updatedSuppliers,
+          newOrderedItem: {
+            item: name,
+            ordered_quantity: quantity,
+            ordered_price: price,
+          },
         }),
       );
     });
@@ -243,7 +245,8 @@ const AddItem = ({
     if (data.picture && data.picture?.length > 0) {
       formData.append('picture', data.picture[0]);
     }
-    if (fromSupplierOrder) {
+    if (supplier) {
+      formData.append('supplier', supplier);
       formData.append('in_inventory', 'false');
     } else {
       formData.append('in_inventory', 'true');
@@ -277,8 +280,8 @@ const AddItem = ({
         );
       });
 
-      if (data.supplier) {
-        updateSuppliersState(newItem);
+      if (supplier) {
+        updateSupplierItemState(newItem);
       }
 
       if (setRowData) {
@@ -362,6 +365,18 @@ const AddItem = ({
             <div className="max-w-full overflow-y-auto max-h-[80vh] flex flex-col">
               <div className="p-6">
                 {/* Name */}
+                {supplier && (
+                  <div className="mb-4 text-sm text-black dark:text-slate-300">
+                    <div className="mb-2">
+                      * The item will be created with '{supplier}' as its
+                      associated supplier.
+                    </div>
+                    <div>
+                      * The item will not be added to the inventory until the
+                      supplier order is marked as delivered.
+                    </div>
+                  </div>
+                )}
                 <div className="mb-4">
                   <label
                     className="mb-2 block text-sm font-medium text-black dark:text-white"
@@ -469,7 +484,7 @@ const AddItem = ({
                 </div>
 
                 {/* Supplier */}
-                {!fromSupplierOrder && (
+                {!supplier && (
                   <div className="mb-4">
                     <div className="flex items-center gap-2.5 mb-2">
                       <label

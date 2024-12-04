@@ -38,17 +38,6 @@ export const findCountryAndSetCitiesForOrder = (
   }
 };
 
-export const statusType = (status: string) => {
-  const completedStatus = ['Paid', 'Delivered'];
-  const activeStatus = ['Pending', 'Shipped'];
-  if (completedStatus.includes(status)) {
-    return 'completed';
-  } else if (activeStatus.includes(status)) {
-    return 'active';
-  }
-  return 'failed';
-};
-
 export const orderedItemsDataFlattener = (order: ClientOrderProps) => {
   return order.ordered_items.reduce<FlattenedOrderedItems>(
     (acc, orderedItem, index) => {

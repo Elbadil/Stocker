@@ -110,6 +110,18 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def validate(self, attrs):
+        item_name = attrs['item']
+        supplier = attrs['supplier']
+
+        item = Item.objects.filter(name__iexact=item_name).first()
+        if item.supplier and item.supplier != supplier:
+            raise serializers.ValidationError(
+                {'item': f"Item '{item_name}' is associated with another supplier"}
+            )
+
+        return attrs
+
     @transaction.atomic
     def create(self, validated_data):
         user = self.context['request'].user
@@ -125,6 +137,11 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
                 'price': validated_data['ordered_price'],
             }
         )
+
+        if not created and item.supplier is None:
+            item.supplier = validated_data['supplier']
+            item.save()
+
         return SupplierOrderedItem.objects.create(created_by=user,
                                                   item=item,
                                                   **validated_data)

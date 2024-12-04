@@ -32,8 +32,6 @@ class Supplier(BaseModel):
         return self.orders.all().count()
 
     def __str__(self) -> str:
-        if self.created_by:
-            return f'Supplier: -{self.name}- Added by -{self.created_by.username}-'
         return self.name
 
 
@@ -74,7 +72,7 @@ class SupplierOrder(BaseModel):
         return sum(item.total_price for item in self.items)
 
     def __str__(self) -> str:
-        return f'Order from {self.supplier.name}'
+        return self.reference_id
 
 
 class SupplierOrderedItem(BaseModel):
@@ -100,5 +98,4 @@ class SupplierOrderedItem(BaseModel):
         return self.ordered_quantity * self.ordered_price
 
     def __str__(self) -> str:
-        return (f'{self.created_by.username} ordered {self.ordered_quantity} '
-                f'of {self.item.name} from {self.order.supplier.name}')
+        return self.item.name

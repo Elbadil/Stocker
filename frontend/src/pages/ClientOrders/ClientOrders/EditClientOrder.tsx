@@ -16,6 +16,7 @@ import {
   customSelectStyles,
   selectOptionsFromStrings,
   selectOptionsFromObjects,
+  statusType,
 } from '../../../utils/form';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import AddClient from '../Clients/AddClient';
@@ -33,7 +34,7 @@ import { ClientOrderProps } from './ClientOrder';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
-import { findCountryAndSetCitiesForOrder, statusType } from './utils';
+import { findCountryAndSetCitiesForOrder } from './utils';
 import { api } from '../../../api/axios';
 import toast from 'react-hot-toast';
 

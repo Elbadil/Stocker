@@ -10,16 +10,21 @@ class ItemAdmin(admin.ModelAdmin):
         'total_client_orders',
         'total_supplier_orders',
         'in_inventory',
+        'supplier',
         'created_by'
     ]
 
-    @admin.display(description='Client Orders')
+    @admin.display(description='C. Orders')
     def total_client_orders(self, obj):
         return obj.total_client_orders
 
-    @admin.display(description='Supplier Orders')
+    @admin.display(description='S. Orders')
     def total_supplier_orders(self, obj):
         return obj.total_supplier_orders
+
+    @admin.display(ordering='supplier__name', description='Supplier')
+    def supplier(self, obj):
+        return obj.supplier.name
 
     @admin.display(ordering='created_by__username', description='Created By')
     def created_by(self, obj):

@@ -9,7 +9,7 @@ import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { useInventory } from '../../../contexts/InventoryContext';
-import { statusType } from './utils';
+import { statusType } from '../../../utils/form';
 
 interface DeleteClientOrderProps {
   open: boolean;
@@ -38,7 +38,7 @@ const DeleteClientOrder = ({
   const ordersSummary = {
     ids: orders.map((order) => order.id),
     orderedItemsGrouped: orders.map((order) => order.ordered_items),
-    status: orders.map((order) => order.status),
+    delivery_status: orders.map((order) => order.delivery_status),
 
     flattenedOrderedItems() {
       const orderedItemsMap = new Map();
@@ -73,7 +73,7 @@ const DeleteClientOrder = ({
 
   const updateOrderStatusState = () => {
     const newOrderStatus = structuredClone(orderStatus);
-    ordersSummary.status.forEach((status) => {
+    ordersSummary.delivery_status.forEach((status) => {
       const delStatusType = statusType(status);
       newOrderStatus[delStatusType] = newOrderStatus[delStatusType] - 1;
     });

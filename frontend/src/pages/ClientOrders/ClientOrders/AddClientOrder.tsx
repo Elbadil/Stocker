@@ -24,6 +24,7 @@ import {
   selectOptionsFromObjects,
   optionalStringField,
   optionalNumberField,
+  statusType,
 } from '../../../utils/form';
 import { useClientOrders } from '../../../contexts/ClientOrdersContext';
 import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
@@ -34,7 +35,7 @@ import { useInventory } from '../../../contexts/InventoryContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { AppDispatch } from '../../../store/store';
 import { ClientOrderProps } from './ClientOrder';
-import { findCountryAndSetCitiesForOrder, statusType } from './utils';
+import { findCountryAndSetCitiesForOrder } from './utils';
 
 export const schema = z.object({
   client: requiredStringField('Client'),

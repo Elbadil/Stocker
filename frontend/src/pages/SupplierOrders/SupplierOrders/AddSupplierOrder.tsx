@@ -26,10 +26,14 @@ import {
   customSelectStyles,
   selectOptionsFromObjects,
   selectOptionsFromStrings,
+  areFieldsEmpty,
+  statusType,
 } from '../../../utils/form';
-import { useInventory } from '../../../contexts/InventoryContext';
+import { SelectOption } from '../../../types/form';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
+import { api } from '../../../api/axios';
+import { _removeAriaExpanded } from '@ag-grid-community/core';
 
 export const schema = z.object({
   supplier: requiredStringField('Supplier'),
@@ -53,8 +57,14 @@ interface AddSupplierOrder {
 const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
   const { isDarkMode, setAlert } = useAlert();
   const dispatch = useDispatch<AppDispatch>();
-  const { suppliers, orderStatus, newSupplier } = useSupplierOrders();
-  const { items } = useInventory();
+  const {
+    suppliers,
+    orderStatus,
+    ordersCount,
+    newSupplier,
+    noSupplierItems,
+    newOrderedItem,
+  } = useSupplierOrders();
   const [openAddSupplier, setOpenAddSupplier] = useState<boolean>(false);
   const [openAddItem, setOpenAddItem] = useState<boolean>(false);
 
@@ -69,6 +79,7 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
     control,
     setError,
     setValue,
+    getValues,
     handleSubmit,
     clearErrors,
     reset,
@@ -90,36 +101,84 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
     name: 'ordered_items',
   });
 
-  const currentValues = watch();
+  const currentSupplier = watch('supplier');
+  const currentDeliveryStatus = watch('delivery_status');
+  const suppliersMap = new Map(
+    suppliers.map((supplier) => [supplier.name, supplier.item_names]),
+  );
 
-  const itemOptions = selectOptionsFromObjects(items);
+  const noSupplierItemsOptions = selectOptionsFromStrings(noSupplierItems);
+  const paymentStatusOptions = selectOptionsFromStrings(
+    orderStatus.payment_status,
+  );
+  const [itemOptions, setItemOptions] = useState<SelectOption[]>(
+    noSupplierItemsOptions,
+  );
   const supplierOptions = selectOptionsFromObjects(suppliers);
   const deliveryStatusOptions = selectOptionsFromStrings(
     orderStatus.delivery_status,
   );
-  const paymentStatusOptions = selectOptionsFromStrings(
-    orderStatus.payment_status,
-  );
+
+  const getSupplierAndSetItems = (supplier: string) => {
+    const supplierItems = suppliersMap.get(supplier);
+    let availableItems: string[];
+    if (supplierItems) {
+      availableItems = supplierItems.concat(noSupplierItems);
+    } else {
+      availableItems = noSupplierItems;
+    }
+    const supplierItemsOptions = selectOptionsFromStrings(availableItems);
+    setItemOptions(supplierItemsOptions);
+  };
+
+  const resetNewSupplier = () => {
+    dispatch((dispatch, getState) => {
+      const { supplierOrders } = getState();
+      dispatch(
+        setSupplierOrders({
+          ...supplierOrders,
+          newSupplier: null,
+        }),
+      );
+    });
+  };
+
+  const filterSupplierItems = (currentSupplier: string) => {
+    const supplierItems = new Set([
+      ...noSupplierItems,
+      ...(suppliersMap.get(currentSupplier) || []),
+    ]);
+
+    const currentItemFields = getValues(`ordered_items`);
+
+    const filteredItemFields = currentItemFields.filter(
+      (field) => field && field.item && supplierItems.has(field.item),
+    );
+
+    if (filteredItemFields.length === 0) {
+      setValue('ordered_items', [emptyItem as SupplierOrderedItemSchema]);
+    } else {
+      setValue('ordered_items', filteredItemFields);
+    }
+  };
 
   const handleSupplierChange = (
     onChange: (value: string | null) => void,
     option: SingleValue<{ value: string; label: string }>,
   ) => {
+    // reset newSupplier if any
     if (newSupplier) {
-      dispatch((dispatch, getState) => {
-        const { supplierOrders } = getState();
-        dispatch(
-          setSupplierOrders({
-            ...supplierOrders,
-            newSupplier: null,
-          }),
-        );
-      });
+      resetNewSupplier();
     }
+
+    // Change value, filter ordered items fields and set Item options
     if (option) {
       onChange(option.value);
+      filterSupplierItems(option.value);
+      getSupplierAndSetItems(option.value);
     } else {
       onChange('');
+      setItemOptions(noSupplierItemsOptions);
     }
   };
 
@@ -136,8 +195,75 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
     clearErrors(`ordered_items.${index}`);
   };
 
-  const onSubmit: SubmitHandler<SupplierOrderSchema> = (data) => {
-    console.log(data);
+  const addNewOrderedItemField = (
+    newOrderedItem: SupplierOrderedItemSchema,
+  ) => {
+    if (!newOrderedItem) return;
+
+    const fieldUpdated = fields.some((_, index) => {
+      const currentItemFields = getValues(`ordered_items.${index}`);
+      if (areFieldsEmpty(currentItemFields)) {
+        setValue(`ordered_items.${index}`, newOrderedItem);
+        return true; // Stop iterating once a field is updated
+      }
+      return false; // Continue checking other fields
+    });
+    if (!fieldUpdated) {
+      append(newOrderedItem);
+    }
+  };
+
+  const resetNewOrderedItem = () => {
+    dispatch((dispatch, getState) => {
+      const { supplierOrders } = getState();
+      dispatch(
+        setSupplierOrders({
+          ...supplierOrders,
+          newOrderedItem: null,
+        }),
+      );
+    });
+  };
+
+  const updateOrderStatusState = (newSupplierOrder: SupplierOrderProps) => {
+    const orderStatusType = statusType(newSupplierOrder.delivery_status);
+    return {
+      ...orderStatus,
+      [orderStatusType]: orderStatus[orderStatusType] + 1,
+    };
+  };
+
+  const onSubmit: SubmitHandler<SupplierOrderSchema> = async (data) => {
+    try {
+      const res = await api.post('/supplier_orders/orders/', data);
+      const newOrder = res.data;
+      // Add new order to rowData
+      setRowData((prev) => [newOrder, ...prev]);
+      // Update supplierOrders state
+      dispatch((dispatch, getState) => {
+        const { supplierOrders } = getState();
+        dispatch(
+          setSupplierOrders({
+            ...supplierOrders,
+            ordersCount: ordersCount + 1,
+            orderStatus: updateOrderStatusState(newOrder),
+          }),
+        );
+      });
+      // Set and display success Alert
+      setAlert({
+        type: 'success',
+        title: 'New Order Created',
+        description: `Order ${newOrder.reference_id} from ${newOrder.supplier} has been successfully added.`,
+      });
+      // Close Add Supplier Order Modal
+      setOpen(false);
+    } catch (error: any) {
+      console.log('Error during form submission', error);
+      setError('root', {
+        message: 'Something went wrong, please try again later',
+      });
+    }
   };
 
   useEffect(() => {
@@ -147,6 +273,19 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
   useEffect(() => {
     if (newSupplier) setValue('supplier', newSupplier);
   }, [newSupplier]);
+
+  useEffect(() => {
+    // Add new item to the current supplier's items options
+    if (currentSupplier) {
+      getSupplierAndSetItems(currentSupplier);
+    }
+
+    // Handle new Ordered Item field addition
+    if (newOrderedItem) {
+      addNewOrderedItemField(newOrderedItem);
+      resetNewOrderedItem();
+    }
+  }, [openAddItem]);
 
   return (
     <div className="mx-auto max-w-md border rounded-md border-stroke bg-white shadow-default dark:border-slate-700 dark:bg-boxdark">
@@ -238,9 +377,9 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
                   <button
                     type="button"
                     onClick={() => setOpenAddItem(true)}
-                    disabled={!currentValues.supplier}
+                    disabled={!currentSupplier}
                     className={`text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline ${
-                      !currentValues.supplier && 'cursor-not-allowed'
+                      !currentSupplier && 'cursor-not-allowed'
                     }`}
                   >
                     new item?{' '}
@@ -249,6 +388,13 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
                     select a supplier first
                   </span>
                 </div>
+              </div>
+              {/* Ordered Items Note */}
+              <div className="text-sm mb-2.5 text-black dark:text-slate-300">
+                * Note: You can select items already linked to this supplier,
+                items without a supplier (their supplier will be set to this
+                order's supplier after the order is placed), or create a new
+                item to add it to the item options.
               </div>
               {/* Ordered Items Fields List */}
               {fields.map((field, index) => (
@@ -289,6 +435,11 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
                                 }
                                 onChange={(option) =>
                                   handleItemChange(onChange, option, index)
+                                }
+                                noOptionsMessage={() =>
+                                  currentSupplier
+                                    ? 'No existing items for the selected supplier, please create new ones'
+                                    : 'Select a supplier to get items suggestions'
                                 }
                                 options={itemOptions}
                                 styles={customSelectStyles(isDarkMode)}
@@ -406,6 +557,35 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
                   />
                 )}
               </div>
+              {/* 'Delivered' delivery status note */}
+              {!errors.delivery_status &&
+                currentDeliveryStatus === 'Delivered' && (
+                  <div className="mt-2.5 p-2 text-sm text-yellow-600 dark:text-yellow-500 rounded border-l-4 border-yellow-500">
+                    <p className="font-semibold">Important:</p>
+                    <p>
+                      Once you submit the order with the delivery status set to
+                      <strong> "Delivered"</strong>, the following will occur:
+                    </p>
+                    <ul className="ml-4 list-disc">
+                      <li>
+                        Ordered items will be added to the inventory if they are
+                        not already present.
+                      </li>
+                      <li>
+                        If an item already exists in the inventory, its quantity
+                        will be updated, and the average price will be
+                        recalculated.
+                      </li>
+                    </ul>
+                    <p className="mt-2">
+                      Additionally, you will no longer be able to modify the
+                      <strong> supplier</strong> or{' '}
+                      <strong>ordered items</strong> fields. Please ensure all
+                      details are correct before submitting.
+                    </p>
+                  </div>
+                )}
+
               {errors.delivery_status && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
                   {errors.delivery_status.message}
@@ -526,13 +706,18 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
       </ModalOverlay>
 
       {/* Add Item Form Modal */}
-      <ModalOverlay isOpen={openAddItem} onClose={() => setOpenAddItem(false)}>
-        <AddItem
-          open={openAddItem}
-          setOpen={setOpenAddItem}
-          fromSupplierOrder={true}
-        />
-      </ModalOverlay>
+      {currentSupplier && (
+        <ModalOverlay
+          isOpen={openAddItem}
+          onClose={() => setOpenAddItem(false)}
+        >
+          <AddItem
+            open={openAddItem}
+            setOpen={setOpenAddItem}
+            supplier={currentSupplier}
+          />
+        </ModalOverlay>
+      )}
     </div>
   );
 };
