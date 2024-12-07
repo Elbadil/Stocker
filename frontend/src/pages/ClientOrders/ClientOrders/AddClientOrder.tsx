@@ -35,7 +35,7 @@ import { useInventory } from '../../../contexts/InventoryContext';
 import { setInventory } from '../../../store/slices/inventorySlice';
 import { AppDispatch } from '../../../store/store';
 import { ClientOrderProps } from './ClientOrder';
-import { findCountryAndSetCitiesForOrder } from './utils';
+import { findCountryAndSetCitiesForOrder, resetNewClient } from './utils';
 
 export const schema = z.object({
   client: requiredStringField('Client'),
@@ -129,15 +129,7 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
   ) => {
     console.log('Changing the client');
     if (newClient) {
-      dispatch((dispatch, getState) => {
-        const { clientOrders } = getState();
-        dispatch(
-          setClientOrders({
-            ...clientOrders,
-            newClient: null,
-          }),
-        );
-      });
+      resetNewClient();
     }
     if (option) {
       onChange(option.value);
@@ -288,7 +280,10 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
         <div>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              resetNewClient();
+            }}
             aria-hidden={true}
           >
             <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
@@ -420,7 +415,7 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
                         )}
                       </div>
                       {/* Delete Item Field */}
-                      {index >= 1 && (
+                      {fields.length > 1 && (
                         <div>
                           <button
                             type="button"

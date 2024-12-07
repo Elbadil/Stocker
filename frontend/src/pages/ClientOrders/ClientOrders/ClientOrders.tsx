@@ -279,7 +279,7 @@ const ClientOrders = () => {
   }, []);
 
   useEffect(() => {
-    if (openEditOrder) getAndSetSelectRows();
+    if (selectedRows) getAndSetSelectRows();
   }, [openEditOrder]);
 
   return (

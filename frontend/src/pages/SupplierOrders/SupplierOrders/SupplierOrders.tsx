@@ -28,6 +28,7 @@ import {
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { api } from '../../../api/axios';
 import AddSupplierOrder from './AddSupplierOrder';
+import EditSupplierOrder from './EditSupplierOrder';
 
 export interface SupplierOrderedItem {
   id: string;
@@ -255,6 +256,10 @@ const SupplierOrders = () => {
     setSelectedRows(selectedOrders);
   };
 
+  const getRowNode = (rowId: string) => {
+    return gridRef.current?.api.getRowNode(rowId);
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setOrdersLoading(true);
@@ -270,6 +275,10 @@ const SupplierOrders = () => {
 
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedRows) getAndSetSelectRows();
+  }, [openEditOrder])
 
   return (
     <>
@@ -407,14 +416,13 @@ const SupplierOrders = () => {
                           isOpen={openEditOrder}
                           onClose={() => setOpenEditOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <EditClientOrder
+                          <EditSupplierOrder
+                            supplierOrder={selectedRows[0]}
                             open={openEditOrder}
                             setOpen={setOpenEditOrder}
-                            order={selectedRows[0]}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Add Order */}

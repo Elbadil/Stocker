@@ -34,7 +34,7 @@ import { ClientOrderProps } from './ClientOrder';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
-import { findCountryAndSetCitiesForOrder } from './utils';
+import { findCountryAndSetCitiesForOrder, resetNewClient } from './utils';
 import { api } from '../../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -112,15 +112,7 @@ const EditClientOrder = ({
     option: SingleValue<{ value: string; label: string }>,
   ) => {
     if (newClient) {
-      dispatch((dispatch, getState) => {
-        const { clientOrders } = getState();
-        dispatch(
-          setClientOrders({
-            ...clientOrders,
-            newClient: null,
-          }),
-        );
-      });
+      resetNewClient();
     }
     if (option) {
       onChange(option.value);
@@ -411,7 +403,10 @@ const EditClientOrder = ({
         <div>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              resetNewClient();
+            }}
             aria-hidden={true}
           >
             <span className="text-slate-400 hover:text-slate-700 dark:text-white dark:hover:text-slate-300">
@@ -543,7 +538,7 @@ const EditClientOrder = ({
                         )}
                       </div>
                       {/* Delete Item Field */}
-                      {index >= 1 && (
+                      {fields.length > 1 && (
                         <div>
                           <button
                             type="button"
@@ -617,8 +612,8 @@ const EditClientOrder = ({
                 </div>
               ))}
             </div>
-                        {/* Delivery Status */}
-                        <div className="mb-3 pb-4 border-b border-stroke dark:border-slate-600">
+            {/* Delivery Status */}
+            <div className="mb-3 pb-4 border-b border-stroke dark:border-slate-600">
               <label
                 className="block mb-2 text-base font-medium text-black dark:text-white"
                 htmlFor="status"

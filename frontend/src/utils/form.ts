@@ -208,18 +208,26 @@ export const statusType = (status: string) => {
   return 'failed';
 };
 
-
 export const customSelectStyles = (isDarkMode: boolean) => ({
   control: (provided: CSSObject, state: any) => ({
     ...provided,
     backgroundColor: isDarkMode ? '#313d4a' : '#eff4fb', // Background changes based on mode
     padding: '0.12rem 0.3rem',
-    borderColor: state.isFocused
+    borderColor: state.isDisabled
+      ? isDarkMode
+        ? '#4b5563' // Dark mode disabled border
+        : '#d1d5db' // Light mode disabled border
+      : state.isFocused
       ? '#3c50e0'
       : isDarkMode
       ? '#5a6b7f'
-      : '#e2e8f0', // Border changes on focus or mode
-    boxShadow: state.isFocused ? '0 0 0 1px #3c50e0' : 'none', // Add focus styling
+      : '#e2e8f0', // Normal border changes on focus or mode
+    boxShadow: state.isDisabled
+      ? 'none'
+      : state.isFocused
+      ? '0 0 0 1px #3c50e0'
+      : 'none', // No shadow for disabled
+    opacity: state.isDisabled ? 0.5 : 1, // Reduced opacity for disabled
     '&:hover': {
       borderColor: state.isFocused
         ? '#3c50e0'

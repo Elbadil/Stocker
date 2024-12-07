@@ -5,6 +5,8 @@ import { ClientOrderSchema } from './AddClientOrder';
 import { ClientOrderProps } from './ClientOrder';
 import toast from 'react-hot-toast';
 import { api } from '../../../api/axios';
+import { dispatch } from '../../../store/store';
+import { setClientOrders } from '../../../store/slices/clientOrdersSlice';
 
 type FlattenedOrderedItems = {
   [key: string]: string;
@@ -36,6 +38,18 @@ export const findCountryAndSetCitiesForOrder = (
       }
     }
   }
+};
+
+export const resetNewClient = () => {
+  dispatch((dispatch, getState) => {
+    const { clientOrders } = getState();
+    dispatch(
+      setClientOrders({
+        ...clientOrders,
+        newClient: null,
+      }),
+    );
+  });
 };
 
 export const orderedItemsDataFlattener = (order: ClientOrderProps) => {

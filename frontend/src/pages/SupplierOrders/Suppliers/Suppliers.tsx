@@ -26,7 +26,7 @@ import DeleteSupplier from './DeleteSupplier';
 
 const Suppliers = () => {
   const { alert } = useAlert();
-  const { loading, suppliers, ordersCount } = useSupplierOrders();
+  const { loading, ordersCount, suppliersCount } = useSupplierOrders();
   const [suppliersLoading, setSuppliersLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSupplier, setSelectedSupplier] =
@@ -315,7 +315,7 @@ const Suppliers = () => {
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Suppliers:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {suppliers.count}
+                        {suppliersCount}
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 px-4 xsm:flex-row">
