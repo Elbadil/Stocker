@@ -139,7 +139,7 @@ class BulkDeleteSupplier(CreatedByUserMixin, generics.DestroyAPIView):
 
 class CreateListSupplierOrder(CreatedByUserMixin,
                               generics.ListCreateAPIView):
-    """Handles Supplier Creation and Listing"""
+    """Handles Supplier Order Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.SupplierOrderSerializer
@@ -148,12 +148,61 @@ class CreateListSupplierOrder(CreatedByUserMixin,
 
 class GetUpdateDeleteSupplierOrder(CreatedByUserMixin,
                                    generics.RetrieveUpdateDestroyAPIView):
-    """Handles Supplier Retrieval, Update and Deletion"""
+    """Handles Supplier Order Retrieval, Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.SupplierOrderSerializer
     queryset = SupplierOrder.objects.all()
     lookup_field = 'id'
+
+
+class BulkDeleteSupplierOrders(CreatedByUserMixin, generics.DestroyAPIView):
+    """Handles Supplier Order Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = SupplierOrder.objects.all()
+
+    def delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({'error': 'No IDs provided'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # Validate ids
+        invalid_ids = Token.validate_uuids(ids)
+        if invalid_ids:
+            return Response(
+                {
+                    'error' : {
+                        'message': 'Some or all provided ids are not valid uuids',
+                        'invalid_ids': invalid_ids
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        orders_ids = set(
+            self.get_queryset()
+            .filter(id__in=ids)
+            .annotate(id_str=Cast('id', CharField()))
+            .values_list('id_str', flat=True)
+        )
+        missing_ids = set(ids) - orders_ids
+        if missing_ids:
+            return Response(
+                {
+                    'error' : {
+                        'message': 'Some or all selected orders could not found',
+                        'missing_ids': list(missing_ids)
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Delete selected orders
+        orders_for_deletion = SupplierOrder.objects.filter(id__in=ids)
+        orders_for_deletion_count = orders_for_deletion.count()
+        orders_for_deletion.delete()
+        return Response({'message': f'{orders_for_deletion_count} supplier orders successfully deleted.'},
+                         status=status.HTTP_200_OK)
 
 
 class GetSupplierOrdersData(generics.GenericAPIView):

@@ -29,6 +29,7 @@ import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { api } from '../../../api/axios';
 import AddSupplierOrder from './AddSupplierOrder';
 import EditSupplierOrder from './EditSupplierOrder';
+import DeleteSupplierOrder from './DeleteSupplierOrder';
 
 export interface SupplierOrderedItem {
   id: string;
@@ -278,7 +279,7 @@ const SupplierOrders = () => {
 
   useEffect(() => {
     if (selectedRows) getAndSetSelectRows();
-  }, [openEditOrder])
+  }, [openEditOrder]);
 
   return (
     <>
@@ -388,14 +389,13 @@ const SupplierOrders = () => {
                           isOpen={openDeleteOrder}
                           onClose={() => setOpenDeleteOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <DeleteClientOrder
+                          <DeleteSupplierOrder
                             orders={selectedRows}
                             open={openDeleteOrder}
                             setOpen={setOpenDeleteOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Edit Order */}

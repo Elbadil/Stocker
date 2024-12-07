@@ -215,7 +215,7 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
             order.delete()
             delete_count += 1
 
-        return Response({'message': f'{delete_count} orders successfully deleted.'},
+        return Response({'message': f'{delete_count} client orders successfully deleted.'},
                          status=status.HTTP_200_OK)
 
 
