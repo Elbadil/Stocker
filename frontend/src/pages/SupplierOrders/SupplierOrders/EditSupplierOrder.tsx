@@ -9,7 +9,7 @@ import {
   SubmitHandler,
 } from 'react-hook-form';
 import Select, { SingleValue } from 'react-select';
-import { SupplierOrderProps } from './SupplierOrders';
+import { SupplierOrderProps } from './SupplierOrder';
 import {
   schema,
   SupplierOrderSchema,
@@ -39,9 +39,13 @@ import { api } from '../../../api/axios';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
 import { setSupplierOrders } from '../../../store/slices/supplierOrdersSlice';
+import toast from 'react-hot-toast';
 
 interface EditSupplierOrder {
   supplierOrder: SupplierOrderProps;
+  setSupplierOrder?: React.Dispatch<
+    React.SetStateAction<SupplierOrderProps | null>
+  >;
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rowNode?: IRowNode<SupplierOrderProps>;
@@ -50,6 +54,7 @@ interface EditSupplierOrder {
 
 const EditSupplierOrder = ({
   supplierOrder,
+  setSupplierOrder,
   open,
   setOpen,
   rowNode,
@@ -176,6 +181,13 @@ const EditSupplierOrder = ({
       console.log(orderUpdate);
       // Set row node data
       rowNode?.setData(orderUpdate);
+      // Update Order's state and display a toast notification
+      if (setSupplierOrder) {
+        setSupplierOrder(orderUpdate);
+        toast.success(`Order ${orderUpdate.reference_id} updated!`, {
+          duration: 4000,
+        });
+      }
       // Update rowData
       setRowData((prev) =>
         prev.map((row) => (row.id === orderUpdate.id ? orderUpdate : row)),

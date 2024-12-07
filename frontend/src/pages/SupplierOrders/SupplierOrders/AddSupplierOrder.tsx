@@ -13,7 +13,7 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { setSupplierOrders } from '../../../store/slices/supplierOrdersSlice';
-import { SupplierOrderProps } from './SupplierOrders';
+import { SupplierOrderProps } from './SupplierOrder';
 import AddSupplier from '../Suppliers/AddSupplier';
 import AddItem from '../../Inventory/AddItem';
 import { useAlert } from '../../../contexts/AlertContext';

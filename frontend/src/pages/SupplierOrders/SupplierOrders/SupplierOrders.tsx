@@ -27,37 +27,13 @@ import {
 } from './utils';
 import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 import { api } from '../../../api/axios';
+import SupplierOrder, {
+  SupplierOrderProps,
+  SupplierOrderedItem,
+} from './SupplierOrder';
 import AddSupplierOrder from './AddSupplierOrder';
 import EditSupplierOrder from './EditSupplierOrder';
 import DeleteSupplierOrder from './DeleteSupplierOrder';
-
-export interface SupplierOrderedItem {
-  id: string;
-  order: string;
-  created_by: string;
-  item: string;
-  supplier: string;
-  ordered_quantity: number;
-  ordered_price: number;
-  total_price: number;
-  in_inventory: boolean;
-}
-
-export interface SupplierOrderProps {
-  id: string;
-  reference_id: string;
-  created_by: string;
-  supplier: string;
-  ordered_items: SupplierOrderedItem[];
-  total_price: number;
-  delivery_status: string;
-  payment_status: string;
-  tracking_number?: string | null;
-  shipping_cost?: number | null;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
 
 const SupplierOrders = () => {
   const { alert } = useAlert();
@@ -346,15 +322,14 @@ const SupplierOrders = () => {
                           isOpen={openOrder}
                           onClose={() => setOpenOrder(false)}
                         >
-                          <div>Hi</div>
-                          {/* <ClientOrder
+                          <SupplierOrder
                             order={selectedOrder}
                             setOrder={setSelectedOrder}
-                            orderRowNode={getRowNode(selectedOrder.id)}
+                            rowNode={getRowNode(selectedOrder.id)}
                             setOpen={setOpenOrder}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Export Order(s) */}
@@ -365,7 +340,7 @@ const SupplierOrders = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={handleSupplierOrderExport}
+                        onClick={() => handleSupplierOrderExport(selectedRows)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />

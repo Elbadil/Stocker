@@ -1,4 +1,5 @@
 import React from 'react';
+import { utils, writeFile } from 'xlsx';
 import { setSupplierOrders } from '../../../store/slices/supplierOrdersSlice';
 import { SelectOption } from '../../../types/form';
 import { selectOptionsFromStrings, areFieldsEmpty } from '../../../utils/form';
@@ -14,6 +15,14 @@ import {
   SupplierOrderedItemSchema,
 } from './AddSupplierOrder';
 import { dispatch } from '../../../store/store';
+import { SupplierOrderProps } from './SupplierOrder';
+import toast from 'react-hot-toast';
+import { api } from '../../../api/axios';
+import { format } from 'date-fns';
+
+type FlattenedOrderedItems = {
+  [key: string]: string;
+};
 
 export const resetNewSupplier = () => {
   dispatch((dispatch, getState) => {
@@ -109,5 +118,63 @@ export const resetNewOrderedItem = () => {
   });
 };
 
-export const handleSupplierOrderExport = () => {};
-export const handleSupplierOrderBulkExport = () => {};
+export const orderedItemsDataFlattener = (order: SupplierOrderProps) => {
+  return order.ordered_items.reduce<FlattenedOrderedItems>(
+    (acc, orderedItem, index) => {
+      acc[`ordered_item-${index + 1}`] = `${orderedItem.item} | Quantity: ${
+        orderedItem.ordered_quantity
+      } | Unit Price: ${orderedItem.ordered_price.toFixed(
+        2,
+      )} | Total Price: ${orderedItem.total_price.toFixed(2)}`;
+      return acc;
+    },
+    {},
+  );
+};
+
+export const orderDataFlattener = (orders: SupplierOrderProps[]) =>
+  orders.map((order) => ({
+    ...order,
+    ordered_items: `${order.ordered_items.length} unique ${
+      order.ordered_items.length > 1 ? 'items' : 'item'
+    }`,
+    ...orderedItemsDataFlattener(order),
+    updated_at: order.updated ? order.updated_at : null,
+  }));
+
+export const createSheetFile = (orders: SupplierOrderProps[]) => {
+  const flattenedData = orderDataFlattener(orders);
+  const ws = utils.json_to_sheet(flattenedData);
+  /* create workbook and append worksheet */
+  const wb = utils.book_new();
+  const dateNow = format(new Date(), 'dd-MM-yyyy');
+  utils.book_append_sheet(wb, ws, `Clients ${dateNow}`);
+  if (orders.length > 1) {
+    writeFile(wb, `${orders[0].created_by}_orders_${dateNow}.xlsx`);
+  } else {
+    writeFile(wb, `order_${orders[0].reference_id}_${dateNow}.xlsx`);
+  }
+};
+
+export const handleSupplierOrderExport = (selectedRows?: SupplierOrderProps[]) => {
+  if (selectedRows) {
+    createSheetFile(selectedRows);
+  } else {
+    toast.error('Something went wrong. Please try again later.', {
+      duration: 5000,
+    });
+  }
+};
+
+export const handleSupplierOrderBulkExport = async () => {
+  try {
+    const res = await api.get('/supplier_orders/orders/');
+    const orders = res.data;
+    createSheetFile(orders);
+  } catch (error: any) {
+    console.log('Error during orders export', error);
+    toast.error('Something went wrong. Please try again later.', {
+      duration: 5000,
+    });
+  }
+};

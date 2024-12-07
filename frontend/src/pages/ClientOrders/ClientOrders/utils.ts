@@ -57,9 +57,9 @@ export const orderedItemsDataFlattener = (order: ClientOrderProps) => {
     (acc, orderedItem, index) => {
       acc[`ordered_item-${index + 1}`] = `${orderedItem.item} | Quantity: ${
         orderedItem.ordered_quantity
-      } | Unit Price: $${orderedItem.ordered_price.toFixed(
+      } | Unit Price: ${orderedItem.ordered_price.toFixed(
         2,
-      )} | Total Price: $${orderedItem.total_price.toFixed(2)}`;
+      )} | Total Price: ${orderedItem.total_price.toFixed(2)}`;
       return acc;
     },
     {},

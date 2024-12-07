@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ClipLoader from 'react-spinners/ClipLoader';
-import { SupplierOrderProps } from './SupplierOrders';
+import { SupplierOrderProps } from './SupplierOrder';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
 import { setSupplierOrders } from '../../../store/slices/supplierOrdersSlice';

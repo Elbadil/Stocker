@@ -204,7 +204,7 @@ const AddItem = ({ open, setOpen, setRowData, supplier }: AddItemProps) => {
     const { name, quantity, price } = newItem;
 
     dispatch((dispatch, getState) => {
-      const { supplierOrders, inventory } = getState();
+      const { supplierOrders } = getState();
       const updatedSuppliers = suppliers.map((supplier) =>
         supplier.name === newItem.supplier
           ? {
@@ -426,7 +426,7 @@ const AddItem = ({ open, setOpen, setRowData, supplier }: AddItemProps) => {
                       className="mb-2 block text-sm font-medium text-black dark:text-white"
                       htmlFor="price"
                     >
-                      Price*
+                      Price per unit*
                     </label>
                     <input
                       className="w-full rounded border border-stroke bg-gray py-2 pl-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
