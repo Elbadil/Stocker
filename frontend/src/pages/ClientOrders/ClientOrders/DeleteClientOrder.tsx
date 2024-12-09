@@ -172,7 +172,7 @@ const DeleteClientOrder = ({
       {/* Form Content */}
       <div className="max-w-full overflow-y-auto max-h-[85vh] text-black dark:text-white flex flex-col">
         <div className="p-5">
-          <div className="mb-3  font-medium">
+          <div className="mb-2.5 font-medium">
             Are you sure you want to delete:
           </div>
           <ol className="list-inside list-disc">
@@ -182,6 +182,11 @@ const DeleteClientOrder = ({
               </li>
             ))}
           </ol>
+          <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-500">
+            * Deleting {orders.length > 1 ? 'these orders' : 'this order'} will
+            automatically restore the linked ordered item quantities to the
+            inventory.
+          </div>
           {deleteErrors && (
             <p className="mt-2 text-red-500 font-medium text-sm italic">
               {deleteErrors}
