@@ -254,7 +254,7 @@ const Suppliers = () => {
                           onClose={() => setOpenDeleteSupplier(false)}
                         >
                           <DeleteSupplier
-                            suppliers={selectedRows}
+                            selectedSuppliers={selectedRows}
                             open={openDeleteSupplier}
                             setOpen={setOpenDeleteSupplier}
                             rowData={rowData}

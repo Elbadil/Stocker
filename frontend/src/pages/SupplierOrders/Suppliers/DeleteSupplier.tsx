@@ -7,9 +7,10 @@ import { api } from '../../../api/axios';
 import { useAlert } from '../../../contexts/AlertContext';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../store/store';
+import { useSupplierOrders } from '../../../contexts/SupplierOrdersContext';
 
 interface DeleteSupplier {
-  suppliers: SupplierProps[];
+  selectedSuppliers: SupplierProps[];
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rowData: SupplierProps[];
@@ -18,7 +19,7 @@ interface DeleteSupplier {
 }
 
 const DeleteSupplier = ({
-  suppliers,
+  selectedSuppliers,
   open,
   setOpen,
   rowData,
@@ -26,6 +27,7 @@ const DeleteSupplier = ({
   setSupplierOpen,
 }: DeleteSupplier) => {
   const { setAlert } = useAlert();
+  const { suppliersCount, suppliers } = useSupplierOrders();
   const dispatch = useDispatch<AppDispatch>();
   const [deleteErrors, setDeleteErrors] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -34,7 +36,7 @@ const DeleteSupplier = ({
     const withOrders: SupplierProps[] = [];
     const withoutOrders: SupplierProps[] = [];
 
-    suppliers.forEach((supplier) => {
+    selectedSuppliers.forEach((supplier) => {
       if (supplier.total_orders > 0) {
         withOrders.push(supplier);
       } else {
@@ -43,7 +45,7 @@ const DeleteSupplier = ({
     });
 
     return [withOrders, withoutOrders];
-  }, [suppliers]);
+  }, [selectedSuppliers]);
 
   const suppliersForDeletion = {
     ids: suppliersWithoutOrders.map((supplier) => supplier.id),
@@ -54,6 +56,11 @@ const DeleteSupplier = ({
     const suppliersIds = new Set(suppliersForDeletion.ids);
     const filteredRows = rowData.filter((row) => !suppliersIds.has(row.id));
     setRowData(filteredRows);
+  };
+
+  const updatedSuppliersState = () => {
+    const supplierNamesSet = new Set(suppliersForDeletion.names);
+    return suppliers.filter((supplier) => !supplierNamesSet.has(supplier.name));
   };
 
   const handleDelete = async () => {
@@ -74,19 +81,13 @@ const DeleteSupplier = ({
       // Remove deleted suppliers rows
       removeDeletedSuppliersRows();
       // Update suppliers state
-      const supplierNamesSet = new Set(suppliersForDeletion.names);
       dispatch((dispatch, getState) => {
         const { supplierOrders } = getState();
         dispatch(
           setSupplierOrders({
             ...supplierOrders,
-            suppliers: {
-              count:
-                supplierOrders.suppliers.count - suppliersWithoutOrders.length,
-              names: supplierOrders.suppliers.names.filter(
-                (supplierName) => !supplierNamesSet.has(supplierName),
-              ),
-            },
+            suppliersCount: suppliersCount - suppliersWithoutOrders.length,
+            suppliers: updatedSuppliersState(),
           }),
         );
       });
@@ -124,7 +125,9 @@ const DeleteSupplier = ({
       {/* Form Header */}
       <div className="flex justify-between items-center border-b rounded-t-md border-stroke bg-slate-100 py-4 px-6 dark:border-strokedark dark:bg-slate-700">
         <h3 className="font-semibold text-lg text-black dark:text-white">
-          {suppliers.length > 1 ? 'Delete Suppliers' : 'Delete Supplier'}
+          {selectedSuppliers.length > 1
+            ? 'Delete Suppliers'
+            : 'Delete Supplier'}
         </h3>
         <div>
           <button
@@ -145,7 +148,7 @@ const DeleteSupplier = ({
             Are you sure you want to delete:
           </div>
           <ol className="list-inside list-disc">
-            {suppliers.map((supplier, index: number) => (
+            {selectedSuppliers.map((supplier, index: number) => (
               <li className="mt-2" key={index}>
                 {supplier.name}
                 {supplier.total_orders > 0 && (
@@ -171,7 +174,7 @@ const DeleteSupplier = ({
               />
               <p>
                 {suppliersWithOrders.length > 1
-                  ? suppliersWithOrders.length === suppliers.length
+                  ? suppliersWithOrders.length === selectedSuppliers.length
                     ? 'All selected suppliers are '
                     : 'Some selected suppliers are '
                   : `Supplier ${suppliersWithOrders[0].name} is `}
@@ -199,14 +202,14 @@ const DeleteSupplier = ({
         <button
           className={
             'flex justify-center ' +
-            (suppliersWithOrders.length === suppliers.length
+            (suppliersWithOrders.length === selectedSuppliers.length
               ? 'cursor-not-allowed bg-red-400 '
               : 'bg-red-500 hover:bg-opacity-90 ') +
             'rounded py-2 px-6 font-medium text-gray'
           }
           type="submit"
           onClick={handleDelete}
-          disabled={suppliersWithOrders.length === suppliers.length}
+          disabled={suppliersWithOrders.length === selectedSuppliers.length}
         >
           {loading ? <ClipLoader color="#ffffff" size={23} /> : 'Delete'}
         </button>
