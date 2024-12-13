@@ -12,16 +12,18 @@ from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 ACTIVE_STATUS,
                                 FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
+from ..inventory.models import Item
 from .utils import reset_client_ordered_items
 from . import serializers
 from .models import (Client,
                      ClientOrder,
+                     ClientOrderedItem,
                      Country,
                      City,
                      AcquisitionSource)
 
 
-class CreateListClient(CreatedByUserMixin,
+class CreateListClients(CreatedByUserMixin,
                        generics.ListCreateAPIView):
     """Handles Client Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -30,7 +32,7 @@ class CreateListClient(CreatedByUserMixin,
     queryset = Client.objects.all()
 
 
-class GetUpdateDeleteClient(CreatedByUserMixin,
+class GetUpdateDeleteClients(CreatedByUserMixin,
                             generics.RetrieveUpdateDestroyAPIView):
     """Handles Client Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -141,7 +143,7 @@ class BulkDeleteClients(CreatedByUserMixin, generics.DestroyAPIView):
                          status=status.HTTP_200_OK)
 
 
-class CreateListClientOrder(CreatedByUserMixin,
+class CreateListClientOrders(CreatedByUserMixin,
                             generics.ListCreateAPIView):
     """Handles Client Order Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -150,7 +152,7 @@ class CreateListClientOrder(CreatedByUserMixin,
     queryset = ClientOrder.objects.all()
 
 
-class GetUpdateDeleteClientOrder(CreatedByUserMixin,
+class GetUpdateDeleteClientOrders(CreatedByUserMixin,
                                  generics.RetrieveUpdateDestroyAPIView):
     """Handles Client Order Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -217,6 +219,38 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
 
         return Response({'message': f'{delete_count} client orders successfully deleted.'},
                          status=status.HTTP_200_OK)
+
+
+class CreateListClientOrderedItems(CreatedByUserMixin,
+                                  generics.ListCreateAPIView):
+    """Handles Client Ordered Item Creation and Listing"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.ClientOrderedItemSerializer
+    queryset = ClientOrderedItem.objects.all()
+
+
+class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
+                                       generics.RetrieveUpdateDestroyAPIView):
+    """Handles Client Ordered Item Retrieval Update and Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.ClientOrderedItemSerializer
+    queryset = ClientOrderedItem.objects.all()
+    lookup_field = 'id'
+
+    def delete(self, request, *args, **kwargs):
+        ordered_item = self.get_object()
+
+        # Reset item inventory's quantity
+        inventory_item = Item.objects.get(id=ordered_item.item.id)
+        inventory_item.quantity += ordered_item.ordered_quantity
+        inventory_item.save()
+
+        # Delete ordered item
+        ordered_item.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class BulkCreateListCities(generics.ListCreateAPIView):

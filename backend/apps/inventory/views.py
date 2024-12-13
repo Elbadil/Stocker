@@ -13,15 +13,24 @@ from .models import Item, Category, Variant
 from ..supplier_orders.models import Supplier
 
 
-class CreateItem(generics.CreateAPIView):
+class CreateListItems(CreatedByUserMixin,
+                     generics.CreateAPIView):
     """Handles Item Creation"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.ItemSerializer
     parser_classes = (FormParser, MultiPartParser)
+    queryset = Item.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        in_inventory = self.request.GET.get('in_inventory', None)
+        if in_inventory and in_inventory.lower() == 'true':
+            queryset = queryset.filter(in_inventory=True)
+        return queryset
 
 
-class GetUpdateDeleteItem(CreatedByUserMixin,
+class GetUpdateDeleteItems(CreatedByUserMixin,
                           generics.RetrieveUpdateDestroyAPIView):
     """Handles Item's Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -51,22 +60,7 @@ class GetUpdateDeleteItem(CreatedByUserMixin,
         return super().delete(request, *args, **kwargs)
 
 
-class ListUserItems(CreatedByUserMixin, generics.ListAPIView):
-    """Handles User Items Listing"""
-    authentication_classes = (TokenVersionAuthentication,)
-    permission_classes = (IsAuthenticated,)
-    serializer_class = serializers.ItemSerializer
-    queryset = Item.objects.all()
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        in_inventory = self.request.GET.get('in_inventory', None)
-        if in_inventory and in_inventory.lower() == 'true':
-            queryset = queryset.filter(in_inventory=True)
-        return queryset
-
-
-class ItemsBulkDelete(CreatedByUserMixin,
+class BulkDeleteItems(CreatedByUserMixin,
                       generics.GenericAPIView):
     """Handles Items Bulk Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -158,7 +152,7 @@ class ItemsBulkDelete(CreatedByUserMixin,
                          status=status.HTTP_200_OK)
 
 
-class GetUserInventoryData(generics.GenericAPIView):
+class GetInventoryData(generics.GenericAPIView):
     """Returns necessary data related to user's inventory"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)

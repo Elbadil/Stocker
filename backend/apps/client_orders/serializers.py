@@ -2,10 +2,11 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import Q
 from typing import List
-from .utils import get_or_create_source, update_item_quantity
 from utils.serializers import (datetime_repr_format,
                                get_location,
                                get_or_create_location,
+                               get_or_create_source,
+                               update_item_quantity,
                                update_field)
 from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
                                 PAYMENT_STATUS_OPTIONS_LOWER)
@@ -217,40 +218,98 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
-    def validate(self, attrs):
+    def validate_item(self, value):
         # Get the request user from the context
         user = self.context['request'].user
+        item = (
+            Item.objects
+            .filter(
+                created_by=user,
+                name__iexact=value,
+                in_inventory=True)
+            .first()
+        )
 
-        # Get the item name and quantity from the attributes
-        item_name = attrs['item']
-        ordered_quantity = attrs['ordered_quantity']
-
-        # Check if the item exists in the user's inventory
-        item = Item.objects.filter(created_by=user,
-                                   name__iexact=item_name,
-                                   in_inventory=True).first()
         if not item:
             raise serializers.ValidationError(
-                {'item': f"Item {item_name} does not exist in your inventory."}
+                f"Item '{value}' does not exist in your inventory."
             )
 
-        # Check if ordered quantity exceeds available stock
-        if ordered_quantity > item.quantity:
-            raise serializers.ValidationError(
-                {'ordered_quantity': f"The ordered quantity for {item_name} exceeds available stock."}
-            )
+        return item
 
-        return attrs
-
+    @transaction.atomic
     def create(self, validated_data):
-        item_name = validated_data.pop('item', None)
-        item = Item.objects.filter(
-            created_by=validated_data['created_by'],
-            name__iexact=item_name
-        ).first()
-        item.quantity -= validated_data['ordered_quantity']
+        # Extract special fields
+        user = self.context.get('request').user
+        item = validated_data.pop('item', None)
+        ordered_quantity = validated_data.get('ordered_quantity')
+
+        #  Validate ordered quantity
+        if item.quantity < ordered_quantity:
+            raise serializers.ValidationError(
+                {
+                    'ordered_quantity': f"The ordered quantity for '{item.name}' "
+                                         "exceeds available stock."
+                }
+            )
+
+        # Subtract the ordered quantity from item's inventory quantity
+        item.quantity -= ordered_quantity
         item.save()
-        return ClientOrderedItem.objects.create(item=item, **validated_data)
+
+        # Return client ordered item's instance
+        return ClientOrderedItem.objects.create(item=item,
+                                                created_by=user,
+                                                **validated_data)
+
+    @transaction.atomic
+    def update(self, instance: ClientOrderedItem, validated_data):
+        # Extract special fields
+        item = validated_data.get('item', None)
+        ordered_quantity = validated_data.get('ordered_quantity',
+                                              instance.ordered_quantity)
+
+        # Handle item validation
+        if item:
+            # Case: Item instance has changed
+            if instance.item != item:
+                # Validate new item's quantity
+                if item.quantity < ordered_quantity:
+                    raise serializers.ValidationError(
+                        {
+                            'ordered_quantity': f"The ordered quantity for '{item.name}' "
+                                                 "exceeds available stock."
+                        }
+                    )
+
+                # Reset prev item inventory quantity
+                instance.item.quantity += instance.ordered_quantity
+                instance.item.save()
+
+                # Subtract the ordered quantity from item's inventory quantity
+                item.quantity -= ordered_quantity
+                item.save()
+
+            # Case: Item instance remained the same
+            else: 
+                item_new_quantity = update_item_quantity(item,
+                                                        instance.ordered_quantity,
+                                                        ordered_quantity)
+                # Validate new item's quantity
+                if item_new_quantity < 0:
+                    raise serializers.ValidationError(
+                        {
+                            'ordered_quantity': f"The ordered quantity for '{item.name}' "
+                                                "exceeds available stock."    
+                        }
+                    )
+                else:
+                    # Update item's inventory quantity
+                    item.quantity = item_new_quantity
+                    item.save()
+
+        # Return updated client ordered item instance
+        return super().update(instance, validated_data)
 
 
     def to_representation(self, instance: ClientOrderedItem):
@@ -299,12 +358,10 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         self,
         request,
         order: ClientOrder,
-        user: User,
         ordered_items: List[dict],
     ):
         for item in ordered_items:
             item['order'] = order.id
-            item['created_by'] = user.id
             serializer = ClientOrderedItemSerializer(data=item,
                                                      context={'request': request})
             if serializer.is_valid():
@@ -346,7 +403,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                 if item_new_quantity < 0:
                     raise serializers.ValidationError({
                         'ordered_items': {
-                            'ordered_quantity': f"The ordered quantity for {inventory_item.name} exceeds available stock."
+                            'ordered_quantity': f"The ordered quantity for '{inventory_item.name}' "
+                                                 "exceeds available stock."
                         }
                     })
                 else:
@@ -359,7 +417,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             else:
                 self.create_ordered_items_for_client_order(request,
                                                            order,
-                                                           user,
                                                            [new_item])
 
         # Delete remaining ordered items and update item's quantity in inventory
@@ -370,24 +427,27 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             item_to_delete.delete()
 
     def get_ordered_items(self, order: ClientOrder):
-        ordered_items = []
-        for ordered_item in order.items:
-            ordered_items.append({
-                'item': ordered_item.item.name,
-                'ordered_quantity': ordered_item.ordered_quantity,
-                'ordered_price': ordered_item.ordered_price,
-                'total_price': ordered_item.total_price,
-                'total_profit': ordered_item.total_profit,
-            })
-        return ordered_items
+        if order.items:
+            ordered_items = []
+            for ordered_item in order.items:
+                ordered_items.append({
+                    'item': ordered_item.item.name,
+                    'ordered_quantity': ordered_item.ordered_quantity,
+                    'ordered_price': ordered_item.ordered_price,
+                    'total_price': ordered_item.total_price,
+                    'total_profit': ordered_item.total_profit,
+                })
+            return ordered_items
+        return None
 
     def validate_ordered_items(self, value: List[ClientOrderedItem]):
         unique_items = []
         for ordered_item in value:
             item_name = ordered_item['item'].lower()
             if item_name in unique_items:
+                ordered_item_name = ordered_item["item"]
                 raise serializers.ValidationError(
-                    {'item': f'Item {ordered_item["item"]} has been selected multiple times.'})
+                    {'item': f"Item '{ordered_item_name}' has been selected multiple times."})
             else:
                 unique_items.append(item_name)
         return value

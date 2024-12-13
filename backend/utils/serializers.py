@@ -1,12 +1,28 @@
 from rest_framework import serializers
 from typing import Any, Union, Optional, Callable
 from apps.base.models import User
-from apps.client_orders.models import Location
+from apps.inventory.models import Item
+from apps.client_orders.models import Location, AcquisitionSource
+
 
 def datetime_repr_format(datetime):
     """Returns the correct format for datetime data representation"""
     return datetime.strftime('%d/%m/%Y')
 
+def get_or_create_source(
+    user,
+    value
+) -> Union[AcquisitionSource, None]:
+    """Handles source of acquisition creation"""
+    if value:
+        acq_source, created = AcquisitionSource.objects.get_or_create(
+            added_by__isnull=True,
+            name__iexact=value,
+            defaults={'added_by': user,
+                      'name': value}
+        )
+        return acq_source
+    return None
 
 def get_or_create_location(
     user: User,
@@ -25,7 +41,6 @@ def get_or_create_location(
             raise serializers.ValidationError(serializer.errors)
     return None
 
-
 def get_location(instance_attribute):
     """Returns the correct format for location data representation"""
     if instance_attribute:
@@ -36,6 +51,12 @@ def get_location(instance_attribute):
         }
     return None
 
+def update_item_quantity(item: Item, old_ordered_quantity, new_ordered_quantity):
+    """returns item inventory's new quantity after update"""
+    if old_ordered_quantity == new_ordered_quantity:
+        return item.quantity
+    quantity_diff = new_ordered_quantity - old_ordered_quantity
+    return item.quantity - quantity_diff
 
 def handle_null_fields(fields: dict):
     """Sets frontend FormData object's null field values to None"""
@@ -43,7 +64,6 @@ def handle_null_fields(fields: dict):
         if value == 'null':
             fields[key] = None
     return fields
-
 
 def update_field(
     self,

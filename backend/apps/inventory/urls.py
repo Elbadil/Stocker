@@ -3,18 +3,19 @@ from . import views
 
 
 urlpatterns = [
-    path('items/', views.CreateItem.as_view(),
-         name='create_item'),
+    # Items
+    path('items/',
+         views.CreateListItems.as_view(),
+         name='create_list_items'),
     path('items/bulk_delete/',
-         views.ItemsBulkDelete.as_view(),
-         name='items_bulk_delete'),
+         views.BulkDeleteItems.as_view(),
+         name='bulk_delete_items'),
     path('items/<str:id>/',
-         views.GetUpdateDeleteItem.as_view(),
-         name='get_update_delete_item'),
-    path('user/items/',
-         views.ListUserItems.as_view(),
-         name='list_user_items'),
+         views.GetUpdateDeleteItems.as_view(),
+         name='get_update_delete_items'),
+
+    # Inventory data
     path('data/',
-         views.GetUserInventoryData.as_view(),
-         name='inventory_data'),
+         views.GetInventoryData.as_view(),
+         name='get_inventory_data'),
 ]

@@ -7,7 +7,8 @@ class SaleAdmin(admin.ModelAdmin):
                     'reference_id',
                     'client_name',
                     'delivery_status',
-                    'payment_status']
+                    'payment_status',
+                    'from_order']
     
     @admin.display(ordering='client__name', description='Client')
     def client_name(self, obj):

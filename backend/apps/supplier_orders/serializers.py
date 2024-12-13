@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from typing import List
+from typing import List, Union
 from deepdiff import DeepDiff
 from utils.serializers import (datetime_repr_format,
                                get_location,
@@ -96,6 +96,7 @@ class SupplierSerializer(serializers.ModelSerializer):
 class SupplierOrderedItemSerializer(serializers.ModelSerializer):
     """Supplier Ordered Item Serializer"""
     item = serializers.CharField()
+    supplier = serializers.CharField()
 
     class Meta:
         model = SupplierOrderedItem
@@ -111,47 +112,139 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
-    def validate(self, attrs):
-        item_name = attrs['item']
-        supplier = attrs['supplier']
-
-        item = Item.objects.filter(name__iexact=item_name).first()
-        if item.supplier and item.supplier != supplier:
-            raise serializers.ValidationError(
-                {'item': f"Item '{item_name}' is associated with another supplier"}
-            )
-
-        return attrs
-
-    @transaction.atomic
-    def create(self, validated_data):
-        user = self.context['request'].user
-        item_name = validated_data.pop('item', None)
-
+    def _get_or_create_item_and_set_supplier(
+        self,
+        user: User,
+        item_name: str,
+        supplier: Supplier,
+        ordered_quantity: int,
+        ordered_price: int,
+    ) -> Item:
+        # Get or create ordered item with the order's supplier 
         item, created = Item.objects.get_or_create(
             name__iexact=item_name,
             defaults={
                 'created_by': user,
-                'supplier': validated_data['supplier'],
+                'supplier': supplier,
                 'name': item_name,
-                'quantity': validated_data['ordered_quantity'],
-                'price': validated_data['ordered_price'],
+                'quantity': ordered_quantity,
+                'price': ordered_price,
             }
         )
 
+        # Set item's supplier to the order's supplier for already existing item
         if not created and item.supplier is None:
-            item.supplier = validated_data['supplier']
+            item.supplier = supplier
             item.save()
 
-        return SupplierOrderedItem.objects.create(created_by=user,
-                                                  item=item,
-                                                  **validated_data)
+        return item
+    
+    def check_supplier_integrity(
+        self,
+        user: User,
+        supplier: Supplier,
+        item_name: Union[str, None],
+        order: SupplierOrder,
+    ) -> None:
+        """
+        Validate that the item's supplier and order's
+        supplier match the given supplier.
+        """
+        # Check for existing item with a different supplier
+        if item_name:
+            item = Item.objects.filter(created_by=user,
+                                    name__iexact=item_name).first()
+
+            if item and item.supplier and (item.supplier != supplier):
+                raise serializers.ValidationError(
+                    {
+                        'item': f"Item '{item_name}' is associated "
+                                 "with another supplier."
+                    }
+                )
+
+        # Ensure order's supplier matches the provided supplier
+        if order.supplier != supplier:
+            raise serializers.ValidationError(
+                {
+                    'supplier': f"Order's supplier '{order.supplier.name}' does "
+                                f"not match the selected supplier '{supplier.name}'."
+                }
+            )
+
+    def validate_supplier(self, value):
+        user = self.context.get('request').user
+        supplier = Supplier.objects.filter(created_by=user,
+                                           name__iexact=value).first()
+        if not supplier:
+            raise serializers.ValidationError(
+                f"Supplier '{value}' does not exist. "
+                 "Please create a new supplier if this is a new entry."
+            )
+        return supplier
+
+    @transaction.atomic
+    def create(self, validated_data):
+        user = self.context['request'].user
+        item_name = validated_data.pop('item')
+        supplier = validated_data.get('supplier')
+        order = validated_data.get('order')
+
+        # Check supplier integrity
+        self.check_supplier_integrity(user, supplier, item_name, order)
+
+        # Get or create item
+        item = self._get_or_create_item_and_set_supplier(
+            user,
+            item_name,
+            validated_data['supplier'],
+            validated_data['ordered_quantity'],
+            validated_data['ordered_price']
+        )
+
+        # Return new supplier ordered item instance
+        return SupplierOrderedItem.objects.create(
+            created_by=user,
+            item=item,
+            **validated_data
+        )
+
+    @transaction.atomic
+    def update(self, instance: SupplierOrderedItem, validated_data):
+        user = self.context.get('request').user
+        item_name = validated_data.pop('item', None)
+        supplier = validated_data.get('supplier', instance.supplier)
+        order = validated_data.get('order', instance.order)
+        ordered_quantity = validated_data.get('ordered_quantity',
+                                              instance.ordered_quantity)
+        ordered_price = validated_data.get('ordered_price',
+                                           instance.ordered_price)
+
+        # Check supplier integrity
+        self.check_supplier_integrity(user, supplier, item_name, order)
+
+        # Update ordered item 
+        if item_name:
+            # Get or create item
+            item = self._get_or_create_item_and_set_supplier(
+                user,
+                item_name,
+                supplier,
+                ordered_quantity,
+                ordered_price
+            )
+            validated_data['item'] = item
+
+        # Return updated supplier ordered item instance
+        return super().update(instance, validated_data)
 
     def to_representation(self, instance: SupplierOrderedItem):
         item_to_repr = super().to_representation(instance)
-        item_to_repr['created_by'] = instance.created_by.username if instance.created_by else None
+        item_to_repr['created_by'] = (instance.created_by.username
+                                      if instance.created_by else None)
         item_to_repr['supplier'] = instance.supplier.name
         item_to_repr['item'] = instance.item.name
+        item_to_repr['in_inventory'] = instance.in_inventory
         item_to_repr['created_at'] = datetime_repr_format(instance.created_at)
         item_to_repr['updated_at'] = datetime_repr_format(instance.updated_at)
         return item_to_repr
@@ -190,16 +283,18 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         ]
     
     def get_ordered_items(self, instance: SupplierOrder):
-        ordered_items = []
-        for ordered_item in instance.items:
-            ordered_items.append({
-                'item': ordered_item.item.name,
-                'ordered_quantity': ordered_item.ordered_quantity,
-                'ordered_price': ordered_item.ordered_price,
-                'total_price': ordered_item.total_price,
-                'in_inventory': ordered_item.in_inventory
-            })
-        return ordered_items
+        if instance.items:
+            ordered_items = []
+            for ordered_item in instance.items:
+                ordered_items.append({
+                    'item': ordered_item.item.name,
+                    'ordered_quantity': ordered_item.ordered_quantity,
+                    'ordered_price': ordered_item.ordered_price,
+                    'total_price': ordered_item.total_price,
+                    'in_inventory': ordered_item.in_inventory
+                })
+            return ordered_items
+        return None
 
     def create_ordered_items_for_supplier_order(
         self,
@@ -209,7 +304,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         ordered_items: List[SupplierOrderedItem]):
         for item in ordered_items:
             item['order'] = order.id
-            item['supplier'] = supplier.id
+            item['supplier'] = supplier.name
             serializer = SupplierOrderedItemSerializer(data=item,
                                                        context={'request': request})
             if serializer.is_valid():
@@ -324,16 +419,13 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         # Retrieve special fields
         request = self.context.get('request')
         user = request.user
-        supplier = validated_data.pop('supplier', None)
+        supplier = validated_data.get('supplier')
         ordered_items = validated_data.pop('ordered_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
         payment_status = validated_data.pop('payment_status', None)
 
         # Create order
         order = SupplierOrder.objects.create(created_by=user, **validated_data)
-
-        # Add supplier to the order
-        order.supplier = supplier
 
         # Create and add ordered items to order
         self.create_ordered_items_for_supplier_order(

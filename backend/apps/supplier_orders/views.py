@@ -14,10 +14,10 @@ from utils.order_status import (DELIVERY_STATUS_OPTIONS,
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
 from . import serializers
-from .models import Supplier, SupplierOrder
+from .models import Supplier, SupplierOrder, SupplierOrderedItem
 
 
-class CreateListSupplier(CreatedByUserMixin,
+class CreateListSuppliers(CreatedByUserMixin,
                          generics.ListCreateAPIView):
     """Handles Supplier Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -26,7 +26,7 @@ class CreateListSupplier(CreatedByUserMixin,
     queryset = Supplier.objects.all()
 
 
-class GetUpdateDeleteSupplier(CreatedByUserMixin,
+class GetUpdateDeleteSuppliers(CreatedByUserMixin,
                               generics.RetrieveUpdateDestroyAPIView):
     """Handles Supplier Retrieval, Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -47,7 +47,7 @@ class GetUpdateDeleteSupplier(CreatedByUserMixin,
         return super().destroy(request, *args, **kwargs)
 
 
-class BulkDeleteSupplier(CreatedByUserMixin, generics.DestroyAPIView):
+class BulkDeleteSuppliers(CreatedByUserMixin, generics.DestroyAPIView):
     """Handles Supplier Bulk Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
@@ -137,7 +137,7 @@ class BulkDeleteSupplier(CreatedByUserMixin, generics.DestroyAPIView):
                          status=status.HTTP_200_OK)
 
 
-class CreateListSupplierOrder(CreatedByUserMixin,
+class CreateListSupplierOrders(CreatedByUserMixin,
                               generics.ListCreateAPIView):
     """Handles Supplier Order Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -146,7 +146,7 @@ class CreateListSupplierOrder(CreatedByUserMixin,
     queryset = SupplierOrder.objects.all()
 
 
-class GetUpdateDeleteSupplierOrder(CreatedByUserMixin,
+class GetUpdateDeleteSupplierOrders(CreatedByUserMixin,
                                    generics.RetrieveUpdateDestroyAPIView):
     """Handles Supplier Order Retrieval, Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
@@ -203,6 +203,25 @@ class BulkDeleteSupplierOrders(CreatedByUserMixin, generics.DestroyAPIView):
         orders_for_deletion.delete()
         return Response({'message': f'{orders_for_deletion_count} supplier orders successfully deleted.'},
                          status=status.HTTP_200_OK)
+ 
+
+class CreateListSupplierOrderedItems(CreatedByUserMixin,
+                                    generics.ListCreateAPIView):
+    """Handles Supplier Ordered Item Creation and Listing"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.SupplierOrderedItemSerializer
+    queryset = SupplierOrderedItem.objects.all()
+
+
+class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
+                                          generics.RetrieveUpdateDestroyAPIView):
+    """Handles Supplier Ordered Item Retrieval, Update and Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = serializers.SupplierOrderedItemSerializer
+    queryset = SupplierOrderedItem.objects.all()
+    lookup_field = 'id'
 
 
 class GetSupplierOrdersData(generics.GenericAPIView):

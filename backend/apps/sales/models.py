@@ -22,7 +22,7 @@ class Sale(BaseModel):
                                    null=True, blank=True, related_name='sales',
                                    help_text="The user who created this sale")
     client = models.ForeignKey(Client, on_delete=models.PROTECT,
-                               null=False, related_name="sales",
+                               null=True, related_name="sales",
                                help_text="The client this sale is associated with")
     delivery_status = models.ForeignKey(OrderStatus, on_delete=models.PROTECT,
                                         related_name='sale_delivery_status',
@@ -40,7 +40,7 @@ class Sale(BaseModel):
                                          null=True, related_name="sales",
                                          help_text="The address to ship the items sold",)
     shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
-                                        null=True, blank=True)
+                                        default=00.0)
     from_order = models.BooleanField(default=False)
     updated = models.BooleanField(default=False)
 
@@ -58,9 +58,7 @@ class Sale(BaseModel):
 
     @property
     def net_profit(self):
-        if self.shipping_cost:
-            return self.total_price - self.shipping_cost
-        return self.total_price
+        return self.total_price - self.shipping_cost
 
     def __str__(self):
         return self.reference_id
