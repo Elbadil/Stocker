@@ -196,14 +196,14 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
             .filter(
                 id__in=order_ids)
             .annotate(id_str=Cast('id', CharField()))
-            .values_list('id_str',flat=True)
+            .values_list('id_str', flat=True)
         )
         missing_ids = set(order_ids) - orders_found_ids
         if missing_ids:
             return Response(
                 {
                     'error': {
-                        'message': 'Some or all orders could not be found.',
+                        'message': 'Some or all selected orders could not be found.',
                         'missing_ids': list(missing_ids)
                     }
                 },
@@ -241,6 +241,19 @@ class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
 
     def delete(self, request, *args, **kwargs):
         ordered_item = self.get_object()
+
+        # Validate order's ordered items records
+        if len(ordered_item.order.items) == 1:
+            return Response(
+                {
+                    'error': (
+                        "This item cannot be deleted because it is the only item in the "
+                        f"order with reference ID '{ordered_item.order.reference_id}'. "
+                        "Every order must have at least one item."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Reset item inventory's quantity
         inventory_item = Item.objects.get(id=ordered_item.item.id)

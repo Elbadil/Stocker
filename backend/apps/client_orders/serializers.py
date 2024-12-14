@@ -440,9 +440,15 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             return ordered_items
         return None
 
-    def validate_ordered_items(self, value: List[ClientOrderedItem]):
+    def validate_ordered_items(self, value: List[dict]):
+        if not value or len(value) == 0:
+            raise serializers.ValidationError('This field is required.')
         unique_items = []
-        for ordered_item in value:
+        for i, ordered_item in enumerate(value):
+            if not ordered_item:
+                raise serializers.ValidationError(
+                    f"Item at position {i + 1} cannot be empty. Please provide valid details."
+                )
             item_name = ordered_item['item'].lower()
             if item_name in unique_items:
                 ordered_item_name = ordered_item["item"]

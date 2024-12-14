@@ -265,8 +265,14 @@ class SaleSerializer(serializers.ModelSerializer):
         return client
 
     def validate_sold_items(self, value):
+        if not value or len(value) == 0:
+            raise serializers.ValidationError('This field is required.')
         unique_items = []
-        for sold_item in value:
+        for i, sold_item in enumerate(value):
+            if not sold_item:
+                raise serializers.ValidationError(
+                    f"Item at position {i + 1} cannot be empty. Please provide valid details."
+                )
             if sold_item['item'].lower() in unique_items:
                 sold_item_name = sold_item['item']
                 raise serializers.ValidationError(

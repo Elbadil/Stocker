@@ -389,9 +389,15 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         return supplier
 
     def validate_ordered_items(self, value):
+        if not value or len(value) == 0:
+            raise serializers.ValidationError('This field is required.')
         ordered_items = value
         unique_items = []
-        for ordered_item in ordered_items:
+        for i, ordered_item in enumerate(ordered_items):
+            if not ordered_item:
+                raise serializers.ValidationError(
+                    f"Item at position {i + 1} cannot be empty. Please provide valid details."
+                )
             item_name = ordered_item['item'].lower()
             if item_name in unique_items:
                 raise serializers.ValidationError(

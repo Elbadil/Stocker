@@ -223,6 +223,41 @@ class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
     queryset = SupplierOrderedItem.objects.all()
     lookup_field = 'id'
 
+    def delete(self, request, *args, **kwargs):
+        ordered_item = self.get_object()
+
+        # Validate ordered item order delivery status
+        if ordered_item.order.delivery_status.name == 'Delivered':
+            return Response(
+                {
+                    'error': (
+                        f"This ordered item cannot be deleted because the order "
+                        f"with reference ID '{ordered_item.order.reference_id}' "
+                        "has already been marked as Delivered. Changes to delivered "
+                        "orders' ordered items are restricted to maintain data integrity."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate order's ordered items records
+        if len(ordered_item.order.items) == 1:
+            return Response(
+                {
+                    'error': (
+                        "This item cannot be deleted because it is the only item in the "
+                        f"order with reference ID '{ordered_item.order.reference_id}'. "
+                        "Every order must have at least one item."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Delete ordered item
+        ordered_item.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class GetSupplierOrdersData(generics.GenericAPIView):
     """Returns necessary data related to user's supplier orders"""

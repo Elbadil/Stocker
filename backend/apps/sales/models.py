@@ -37,7 +37,8 @@ class Sale(BaseModel):
                                related_name="sales",
                                help_text="The source through which this sale was acquired")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,
-                                         null=True, related_name="sales",
+                                         null=True, blank=True,
+                                         related_name="sales",
                                          help_text="The address to ship the items sold",)
     shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
                                         default=00.0)
