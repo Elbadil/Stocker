@@ -70,7 +70,7 @@ class SoldItem(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                    null=True, related_name='sold_items')
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE,
-                             null=False, blank=False,
+                             null=False, blank=True,
                              related_name='sold_items')
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     sold_quantity = models.IntegerField(validators=[MinValueValidator(1)])

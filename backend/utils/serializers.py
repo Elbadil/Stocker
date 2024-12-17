@@ -2,7 +2,12 @@ from rest_framework import serializers
 from typing import Any, Union, Optional, Callable
 from apps.base.models import User
 from apps.inventory.models import Item
-from apps.client_orders.models import Location, AcquisitionSource
+from apps.client_orders.models import (Location,
+                                       AcquisitionSource,
+                                       ClientOrder,
+                                       ClientOrderedItem)
+from apps.supplier_orders.models import SupplierOrder, SupplierOrderedItem
+from apps.sales.models import Sale, SoldItem
 
 
 def datetime_repr_format(datetime):
@@ -81,3 +86,27 @@ def update_field(
             setattr(instance, field_name, value)
     elif field_name in self.initial_data:
         setattr(instance, field_name, None)
+
+def check_item_existence(
+    item_model: Union[ClientOrderedItem, SupplierOrderedItem, SoldItem],
+    parent_instance: Union[ClientOrder, SupplierOrder, Sale],
+    item_name: str,
+    instance: Union[ClientOrderedItem, SupplierOrderedItem, SoldItem, None],
+) -> bool: 
+    """
+    Checks for an already existing item with the same name in the list of 
+    sale's/order's items.
+    returns:
+        True if an item with the same name exists, otherwise False.
+    """
+    parent_field = 'sale' if isinstance(parent_instance, Sale) else 'order'
+
+    query = {
+        parent_field: parent_instance,
+        'item__name__iexact': item_name
+    }
+
+    if instance:
+        return item_model.objects.filter(**query).exclude(id=instance.id).exists()
+
+    return item_model.objects.filter(**query).exists()

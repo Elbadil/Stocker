@@ -13,7 +13,7 @@ from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
-from .utils import reset_client_ordered_items
+from .utils import validate_client_order, reset_client_ordered_items
 from . import serializers
 from .models import (Client,
                      ClientOrder,
@@ -229,6 +229,17 @@ class CreateListClientOrderedItems(CreatedByUserMixin,
     serializer_class = serializers.ClientOrderedItemSerializer
     queryset = ClientOrderedItem.objects.all()
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_client_order(order_id, self.request.user)
+        return queryset.filter(order=order)
+
+    def perform_create(self, serializer):
+        order_id = self.kwargs['order_id']
+        order = validate_client_order(order_id, self.request.user)
+        serializer.save(order=order)
+
 
 class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
                                        generics.RetrieveUpdateDestroyAPIView):
@@ -238,6 +249,12 @@ class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
     serializer_class = serializers.ClientOrderedItemSerializer
     queryset = ClientOrderedItem.objects.all()
     lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_client_order(order_id, self.request.user)
+        return queryset.filter(order=order)
 
     def delete(self, request, *args, **kwargs):
         ordered_item = self.get_object()

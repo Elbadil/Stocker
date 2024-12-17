@@ -6,7 +6,8 @@ from utils.serializers import (datetime_repr_format,
                                get_location,
                                get_or_create_location,
                                get_or_create_source,
-                               update_item_quantity)
+                               update_item_quantity,
+                               check_item_existence)
 from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
                                 PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import Sale, SoldItem
@@ -51,24 +52,43 @@ class SoldItemSerializer(serializers.ModelSerializer):
             )
 
         return item
+    
+    def validate_item_uniqueness(self, item_name: str, sale: Sale):
+        item_exists = check_item_existence(SoldItem, sale, item_name)
+        if item_exists:
+            raise serializers.ValidationError(
+                {
+                    'item': (
+                        f"Item '{item_name}' already exists in the sale's list of sold items. "
+                        "Consider updating the existing item if you need to modify its details."
+                    )
+                }
+            )
+
+    def sold_quantity_validation_error(self, item_name: str):
+        raise serializers.ValidationError(
+            {
+                'sold_quantity': f"The sold quantity for '{item_name}' "
+                                    "exceeds available stock."
+            }
+        )
 
     @transaction.atomic
     def create(self, validated_data):
         # Extract special fields
         user = self.context.get('request').user
         item = validated_data.get('item')
+        sale = validated_data.get('sale')
         from_order = validated_data.pop('from_order', False)
         sold_quantity = validated_data.get('sold_quantity')
+
+        # Validate item's uniqueness in the order's list of ordered items
+        self.validate_item_uniqueness(item.name, sale)
 
         # Validate and subtract sold quantity if sold item isn't being created from order
         if not from_order:
             if item.quantity < sold_quantity:
-                raise serializers.ValidationError(
-                    {
-                        'sold_quantity': f"The ordered quantity for '{item.name}' "
-                                          "exceeds available stock."
-                    }
-                )
+                self.sold_quantity_validation_error(item.name)
             item.quantity -= sold_quantity
             item.save()
 
@@ -79,46 +99,41 @@ class SoldItemSerializer(serializers.ModelSerializer):
     def update(self, instance: SoldItem, validated_data):
         # Extract special fields
         item = validated_data.get('item', None)
+        sale = validated_data.get('sale', instance.sale)
         sold_quantity = validated_data.get('sold_quantity',
                                            instance.sold_quantity)
-        # Handle item validation
-        if item:
-            # Case: Item instance has changed
-            if instance.item != item:
-                # Validate new item's quantity
-                if item.quantity < sold_quantity:
-                    raise serializers.ValidationError(
-                        {
-                            'sold_quantity': f"The sold quantity for '{item.name}' "
-                                              "exceeds available stock."
-                        }
-                    )
 
-                # Reset prev item inventory quantity
-                instance.item.quantity += instance.sold_quantity
-                instance.item.save()
+        # Case: Item instance has changed
+        if item and instance.item != item:
+            # Validate item's uniqueness in the order's list of ordered items
+            self.validate_item_uniqueness(item.name, sale)
+    
+            # Validate new item's quantity
+            if item.quantity < sold_quantity:
+                self.sold_quantity_validation_error(item.name)
 
-                # Subtract the ordered quantity from item's inventory quantity
-                item.quantity -= sold_quantity
+            # Reset prev item inventory quantity
+            instance.item.quantity += instance.sold_quantity
+            instance.item.save()
+
+            # Subtract the ordered quantity from item's inventory quantity
+            item.quantity -= sold_quantity
+            item.save()
+
+        # Case: Item instance remained the same
+        else:
+            item = item or instance.item
+            item_new_quantity = update_item_quantity(item,
+                                                     instance.sold_quantity,
+                                                     sold_quantity)
+            # Validate new item's quantity
+            if item_new_quantity < 0:
+                self.sold_quantity_validation_error(item.name)
+
+            else:
+                # Update item's inventory quantity
+                item.quantity = item_new_quantity
                 item.save()
-
-            # Case: Item instance remained the same
-            else: 
-                item_new_quantity = update_item_quantity(item,
-                                                         instance.sold_quantity,
-                                                         sold_quantity)
-                # Validate new item's quantity
-                if item_new_quantity < 0:
-                    raise serializers.ValidationError(
-                        {
-                            'sold_quantity': f"The sold quantity for '{item.name}' "
-                                                "exceeds available stock."    
-                        }
-                    )
-                else:
-                    # Update item's inventory quantity
-                    item.quantity = item_new_quantity
-                    item.save()
 
         # return sold item instance
         return super().update(instance, validated_data)

@@ -10,26 +10,26 @@ urlpatterns = [
     path('suppliers/bulk_delete/',
         views.BulkDeleteSuppliers.as_view(),
         name='bulk_delete_suppliers'),
-    path('suppliers/<str:id>/',
+    path('suppliers/<uuid:id>/',
         views.GetUpdateDeleteSuppliers.as_view(),
         name='get_update_delete_suppliers'),
 
     # Supplier Orders
-    path('orders/',
+    path('',
         views.CreateListSupplierOrders.as_view(),
         name='create_list_supplier_orders'),
-    path('orders/bulk_delete/',
+    path('bulk_delete/',
         views.BulkDeleteSupplierOrders.as_view(),
         name='bulk_delete_supplier_orders'),
-    path('orders/<str:id>/',
+    path('<uuid:id>/',
         views.GetUpdateDeleteSupplierOrders.as_view(),
         name='get_update_delete_supplier_orders'),
     
     # Supplier Ordered Items
-    path('ordered_items/',
+    path('<uuid:order_id>/items/',
         views.CreateListSupplierOrderedItems.as_view(),
         name='create_list_supplier_ordered_items'),
-    path('ordered_items/<str:id>/',
+    path('<uuid:order_id>/items/<uuid:id>/',
         views.GetUpdateDeleteSupplierOrderedItems.as_view(),
         name='get_update_delete_supplier_ordered_items'),
 

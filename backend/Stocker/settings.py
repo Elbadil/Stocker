@@ -95,7 +95,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware'
 ]
 
-# Cors and Csrf Congig
+# Cors and Csrf Config
 CSRF_TRUSTED_ORIGINS = [
   "http://localhost:5173",
 ]
@@ -160,12 +160,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# DRF Auth
+# DRF
 REST_FRAMEWORK = {
+    # Auth
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
+    )
 }
 
 # JWT Token Config

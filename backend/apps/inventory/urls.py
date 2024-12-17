@@ -10,7 +10,7 @@ urlpatterns = [
     path('items/bulk_delete/',
          views.BulkDeleteItems.as_view(),
          name='bulk_delete_items'),
-    path('items/<str:id>/',
+    path('items/<uuid:id>/',
          views.GetUpdateDeleteItems.as_view(),
          name='get_update_delete_items'),
 

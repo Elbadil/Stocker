@@ -7,7 +7,7 @@ from utils.serializers import (datetime_repr_format,
                                get_or_create_location)
 from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
                                 PAYMENT_STATUS_OPTIONS_LOWER)
-from utils.serializers import update_field
+from utils.serializers import update_field, check_item_existence
 from ..base.models import User
 from ..inventory.models import Item
 from ..client_orders.serializers import LocationSerializer
@@ -171,6 +171,27 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
                                 f"not match the selected supplier '{supplier.name}'."
                 }
             )
+        
+    def validate_item_uniqueness(
+        self,
+        item_name: str,
+        order: SupplierOrder,
+        instance: Union[SupplierOrderedItem, None]=None,
+    ):
+        item_exists = check_item_existence(SupplierOrderedItem,
+                                           order,
+                                           item_name,
+                                           instance)
+        if item_exists:
+            raise serializers.ValidationError(
+                {
+                    'item': (
+                        f"Item '{item_name}' already exists in the order's list of ordered items. "
+                        "Consider updating the existing item if you need to modify its details."
+                    )
+                }
+            )
+
 
     def validate_supplier(self, value):
         user = self.context.get('request').user
@@ -192,6 +213,9 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
 
         # Check supplier integrity
         self.check_supplier_integrity(user, supplier, item_name, order)
+
+        # Validate item's uniqueness in the order's list of ordered items
+        self.validate_item_uniqueness(item_name, order)
 
         # Get or create item
         item = self._get_or_create_item_and_set_supplier(
@@ -222,6 +246,9 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
 
         # Check supplier integrity
         self.check_supplier_integrity(user, supplier, item_name, order)
+
+        # Validate item's uniqueness in the order's list of ordered items
+        self.validate_item_uniqueness(item_name, order, instance)
 
         # Update ordered item 
         if item_name:

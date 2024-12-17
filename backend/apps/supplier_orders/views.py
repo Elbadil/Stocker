@@ -13,6 +13,7 @@ from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
+from .utils import validate_supplier_order
 from . import serializers
 from .models import Supplier, SupplierOrder, SupplierOrderedItem
 
@@ -213,6 +214,17 @@ class CreateListSupplierOrderedItems(CreatedByUserMixin,
     serializer_class = serializers.SupplierOrderedItemSerializer
     queryset = SupplierOrderedItem.objects.all()
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_supplier_order(order_id, self.request.user)
+        return queryset.filter(order=order)
+    
+    def perform_create(self, serializer):
+        order_id = self.kwargs['order_id']
+        order = validate_supplier_order(order_id, self.request.user)
+        serializer.save(order=order)
+
 
 class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
                                           generics.RetrieveUpdateDestroyAPIView):
@@ -222,6 +234,12 @@ class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
     serializer_class = serializers.SupplierOrderedItemSerializer
     queryset = SupplierOrderedItem.objects.all()
     lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_supplier_order(order_id, self.request.user)
+        return queryset.filter(order=order)
 
     def delete(self, request, *args, **kwargs):
         ordered_item = self.get_object()

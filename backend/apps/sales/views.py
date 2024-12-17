@@ -1,11 +1,12 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import NotFound
 from django.db.models.functions import Cast
 from django.db.models import CharField
 from utils.views import CreatedByUserMixin
 from utils.tokens import Token
-from .utils import reset_sale_sold_items
+from .utils import validate_sale, reset_sale_sold_items
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Sale, SoldItem
@@ -94,13 +95,23 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
                          status=status.HTTP_200_OK)
 
 
-class CreateListSoldItems(CreatedByUserMixin,
-                         generics.ListCreateAPIView):
+class CreateListSoldItems(CreatedByUserMixin, generics.ListCreateAPIView):
     """Handles Sold Item Creation and Listing"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = serializers.SoldItemSerializer
     queryset = SoldItem.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sale_id = self.kwargs['sale_id']
+        sale = validate_sale(sale_id, self.request.user)
+        return queryset.filter(sale=sale)
+
+    def perform_create(self, serializer):
+        sale_id = self.kwargs['sale_id']
+        sale = validate_sale(sale_id, self.request.user)
+        serializer.save(sale=sale)
 
 
 class GetUpdateDeleteSoldItems(CreatedByUserMixin,
@@ -111,6 +122,12 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
     serializer_class = serializers.SoldItemSerializer
     queryset = SoldItem.objects.all()
     lookup_field = 'id'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sale_id = self.kwargs['sale_id']
+        sale = validate_sale(sale_id, self.request.user)
+        return queryset.filter(sale=sale)
 
     def delete(self, request, *args, **kwargs):
         sold_item = self.get_object()
