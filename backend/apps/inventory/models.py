@@ -65,7 +65,7 @@ class Item(BaseModel):
 
     def __str__(self) -> str:
         if self.created_by:
-            return f'{self.name} added by - {self.created_by.username} -'
+            return f'{self.name} by - {self.created_by.username} -'
         return self.name
 
 

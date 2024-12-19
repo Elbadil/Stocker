@@ -7,7 +7,8 @@ class SupplierAdmin(admin.ModelAdmin):
 
 
 class SupplierOrderedItemAdmin(admin.ModelAdmin):
-    list_display = ['order_reference_id',
+    list_display = ['id',
+                    'order_reference_id',
                     'supplier_name',
                     'item_name',
                     'ordered_quantity',

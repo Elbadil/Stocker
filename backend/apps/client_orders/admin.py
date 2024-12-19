@@ -6,7 +6,8 @@ class ClientAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'total_orders']
 
 class ClientOrderedItemAdmin(admin.ModelAdmin):
-    list_display = ['order_reference_id',
+    list_display = ['id',
+                    'order_reference_id',
                     'client_name',
                     'item_name',
                     'ordered_quantity',

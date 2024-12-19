@@ -1,9 +1,10 @@
 from django.db.models import F
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound
+from typing import List
 from uuid import UUID
 from ..base.models import User
 from ..inventory.models import Item
-from .models import Sale
+from .models import Sale, SoldItem
 
 
 def validate_sale(sale_id: UUID, user: User):
@@ -12,8 +13,7 @@ def validate_sale(sale_id: UUID, user: User):
         raise NotFound(f"Sale with id '{sale_id}' does not exist.")
     return sale
 
-def reset_sale_sold_items(instance: Sale):
-    sold_items = instance.items
+def reset_sold_items(sold_items: List[SoldItem]):
     for sold_item in sold_items:
         Item.objects.filter(id=sold_item.item.id).update(
             quantity=F('quantity') + sold_item.sold_quantity

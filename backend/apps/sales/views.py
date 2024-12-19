@@ -1,12 +1,11 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import NotFound
 from django.db.models.functions import Cast
 from django.db.models import CharField
-from utils.views import CreatedByUserMixin
+from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
 from utils.tokens import Token
-from .utils import validate_sale, reset_sale_sold_items
+from .utils import validate_sale, reset_sold_items
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Sale, SoldItem
@@ -86,7 +85,7 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
         delete_count = 0
         for sale in sales_for_deletion:
             if not sale.from_order:
-                reset_sale_sold_items(sale)
+                reset_sold_items(sale.items)
             SoldItem.objects.filter(sale=sale).delete()
             sale.delete()
             delete_count += 1
@@ -152,12 +151,34 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
 
         return super().delete(request, *args, **kwargs)
 
-# class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
-#     """Handles Sold Items Bulk Deletion"""
-#     authentication_classes = (TokenVersionAuthentication,)
-#     permission_classes = (IsAuthenticated,)
-#     queryset = SoldItem.objects.all()
+class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
+    """Handles Sold Items Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = SoldItem.objects.all()
 
-#     def delete(self, request, *args, **kwargs):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        sale_id = self.kwargs['sale_id']
+        sale = validate_sale(sale_id, self.request.user)
+        return queryset.filter(sale=sale)
 
-#         return super().delete(request, *args, **kwargs)
+    def delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids', [])
+        queryset = self.get_queryset()
+
+        # Validate ids and items for deletion
+        result = validate_linked_items_for_deletion(ids, queryset, Sale)
+
+        # Return Response if validation failed
+        if isinstance(result, Response):
+            return result
+
+        # Perform deletion
+        sale, items_for_deletion = result
+        if not sale.from_order:
+            reset_sold_items(items_for_deletion)
+        delete_count, _ = items_for_deletion.delete()
+
+        return Response({'message': f'{delete_count} sold items successfully deleted.'},
+                         status=status.HTTP_200_OK)

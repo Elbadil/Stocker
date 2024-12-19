@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, CharField
 from django.db.models.functions import Cast
 from utils.tokens import Token
-from utils.views import CreatedByUserMixin
+from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
 from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 PAYMENT_STATUS_OPTIONS,
                                 COMPLETED_STATUS,
@@ -163,7 +163,8 @@ class GetUpdateDeleteClientOrders(CreatedByUserMixin,
 
     def destroy(self, request, *args, **kwargs):
         order = self.get_object()
-        reset_client_ordered_items(order)
+        reset_client_ordered_items(order.items)
+        ClientOrderedItem.objects.filter(order=order).delete()
         return super().destroy(request, *args, **kwargs)
 
 
@@ -213,7 +214,8 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
         orders = self.get_queryset().filter(id__in=order_ids)
         delete_count = 0
         for order in orders:
-            reset_client_ordered_items(order)
+            reset_client_ordered_items(order.items)
+            ClientOrderedItem.objects.filter(order=order).delete()
             order.delete()
             delete_count += 1
 
@@ -281,6 +283,38 @@ class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
         ordered_item.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BulkDeleteClientOrderedItems(CreatedByUserMixin, generics.DestroyAPIView):
+    """Handles Client Ordered Items Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = ClientOrderedItem.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_client_order(order_id, self.request.user)
+        return queryset.filter(order=order)
+    
+    def delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids', [])
+        queryset = self.get_queryset()
+
+        # Validate ids and items for deletion
+        result = validate_linked_items_for_deletion(ids, queryset, ClientOrder)
+
+        # Return Response if validation failed
+        if isinstance(result, Response):
+            return result
+        
+        # Perform items deletion
+        order, items_for_deletion = result
+        reset_client_ordered_items(order.items)
+        delete_count, _ = items_for_deletion.delete()
+
+        return Response({'message': f'{delete_count} ordered items successfully deleted.'},
+                         status=status.HTTP_200_OK)
 
 
 class BulkCreateListCities(generics.ListCreateAPIView):

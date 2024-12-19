@@ -16,7 +16,8 @@ class SaleAdmin(admin.ModelAdmin):
 
 
 class SoldItemAdmin(admin.ModelAdmin):
-    list_display = ['order_ref_id',
+    list_display = ['id',
+                    'order_ref_id',
                     'client_name',
                     'item_name',
                     'sold_quantity',

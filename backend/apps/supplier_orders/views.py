@@ -5,7 +5,7 @@ from django.db.models import CharField, Q
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import Cast
 from utils.tokens import Token
-from utils.views import CreatedByUserMixin
+from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
 from utils.order_status import (DELIVERY_STATUS_OPTIONS,
                                 PAYMENT_STATUS_OPTIONS,
                                 COMPLETED_STATUS,
@@ -249,7 +249,7 @@ class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
             return Response(
                 {
                     'error': (
-                        f"This ordered item cannot be deleted because the order "
+                        "This ordered item cannot be deleted because the order "
                         f"with reference ID '{ordered_item.order.reference_id}' "
                         "has already been marked as Delivered. Changes to delivered "
                         "orders' ordered items are restricted to maintain data integrity."
@@ -275,6 +275,51 @@ class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
         ordered_item.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BulkDeleteSupplierOrderedItems(CreatedByUserMixin, generics.DestroyAPIView):
+    """Handles Supplier Ordered Items Bulk Deletion"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = SupplierOrderedItem.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        order_id = self.kwargs['order_id']
+        order = validate_supplier_order(order_id, self.request.user)
+        return queryset.filter(order=order)
+    
+    def delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids', [])
+        queryset = self.get_queryset()
+        order = self.get_queryset().first().order
+        
+        # Validate ordered items order delivery status
+        if order.delivery_status.name == 'Delivered':
+            return Response(
+                {
+                    'error': (
+                        "The ordered items cannot be deleted because the order "
+                        f"with reference ID '{order.reference_id}' has already been "
+                        "marked as Delivered. Changes to delivered orders'"
+                        "ordered items are restricted to maintain data integrity."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate ids and items for deletion
+        result = validate_linked_items_for_deletion(ids, queryset, SupplierOrder)
+
+        # Return Response if validation failed
+        if isinstance(result, Response):
+            return result
+
+        # Perform items deletion
+        order, items_for_deletion = result
+        delete_count, _ = items_for_deletion.delete()
+        return Response({'message': f'{delete_count} ordered items successfully deleted.'},
+                         status=status.HTTP_200_OK)
 
 
 class GetSupplierOrdersData(generics.GenericAPIView):

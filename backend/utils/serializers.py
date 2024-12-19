@@ -91,7 +91,7 @@ def check_item_existence(
     item_model: Union[ClientOrderedItem, SupplierOrderedItem, SoldItem],
     parent_instance: Union[ClientOrder, SupplierOrder, Sale],
     item_name: str,
-    instance: Union[ClientOrderedItem, SupplierOrderedItem, SoldItem, None],
+    instance: Union[ClientOrderedItem, SupplierOrderedItem, SoldItem, None]=None,
 ) -> bool: 
     """
     Checks for an already existing item with the same name in the list of 
