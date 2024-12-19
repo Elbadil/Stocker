@@ -151,6 +151,7 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
 
         return super().delete(request, *args, **kwargs)
 
+
 class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
     """Handles Sold Items Bulk Deletion"""
     authentication_classes = (TokenVersionAuthentication,)

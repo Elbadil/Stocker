@@ -30,6 +30,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
             'item',
             'sold_quantity',
             'sold_price',
+            'total_price',
             'from_order',
             'created_at',
             'updated_at'
@@ -178,6 +179,7 @@ class SaleSerializer(serializers.ModelSerializer):
             'source',
             'shipping_address',
             'shipping_cost',
+            'net_profit',
             'from_order',
             'created_at',
             'updated_at',

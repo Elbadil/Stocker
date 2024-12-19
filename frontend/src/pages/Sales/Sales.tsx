@@ -1,84 +1,91 @@
-import { useState, useEffect, useRef } from 'react';
-import {
-  ColDef,
-  ValueGetterParams,
-  ModuleRegistry,
-  GetQuickFilterTextParams,
-} from '@ag-grid-community/core';
-import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
+import React, { useState, useEffect, useRef } from 'react';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ModeEditOutlineOutlinedIcon from '@mui/icons-material/ModeEditOutlineOutlined';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import AgGridTable, {
-  dateFilterParams,
   AddressRenderer,
   StatusRenderer,
-} from '../../../components/Tables/AgGridTable';
-import ModalOverlay from '../../../components/ModalOverlay';
-import Breadcrumb from '../../../components/Breadcrumbs/Breadcrumb';
-import Loader from '../../../common/Loader';
-import { api } from '../../../api/axios';
-import { useAlert } from '../../../contexts/AlertContext';
-import { Alert } from '../../UiElements/Alert';
-import { useClientOrders } from '../../../contexts/ClientOrdersContext';
-import { handleBulkExport, handleOrderExport } from './utils';
-import { Location } from '../Clients/Client';
-import MultiNumberFilter from '../../../components/AgGridFilters/MultiNumberFilter';
-import MultiTextFilter from '../../../components/AgGridFilters/MultiTextFilter';
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
-import ClientOrder, {
-  ClientOrderProps,
-  ClientOrderedItem,
-} from './ClientOrder';
-import AddClientOrder from './AddClientOrder';
-import EditClientOrder from './EditClientOrder';
-import DeleteClientOrder from './DeleteClientOrder';
+  dateFilterParams,
+} from '../../components/Tables/AgGridTable';
+import MultiNumberFilter from '../../components/AgGridFilters/MultiNumberFilter';
+import MultiTextFilter from '../../components/AgGridFilters/MultiTextFilter';
+import Loader from '../../common/Loader';
+import ModalOverlay from '../../components/ModalOverlay';
+import { useAlert } from '../../contexts/AlertContext';
+import { Alert } from '../UiElements/Alert';
+import { Location } from '../ClientOrders/Clients/Client';
+import { api } from '../../api/axios';
+import { AgGridReact, CustomCellRendererProps } from '@ag-grid-community/react';
+import {
+  ColDef,
+  GetQuickFilterTextParams,
+  ValueGetterParams,
+} from '@ag-grid-community/core';
+import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
+import { handleSaleExport, handleSalesBulkExport } from './utils';
 
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
+export interface SoldItem {
+  id: string;
+  created_by: string;
+  item: string;
+  sold_quantity: number;
+  sold_price: number;
+  total_price: number;
+}
 
-const ClientOrders = () => {
+export interface SaleProps {
+  id: string;
+  reference_id: string;
+  created_by: string;
+  client: string;
+  sold_items: SoldItem[];
+  delivery_status: string;
+  payment_status: string;
+  shipping_address?: Location | null;
+  shipping_cost: number;
+  net_profit: number;
+  source?: string | null;
+  from_order: boolean;
+  created_at: string;
+  updated_at: string;
+  updated: boolean;
+}
+
+const Sales = () => {
   const { alert } = useAlert();
-  const { loading, ordersCount, orderStatus } = useClientOrders();
-  const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [salesLoading, setSalesLoading] = useState<boolean>(false);
+  const loading = false;
+  const [selectedSale, setSelectedSale] = useState<SaleProps | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedRows, setSelectedRows] = useState<
-    ClientOrderProps[] | undefined
-  >(undefined);
-  const [selectedOrder, setSelectedOrder] = useState<ClientOrderProps | null>(
-    null,
-  );
-  const [openOrder, setOpenOrder] = useState<boolean>(false);
-  const [openAddOrder, setOpenAddOrder] = useState<boolean>(false);
-  const [openEditOrder, setOpenEditOrder] = useState<boolean>(false);
-  const [openDeleteOrder, setOpenDeleteOrder] = useState<boolean>(false);
+  const [openSale, setOpenSale] = useState<boolean>(false);
+  const [openAddSale, setOpenAddSale] = useState<boolean>(false);
+  const [openEditSale, setOpenEditSale] = useState<boolean>(false);
+  const [openDeleteSale, setOpenDeleteSale] = useState<boolean>(false);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   };
 
   const RefRenderer = (params: CustomCellRendererProps) => {
-    if (!params.value) return null;
-    return (
-      <div
-        className="hover:underline cursor-pointer"
-        onClick={() => {
-          setSelectedOrder(params.data);
-          setOpenOrder(true);
-        }}
-      >
-        {params.value}
-      </div>
-    );
+    return params.value;
   };
 
-  const OrderedItemRenderer = (
+  const soldItemValueGetter = (
+    params: ValueGetterParams<SaleProps, SoldItem[]>,
+    key: keyof SoldItem,
+  ) => {
+    if (!params.data?.sold_items) return [];
+    return params.data.sold_items.map((soldItem) => soldItem[key]);
+  };
+
+  const SoldItemRenderer = (
     params: CustomCellRendererProps,
-    key: keyof ClientOrderedItem,
+    key: keyof SoldItem,
   ) => {
     if (!params.value) return null;
-    const decimalFields = ['ordered_price', 'total_profit', 'total_price'];
+    const decimalFields = ['sold_price', 'total_price'];
     return (
       <>
         {params.value.map((prop: string | number, index: number) => (
@@ -95,24 +102,19 @@ const ClientOrders = () => {
     );
   };
 
-  const createValueGetter = (
-    params: ValueGetterParams<ClientOrderProps, ClientOrderedItem[]>,
-    key: keyof ClientOrderedItem,
-  ) => {
-    if (!params.data?.ordered_items) return [];
-    return params.data.ordered_items.map((item) => item[key]);
-  };
-
   const numberGetQuickFilterText = (
-    params: GetQuickFilterTextParams<ClientOrderProps, number[]>,
+    params: GetQuickFilterTextParams<SaleProps, number[]>,
   ) => {
     if (!params.value) return '';
-    return params.value.map((value: number) => value.toFixed(2)).join(', ');
+    return params.value.map((value) => value.toFixed(2)).join(', ');
   };
 
   const gridRef = useRef<AgGridReact>(null);
-  const [rowData, setRowData] = useState<ClientOrderProps[]>([]);
-  const [colDefs] = useState<ColDef<ClientOrderProps>[]>([
+  const [selectedRows, setSelectedRows] = useState<SaleProps[] | undefined>(
+    undefined,
+  );
+  const [rowData, setRowData] = useState<SaleProps[]>([]);
+  const [colDefs] = useState<ColDef<SaleProps>[]>([
     {
       field: 'created_at',
       headerName: 'Created',
@@ -135,47 +137,46 @@ const ClientOrders = () => {
       flex: 1,
     },
     {
-      field: 'ordered_items',
+      field: 'sold_items',
       headerName: 'Item',
-      valueGetter: (params) => createValueGetter(params, 'item'),
+      valueGetter: (params) => soldItemValueGetter(params, 'item'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'item'),
+        SoldItemRenderer(params, 'item'),
       filter: MultiTextFilter,
       flex: 3,
       minWidth: 150,
     },
     {
-      field: 'ordered_items',
+      field: 'sold_items',
       headerName: 'Quantity',
-      valueGetter: (params) => createValueGetter(params, 'ordered_quantity'),
+      valueGetter: (params) => soldItemValueGetter(params, 'sold_quantity'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'ordered_quantity'),
+        SoldItemRenderer(params, 'sold_quantity'),
       filter: MultiNumberFilter,
-      getQuickFilterText: numberGetQuickFilterText,
       flex: 1.5,
       minWidth: 115,
     },
     {
-      field: 'ordered_items',
-      headerName: 'Unit Price',
-      valueGetter: (params) => createValueGetter(params, 'ordered_price'),
+      field: 'sold_items',
+      headerName: 'Price',
+      valueGetter: (params) => soldItemValueGetter(params, 'sold_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'ordered_price'),
+        SoldItemRenderer(params, 'sold_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
       flex: 1.5,
       minWidth: 123,
     },
     {
-      field: 'ordered_items',
+      field: 'sold_items',
       headerName: 'T. Price',
-      valueGetter: (params) => createValueGetter(params, 'total_price'),
+      valueGetter: (params) => soldItemValueGetter(params, 'total_price'),
       cellRenderer: (params: CustomCellRendererProps) =>
-        OrderedItemRenderer(params, 'total_price'),
+        SoldItemRenderer(params, 'total_price'),
       getQuickFilterText: numberGetQuickFilterText,
       filter: MultiNumberFilter,
-      flex: 1,
-      minWidth: 110,
+      flex: 1.5,
+      minWidth: 123,
     },
     {
       field: 'delivery_status',
@@ -196,7 +197,7 @@ const ClientOrders = () => {
     {
       field: 'shipping_address',
       headerName: 'Address',
-      valueGetter: (params: ValueGetterParams<ClientOrderProps, Location>) => {
+      valueGetter: (params: ValueGetterParams<SaleProps, Location>) => {
         if (!params.data?.shipping_address) return null;
         return Object.values(params.data.shipping_address).join(', ');
       },
@@ -207,28 +208,27 @@ const ClientOrders = () => {
       headerName: 'Shipping Cost',
       valueGetter: (params) => {
         if (!params.data?.shipping_cost) return null;
+        console.log(params.data.shipping_cost);
         return Number(params.data.shipping_cost);
       },
+      valueFormatter: (params) =>
+        !params.value ? '' : params.value.toFixed(2),
+      filter: 'agNumberColumnFilter',
+      getQuickFilterText: numberGetQuickFilterText,
+      flex: 3,
+      minWidth: 155,
+    },
+    {
+      field: 'net_profit',
+      headerName: 'Net Profit',
       valueFormatter: (params) => {
         if (!params.value) return null;
         return params.value.toFixed(2);
       },
       filter: 'agNumberColumnFilter',
-      flex: 3,
-      minWidth: 155,
-    },
-    {
-      field: 'tracking_number',
-      headerName: 'Tracking Number',
-      flex: 3,
-      minWidth: 177,
-    },
-    {
-      field: 'net_profit',
-      headerName: 'Net Profit',
-      valueFormatter: (params) => params.value.toFixed(2),
-      flex: 2,
-      minWidth: 130,
+      getQuickFilterText: numberGetQuickFilterText,
+      flex: 1.5,
+      minWidth: 123,
     },
     {
       field: 'source',
@@ -252,8 +252,8 @@ const ClientOrders = () => {
     },
   ]);
 
-  const getAndSetSelectRows = () => {
-    const selectedOrders: ClientOrderProps[] | undefined =
+  const getAndSetSelectedRows = () => {
+    const selectedOrders: SaleProps[] | undefined =
       gridRef.current?.api.getSelectedRows();
     setSelectedRows(selectedOrders);
   };
@@ -264,29 +264,25 @@ const ClientOrders = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      setOrdersLoading(true);
+      setSalesLoading(true);
       try {
-        const res = await api.get('/client_orders/');
+        const res = await api.get('/sales/');
         setRowData(res.data);
       } catch (error: any) {
-        console.log('Error getting orders list', error);
+        console.log('Error getting sales data', error);
       } finally {
-        setOrdersLoading(false);
+        setSalesLoading(false);
       }
     };
 
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (selectedRows) getAndSetSelectRows();
-  }, [openEditOrder]);
-
   return (
     <>
       <div className="mx-auto max-w-full">
-        <Breadcrumb main="Client Orders" pageName="Orders" />
-        {loading || ordersLoading ? (
+        <Breadcrumb main="Sales" pageName="Sales" />
+        {loading || salesLoading ? (
           <Loader />
         ) : (
           <>
@@ -294,7 +290,7 @@ const ClientOrders = () => {
             <div className="col-span-5 xl:col-span-3 relative">
               <div className="w-full flex flex-col border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
                 <div className="p-5 flex-grow">
-                  {/* Search | Order CRUD */}
+                  {/* Search | Sales CRUD */}
                   <div className="flex flex-col gap-3 sm:flex-row justify-between sm:items-center">
                     {/* Search */}
                     <div className="max-w-md relative">
@@ -333,31 +329,31 @@ const ClientOrders = () => {
                     <div>
                       <button
                         className="flex font-medium items-center hover:text-primary"
-                        onClick={handleBulkExport}
+                        onClick={handleSalesBulkExport}
                       >
                         <FileDownloadOutlinedIcon sx={{ marginRight: '2px' }} />
                         Bulk Export
                       </button>
                     </div>
-                    {/* Read Add | Edit | Delete | Export Order */}
+                    {/* Read Add | Edit | Delete | Export Sale */}
                     <div>
-                      {/* Read Order Modal */}
-                      {selectedOrder && (
+                      {/* Read Sale Modal */}
+                      {/* {selectedOrder && (
                         <ModalOverlay
                           isOpen={openOrder}
                           onClose={() => setOpenOrder(false)}
                         >
-                          <ClientOrder
+                          <SupplierOrder
                             order={selectedOrder}
                             setOrder={setSelectedOrder}
-                            orderRowNode={getRowNode(selectedOrder.id)}
+                            rowNode={getRowNode(selectedOrder.id)}
                             setOpen={setOpenOrder}
                             rowData={rowData}
                             setRowData={setRowData}
                           />
                         </ModalOverlay>
-                      )}
-                      {/* Export Order(s) */}
+                      )} */}
+                      {/* Export Sale(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -365,13 +361,13 @@ const ClientOrders = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => handleOrderExport(selectedRows)}
+                        onClick={handleSaleExport}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
                       </button>
 
-                      {/* Delete Order(s) */}
+                      {/* Delete Sale(s) */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -379,26 +375,27 @@ const ClientOrders = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-red-500 text-white'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => setOpenDeleteOrder(true)}
+                        onClick={() => setOpenDeleteSale(true)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <DeleteOutlinedIcon />
                       </button>
                       {selectedRows && selectedRows.length >= 1 && (
                         <ModalOverlay
-                          isOpen={openDeleteOrder}
-                          onClose={() => setOpenDeleteOrder(false)}
+                          isOpen={openDeleteSale}
+                          onClose={() => setOpenDeleteSale(false)}
                         >
-                          <DeleteClientOrder
+                          <div>Hi</div>
+                          {/* <DeleteSupplierOrder
                             orders={selectedRows}
-                            open={openDeleteOrder}
-                            setOpen={setOpenDeleteOrder}
+                            open={openDeleteSale}
+                            setOpen={setOpenDeleteSale}
                             rowData={rowData}
                             setRowData={setRowData}
-                          />
+                          /> */}
                         </ModalOverlay>
                       )}
-                      {/* Edit Order */}
+                      {/* Edit Sale */}
                       <button
                         type="button"
                         className={`mr-2 inline-flex items-center justify-center rounded-full border-[0.5px] border-stroke dark:border-strokedark ${
@@ -406,72 +403,74 @@ const ClientOrders = () => {
                             ? 'bg-primary text-white'
                             : 'text-slate-400 bg-gray dark:bg-meta-4'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={() => setOpenEditOrder(true)}
+                        onClick={() => setOpenEditSale(true)}
                         disabled={!selectedRows || selectedRows.length !== 1}
                       >
                         <ModeEditOutlineOutlinedIcon />
                       </button>
                       {selectedRows && selectedRows[0] && (
                         <ModalOverlay
-                          isOpen={openEditOrder}
-                          onClose={() => setOpenEditOrder(false)}
+                          isOpen={openEditSale}
+                          onClose={() => setOpenEditSale(false)}
                         >
-                          <EditClientOrder
-                            open={openEditOrder}
-                            setOpen={setOpenEditOrder}
-                            order={selectedRows[0]}
+                          <div>Hi</div>
+                          {/* <EditSupplierOrder
+                            supplierOrder={selectedRows[0]}
+                            open={openEditSale}
+                            setOpen={setOpenEditSale}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          />
+                          /> */}
                         </ModalOverlay>
                       )}
-                      {/* Add Order */}
+                      {/* Add Sale */}
                       <button
                         className="inline-flex items-center justify-center rounded-full bg-meta-3 py-2 px-3 text-center font-medium text-white hover:bg-opacity-90 lg:px-3 xl:px-3"
-                        onClick={() => setOpenAddOrder(true)}
+                        onClick={() => setOpenAddSale(true)}
                         aria-hidden={false}
                       >
                         <AddCircleOutlinedIcon sx={{ marginRight: '3px' }} />
                         New
                       </button>
                       <ModalOverlay
-                        isOpen={openAddOrder}
-                        onClose={() => setOpenAddOrder(false)}
+                        isOpen={openAddSale}
+                        onClose={() => setOpenAddSale(false)}
                       >
-                        <AddClientOrder
-                          open={openAddOrder}
-                          setOpen={setOpenAddOrder}
+                        <div>Hi</div>
+                        {/* <AddSupplierOrder
+                          open={openAddSale}
+                          setOpen={setOpenAddSale}
                           setRowData={setRowData}
-                        />
+                        /> */}
                       </ModalOverlay>
                     </div>
                   </div>
-                  {/* Orders Info | Clients Count | Orders Count */}
+                  {/* Orders Info | Orders Count | Orders status */}
                   <div className="mx-auto mt-3.5 mb-3.5 grid grid-cols-4 rounded-md border bg-gray border-stroke py-2.5 shadow-1 dark:border-strokedark dark:bg-[#37404F]">
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">
-                        Total Orders:
+                        Total Sales:
                       </span>
                       <span className="font-semibold text-black dark:text-white">
-                        {ordersCount}
+                        {/* {ordersCount} */}0
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Active:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {orderStatus.active}
+                        {/* {orderStatus.active} */}0
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Completed:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {orderStatus.completed}
+                        {/* {orderStatus.completed} */}0
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 px-4 xsm:flex-row">
                       <span className="text-base font-medium">Failed:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {orderStatus.failed}
+                        {/* {orderStatus.failed} */}0
                       </span>
                     </div>
                   </div>
@@ -481,7 +480,7 @@ const ClientOrders = () => {
                     rowData={rowData}
                     colDefs={colDefs}
                     searchTerm={searchTerm}
-                    onRowSelected={getAndSetSelectRows}
+                    onRowSelected={getAndSetSelectedRows}
                   />
                 </div>
               </div>
@@ -493,4 +492,4 @@ const ClientOrders = () => {
   );
 };
 
-export default ClientOrders;
+export default Sales;

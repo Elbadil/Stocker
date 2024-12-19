@@ -1,5 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import JsonResponse
 from django.db.models import CharField
 from django.db.models.functions import Cast
 from typing import Union, List
@@ -23,7 +24,12 @@ def validate_linked_items_for_deletion(
     queryset: List[Union[ClientOrderedItem, SupplierOrderedItem, SoldItem]],
     parent_model: Union[ClientOrder, SupplierOrder, Sale],
 ) -> Union[Response, tuple]:
-    """"""
+    """
+    Validates whether the given items can be deleted.
+    returns:
+        Response object with error message if validation fails
+        Else a (parent_instance, items_for_deletion) tuple
+    """
     # Validate ids
     if not ids:
         return Response({'error': 'No IDs provided.'},

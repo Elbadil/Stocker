@@ -14,7 +14,7 @@ from ..supplier_orders.models import Supplier
 
 
 class CreateListItems(CreatedByUserMixin,
-                     generics.CreateAPIView):
+                      generics.ListCreateAPIView):
     """Handles Item Creation"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)

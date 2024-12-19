@@ -241,7 +241,7 @@ const SupplierOrders = () => {
     const loadData = async () => {
       setOrdersLoading(true);
       try {
-        const res = await api.get('/supplier_orders/orders/');
+        const res = await api.get('/supplier_orders/');
         setRowData(res.data);
       } catch (error) {
         console.log('Error getting supplier orders', error);
