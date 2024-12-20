@@ -9,8 +9,8 @@ from utils.serializers import (datetime_repr_format,
                                update_item_quantity,
                                update_field,
                                check_item_existence)
-from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
-                                PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
+                          PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import (Client,
                      Country,
                      City,

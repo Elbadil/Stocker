@@ -19,7 +19,8 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({
     if (
       pathname.startsWith('/inventory/') ||
       pathname.startsWith('/client_orders/') ||
-      pathname.startsWith('/supplier_orders/')
+      pathname.startsWith('/supplier_orders/') || 
+      pathname.startsWith('/sales')
     ) {
       dispatch(getInventoryData());
     }

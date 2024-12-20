@@ -190,6 +190,32 @@ export const orderedItemsField = () =>
       });
     });
 
+export const soldItemsField = () =>
+  z
+    .array(
+      z.object({
+        item: requiredStringField('Item name'),
+        sold_quantity: requiredPositiveNumberField('Quantity'),
+        sold_price: requiredPositiveNumberField('Price'),
+      }),
+    )
+    .superRefine((soldItems, ctx) => {
+      // Collect all items names
+      const itemNames = soldItems.map((soldItem) => soldItem.item);
+      const nameCount: { [key: string]: number } = {};
+      itemNames.forEach((name: string, index: number) => {
+        const nameLower = name.toLowerCase().trim();
+        nameCount[nameLower] = (nameCount[nameLower] || 0) + 1;
+        if (nameCount[nameLower] > 1) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [index, 'item'],
+            message: `Item "${name.trim()}" has already been selected.`,
+          });
+        }
+      });
+    });
+
 export const selectOptionsFromStrings = (options: string[]) =>
   options.map((option) => ({ value: option, label: option }));
 

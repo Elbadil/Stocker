@@ -6,11 +6,11 @@ from django.db.models import Q, CharField
 from django.db.models.functions import Cast
 from utils.tokens import Token
 from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
-from utils.order_status import (DELIVERY_STATUS_OPTIONS,
-                                PAYMENT_STATUS_OPTIONS,
-                                COMPLETED_STATUS,
-                                ACTIVE_STATUS,
-                                FAILED_STATUS)
+from utils.status import (DELIVERY_STATUS_OPTIONS,
+                          PAYMENT_STATUS_OPTIONS,
+                          COMPLETED_STATUS,
+                          ACTIVE_STATUS,
+                          FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
 from .utils import validate_client_order, reset_client_ordered_items

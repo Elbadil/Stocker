@@ -25,6 +25,8 @@ import {
 } from '@ag-grid-community/core';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { handleSaleExport, handleSalesBulkExport } from './utils';
+import { useSales } from '../../contexts/SalesContext';
+import AddSale from './AddSale';
 
 export interface SoldItem {
   id: string;
@@ -47,6 +49,7 @@ export interface SaleProps {
   shipping_cost: number;
   net_profit: number;
   source?: string | null;
+  tracking_number?: string | null;
   from_order: boolean;
   created_at: string;
   updated_at: string;
@@ -56,7 +59,7 @@ export interface SaleProps {
 const Sales = () => {
   const { alert } = useAlert();
   const [salesLoading, setSalesLoading] = useState<boolean>(false);
-  const loading = false;
+  const { loading, salesCount, saleStatus } = useSales();
   const [selectedSale, setSelectedSale] = useState<SaleProps | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [openSale, setOpenSale] = useState<boolean>(false);
@@ -208,7 +211,6 @@ const Sales = () => {
       headerName: 'Shipping Cost',
       valueGetter: (params) => {
         if (!params.data?.shipping_cost) return null;
-        console.log(params.data.shipping_cost);
         return Number(params.data.shipping_cost);
       },
       valueFormatter: (params) =>
@@ -436,12 +438,11 @@ const Sales = () => {
                         isOpen={openAddSale}
                         onClose={() => setOpenAddSale(false)}
                       >
-                        <div>Hi</div>
-                        {/* <AddSupplierOrder
+                        <AddSale
                           open={openAddSale}
                           setOpen={setOpenAddSale}
                           setRowData={setRowData}
-                        /> */}
+                        />
                       </ModalOverlay>
                     </div>
                   </div>
@@ -452,25 +453,25 @@ const Sales = () => {
                         Total Sales:
                       </span>
                       <span className="font-semibold text-black dark:text-white">
-                        {/* {ordersCount} */}0
+                        {salesCount}
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Active:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {/* {orderStatus.active} */}0
+                        {saleStatus.active}
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-r border-slate-500 px-4 dark:border-slate-400 xsm:flex-row">
                       <span className="text-base font-medium">Completed:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {/* {orderStatus.completed} */}0
+                        {saleStatus.completed}
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 px-4 xsm:flex-row">
                       <span className="text-base font-medium">Failed:</span>
                       <span className="font-semibold text-black dark:text-white">
-                        {/* {orderStatus.failed} */}0
+                        {saleStatus.failed}
                       </span>
                     </div>
                   </div>

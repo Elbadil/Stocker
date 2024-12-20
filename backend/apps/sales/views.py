@@ -5,6 +5,11 @@ from django.db.models.functions import Cast
 from django.db.models import CharField
 from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
 from utils.tokens import Token
+from utils.status import (DELIVERY_STATUS_OPTIONS,
+                          PAYMENT_STATUS_OPTIONS,
+                          ACTIVE_STATUS,
+                          COMPLETED_STATUS,
+                          FAILED_STATUS)
 from .utils import validate_sale, reset_sold_items
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
@@ -182,4 +187,37 @@ class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
         delete_count, _ = items_for_deletion.delete()
 
         return Response({'message': f'{delete_count} sold items successfully deleted.'},
+                         status=status.HTTP_200_OK)
+
+
+class GetSalesData(CreatedByUserMixin, generics.GenericAPIView):
+    """Returns necessary data for the sales app"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = Sale.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        # User sales
+        sales = self.get_queryset()
+
+        # Delivery & Payment status
+        sale_status = {
+            'delivery_status': DELIVERY_STATUS_OPTIONS,
+            'payment_status': PAYMENT_STATUS_OPTIONS
+        }
+
+        # Active sales
+        active_sales = sales.filter(delivery_status__name__in=ACTIVE_STATUS).count()
+        sale_status['active'] = active_sales
+
+        # Completed sales
+        completed_sales = sales.filter(delivery_status__name__in=COMPLETED_STATUS).count()
+        sale_status['completed'] = completed_sales
+
+        # Completed sales
+        failed_sales = sales.filter(delivery_status__name__in=FAILED_STATUS).count()
+        sale_status['failed'] = failed_sales
+
+        return Response({'sales_count': sales.count(),
+                         'sale_status': sale_status},
                          status=status.HTTP_200_OK)

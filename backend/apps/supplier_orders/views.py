@@ -6,11 +6,11 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import Cast
 from utils.tokens import Token
 from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
-from utils.order_status import (DELIVERY_STATUS_OPTIONS,
-                                PAYMENT_STATUS_OPTIONS,
-                                COMPLETED_STATUS,
-                                ACTIVE_STATUS,
-                                FAILED_STATUS)
+from utils.status import (DELIVERY_STATUS_OPTIONS,
+                          PAYMENT_STATUS_OPTIONS,
+                          COMPLETED_STATUS,
+                          ACTIVE_STATUS,
+                          FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
 from .utils import validate_supplier_order

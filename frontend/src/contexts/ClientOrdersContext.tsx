@@ -20,7 +20,8 @@ export const ClientOrdersProvider: React.FC<{ children: ReactNode }> = ({
     if (
       pathname.startsWith('/client') ||
       pathname.startsWith('/supplier') ||
-      pathname.startsWith('/inventory')
+      pathname.startsWith('/inventory') ||
+      pathname.startsWith('/sales')
     ) {
       dispatch(getClientOrdersData());
     }

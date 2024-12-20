@@ -369,8 +369,9 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
               </div>
               {/* Ordered Items Note */}
               <div className="text-sm mb-2.5 text-black dark:text-slate-300">
-                * Note: Ordered item quantities will be automatically deducted
-                from inventory upon order submission.
+                * Note: You can only select items that exist in the inventory or
+                create a new one. Ordered item quantities will be automatically
+                deducted from inventory upon order submission.
               </div>
               {/* Ordered Items Fields List */}
               {fields.map((field, index) => (

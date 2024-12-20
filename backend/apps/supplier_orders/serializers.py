@@ -5,8 +5,8 @@ from deepdiff import DeepDiff
 from utils.serializers import (datetime_repr_format,
                                get_location,
                                get_or_create_location)
-from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
-                                PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
+                          PAYMENT_STATUS_OPTIONS_LOWER)
 from utils.serializers import update_field, check_item_existence
 from ..base.models import User
 from ..inventory.models import Item

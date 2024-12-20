@@ -8,8 +8,8 @@ from utils.serializers import (datetime_repr_format,
                                get_or_create_source,
                                update_item_quantity,
                                check_item_existence)
-from utils.order_status import (DELIVERY_STATUS_OPTIONS_LOWER,
-                                PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
+                          PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import Sale, SoldItem
 from ..inventory.models import Item
 from ..client_orders.models import Client, OrderStatus
@@ -179,6 +179,7 @@ class SaleSerializer(serializers.ModelSerializer):
             'source',
             'shipping_address',
             'shipping_cost',
+            'tracking_number',
             'net_profit',
             'from_order',
             'created_at',

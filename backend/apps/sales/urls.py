@@ -24,4 +24,9 @@ urlpatterns = [
     path('<uuid:sale_id>/items/<uuid:id>/',
          views.GetUpdateDeleteSoldItems.as_view(),
          name='get_update_delete_sold_items'),
+
+    # Sales app data
+    path('data/',
+         views.GetSalesData.as_view(),
+         name='sales_data')
 ]

@@ -41,7 +41,9 @@ class Sale(BaseModel):
                                          related_name="sales",
                                          help_text="The address to ship the items sold",)
     shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
-                                        default=00.0)
+                                        null=True,
+                                        blank=True)
+    tracking_number = models.CharField(max_length=100, null=True, blank=True)
     from_order = models.BooleanField(default=False)
     updated = models.BooleanField(default=False)
 
@@ -59,7 +61,9 @@ class Sale(BaseModel):
 
     @property
     def net_profit(self):
-        return self.total_price - self.shipping_cost
+        if self.shipping_cost:
+            return self.total_price - self.shipping_cost
+        return self.total_price
 
     def __str__(self):
         return self.reference_id

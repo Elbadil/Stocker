@@ -27,6 +27,7 @@ import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
 import { ClientOrdersProvider } from './contexts/ClientOrdersContext';
 import { SupplierOrdersProvider } from './contexts/SupplierOrdersContext';
+import { SalesProvider } from './contexts/SalesContext';
 
 function App() {
   const { pathname } = useLocation();
@@ -105,8 +106,10 @@ function App() {
                     path="/sales"
                     element={
                       <>
-                        <PageTitle title="Sales | Stocker" />
-                        <Sales />
+                        <SalesProvider>
+                          <PageTitle title="Sales | Stocker" />
+                          <Sales />
+                        </SalesProvider>
                       </>
                     }
                   />
