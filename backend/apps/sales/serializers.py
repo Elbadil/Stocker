@@ -31,6 +31,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
             'sold_quantity',
             'sold_price',
             'total_price',
+            'total_profit',
             'from_order',
             'created_at',
             'updated_at'
@@ -194,7 +195,9 @@ class SaleSerializer(serializers.ModelSerializer):
                 sold_items.append({
                     'item': sold_item.item.name,
                     'sold_quantity': sold_item.sold_quantity,
-                    'sold_price': sold_item.sold_price
+                    'sold_price': sold_item.sold_price,
+                    'total_price': sold_item.total_price,
+                    'total_profit': sold_item.total_profit
                 })
             return sold_items
         return None

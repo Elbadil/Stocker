@@ -68,7 +68,7 @@ function App() {
                     path="/client_orders/orders"
                     element={
                       <>
-                        <PageTitle title="Clients | Stocker" />
+                        <PageTitle title="Clients Orders | Stocker" />
                         <ClientOrders />
                       </>
                     }
@@ -77,7 +77,7 @@ function App() {
                     path="/client_orders/clients"
                     element={
                       <>
-                        <PageTitle title="Client Orders | Stocker" />
+                        <PageTitle title="Client | Stocker" />
                         <Clients />
                       </>
                     }

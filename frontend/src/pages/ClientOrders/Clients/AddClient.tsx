@@ -61,6 +61,13 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
     formState: { errors, isSubmitting },
   } = useForm<ClientSchema>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      location: {
+        country: '',
+        city: '',
+      },
+      source: '',
+    },
   });
 
   const sexOptions = [

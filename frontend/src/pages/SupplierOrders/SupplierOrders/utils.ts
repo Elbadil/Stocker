@@ -148,11 +148,11 @@ export const createSheetFile = (orders: SupplierOrderProps[]) => {
   /* create workbook and append worksheet */
   const wb = utils.book_new();
   const dateNow = format(new Date(), 'dd-MM-yyyy');
-  utils.book_append_sheet(wb, ws, `Clients ${dateNow}`);
+  utils.book_append_sheet(wb, ws, `Supplier Orders ${dateNow}`);
   if (orders.length > 1) {
-    writeFile(wb, `${orders[0].created_by}_orders_${dateNow}.xlsx`);
+    writeFile(wb, `${orders[0].created_by}_supplier_orders_${dateNow}.xlsx`);
   } else {
-    writeFile(wb, `order_${orders[0].reference_id}_${dateNow}.xlsx`);
+    writeFile(wb, `supplier_order_${orders[0].reference_id}_${dateNow}.xlsx`);
   }
 };
 
@@ -168,7 +168,7 @@ export const handleSupplierOrderExport = (selectedRows?: SupplierOrderProps[]) =
 
 export const handleSupplierOrderBulkExport = async () => {
   try {
-    const res = await api.get('/supplier_orders/orders/');
+    const res = await api.get('/supplier_orders/');
     const orders = res.data;
     createSheetFile(orders);
   } catch (error: any) {

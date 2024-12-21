@@ -56,6 +56,12 @@ const AddSupplier = ({ open, setOpen, setRowData }: AddSupplier) => {
     formState: { errors, isSubmitting },
   } = useForm<SupplierSchema>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      location: {
+        country: '',
+        city: '',
+      },
+    },
   });
 
   const currentValues = watch();

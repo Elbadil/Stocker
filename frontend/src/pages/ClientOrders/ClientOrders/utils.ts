@@ -86,11 +86,11 @@ export const createSheetFile = (orders: ClientOrderProps[]) => {
   /* create workbook and append worksheet */
   const wb = utils.book_new();
   const dateNow = format(new Date(), 'dd-MM-yyyy');
-  utils.book_append_sheet(wb, ws, `Clients ${dateNow}`);
+  utils.book_append_sheet(wb, ws, `Clients Orders ${dateNow}`);
   if (orders.length > 1) {
-    writeFile(wb, `${orders[0].created_by}_orders_${dateNow}.xlsx`);
+    writeFile(wb, `${orders[0].created_by}_client_orders_${dateNow}.xlsx`);
   } else {
-    writeFile(wb, `order_${orders[0].reference_id}_${dateNow}.xlsx`);
+    writeFile(wb, `client_order_${orders[0].reference_id}_${dateNow}.xlsx`);
   }
 };
 
@@ -106,7 +106,7 @@ export const handleOrderExport = (selectedRows?: ClientOrderProps[]) => {
 
 export const handleBulkExport = async () => {
   try {
-    const res = await api.get('/client_orders/orders/');
+    const res = await api.get('/client_orders/');
     const orders = res.data;
     createSheetFile(orders);
   } catch (error: any) {

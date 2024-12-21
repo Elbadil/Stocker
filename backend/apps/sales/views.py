@@ -38,7 +38,7 @@ class GetUpdateDeleteSales(CreatedByUserMixin,
 
         # Reset sale's sold items if the sale is not from order
         if not sale.from_order:
-            reset_sale_sold_items(sale)
+            reset_sold_items(sale.items)
 
         return super().delete(request, *args, **kwargs)
 

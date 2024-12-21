@@ -24,38 +24,12 @@ import {
   ValueGetterParams,
 } from '@ag-grid-community/core';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { handleSaleExport, handleSalesBulkExport } from './utils';
+import { handleSaleExport, handleSaleBulkExport } from './utils';
 import { useSales } from '../../contexts/SalesContext';
+import Sale, { SaleProps, SoldItem } from './Sale';
 import AddSale from './AddSale';
 import EditSale from './EditSale';
-
-export interface SoldItem {
-  id: string;
-  created_by: string;
-  item: string;
-  sold_quantity: number;
-  sold_price: number;
-  total_price: number;
-}
-
-export interface SaleProps {
-  id: string;
-  reference_id: string;
-  created_by: string;
-  client: string;
-  sold_items: SoldItem[];
-  delivery_status: string;
-  payment_status: string;
-  shipping_address: Location | null;
-  shipping_cost: number;
-  net_profit: number;
-  source?: string | null;
-  tracking_number?: string | null;
-  from_order: boolean;
-  created_at: string;
-  updated_at: string;
-  updated: boolean;
-}
+import DeleteSale from './DeleteSale';
 
 const Sales = () => {
   const { alert } = useAlert();
@@ -73,7 +47,17 @@ const Sales = () => {
   };
 
   const RefRenderer = (params: CustomCellRendererProps) => {
-    return params.value;
+    return (
+      <div
+        className="hover:underline cursor-pointer"
+        onClick={() => {
+          setSelectedSale(params.data);
+          setOpenSale(true);
+        }}
+      >
+        {params.value}
+      </div>
+    );
   };
 
   const soldItemValueGetter = (
@@ -282,7 +266,7 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-    if (openEditSale) getAndSetSelectedRows();
+    if (selectedRows) getAndSetSelectedRows();
   }, [openEditSale]);
 
   return (
@@ -336,7 +320,7 @@ const Sales = () => {
                     <div>
                       <button
                         className="flex font-medium items-center hover:text-primary"
-                        onClick={handleSalesBulkExport}
+                        onClick={handleSaleBulkExport}
                       >
                         <FileDownloadOutlinedIcon sx={{ marginRight: '2px' }} />
                         Bulk Export
@@ -345,21 +329,21 @@ const Sales = () => {
                     {/* Read Add | Edit | Delete | Export Sale */}
                     <div>
                       {/* Read Sale Modal */}
-                      {/* {selectedOrder && (
+                      {selectedSale && (
                         <ModalOverlay
-                          isOpen={openOrder}
-                          onClose={() => setOpenOrder(false)}
+                          isOpen={openSale}
+                          onClose={() => setOpenSale(false)}
                         >
-                          <SupplierOrder
-                            order={selectedOrder}
-                            setOrder={setSelectedOrder}
-                            rowNode={getRowNode(selectedOrder.id)}
-                            setOpen={setOpenOrder}
+                          <Sale
+                            sale={selectedSale}
+                            setSale={setSelectedSale}
+                            rowNode={getRowNode(selectedSale.id)}
+                            setOpen={setOpenSale}
                             rowData={rowData}
                             setRowData={setRowData}
                           />
                         </ModalOverlay>
-                      )} */}
+                      )}
                       {/* Export Sale(s) */}
                       <button
                         type="button"
@@ -368,7 +352,7 @@ const Sales = () => {
                             ? 'text-slate-400 bg-gray dark:bg-meta-4'
                             : 'bg-slate-200 text-black'
                         } h-10 w-10.5 text-center font-medium hover:bg-opacity-90`}
-                        onClick={handleSaleExport}
+                        onClick={() => handleSaleExport(selectedRows)}
                         disabled={!selectedRows || selectedRows.length < 1}
                       >
                         <FileDownloadOutlinedIcon />
@@ -392,14 +376,13 @@ const Sales = () => {
                           isOpen={openDeleteSale}
                           onClose={() => setOpenDeleteSale(false)}
                         >
-                          <div>Hi</div>
-                          {/* <DeleteSupplierOrder
-                            orders={selectedRows}
+                          <DeleteSale
+                            sales={selectedRows}
                             open={openDeleteSale}
                             setOpen={setOpenDeleteSale}
                             rowData={rowData}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Edit Sale */}

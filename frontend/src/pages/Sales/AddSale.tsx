@@ -12,7 +12,7 @@ import Select, { SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { SaleProps } from './Sales';
+import { SaleProps } from './Sale';
 import { useAlert } from '../../contexts/AlertContext';
 import {
   locationField,
@@ -88,7 +88,15 @@ const AddSale = ({ open, setOpen, setRowData }: AddSale) => {
   } = useForm<SaleSchema>({
     resolver: zodResolver(schema),
     defaultValues: {
+      client: '',
       sold_items: [emptyItem as SoldItemSchema],
+      delivery_status: 'Pending',
+      payment_status: 'Pending',
+      shipping_address: {
+        country: '',
+        city: '',
+      },
+      source: '',
     },
   });
 

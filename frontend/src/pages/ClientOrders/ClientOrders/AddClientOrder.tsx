@@ -102,6 +102,10 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
       ordered_items: [emptyItem as ClientOrderedItemSchema],
       delivery_status: 'Pending',
       payment_status: 'Pending',
+      shipping_address: {
+        country: '',
+        city: '',
+      },
       source: '',
       tracking_number: '',
     },

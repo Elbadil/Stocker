@@ -14,7 +14,7 @@ import ClipLoader from 'react-spinners/ClipLoader';
 import ModalOverlay from '../../components/ModalOverlay';
 import AddClient from '../ClientOrders/Clients/AddClient';
 import AddItem from '../Inventory/AddItem';
-import { SaleProps } from './Sales';
+import { SaleProps } from './Sale';
 import { resetNewClient } from '../ClientOrders/ClientOrders/utils';
 import { schema, SaleSchema, SoldItemSchema } from './AddSale';
 import {
@@ -32,9 +32,10 @@ import { useInventory } from '../../contexts/InventoryContext';
 import { IRowNode } from '@ag-grid-community/core';
 import { api } from '../../api/axios';
 import { useDispatch } from 'react-redux';
-import { AppDispatch, getState } from '../../store/store';
+import { AppDispatch } from '../../store/store';
 import { setInventory } from '../../store/slices/inventorySlice';
 import { setSales } from '../../store/slices/salesSlice';
+import toast from 'react-hot-toast';
 
 interface EditSale {
   sale: SaleProps;
@@ -253,8 +254,10 @@ const EditSale = ({
       const saleUpdate = res.data;
       // Update items inventory quantity
       updateSoldItemsState(saleUpdate);
-      // Update sales status
-      updateStatusState(saleUpdate.delivery_status);
+      // Update sales status if changed
+      if (saleUpdate.delivery_status !== sale.delivery_status) {
+        updateStatusState(saleUpdate.delivery_status);
+      }
       // Set updated data to rowNode
       rowNode?.setData(saleUpdate);
       // Update rowData
@@ -262,11 +265,18 @@ const EditSale = ({
         prev.map((row) => (row.id === sale.id ? saleUpdate : row)),
       );
       // Set and display success alert
-      setAlert({
-        type: 'success',
-        title: 'Sale Updated',
-        description: `Sale ${sale.reference_id} has been successfully updated.`,
-      });
+      if (setSale) {
+        setSale(saleUpdate);
+        toast.success(`Sale ${sale.reference_id} updated!`, {
+          duration: 4000,
+        });
+      } else {
+        setAlert({
+          type: 'success',
+          title: 'Sale Updated',
+          description: `Sale ${sale.reference_id} has been successfully updated.`,
+        });
+      }
       // Close Edit Sale Modal
       setOpen(false);
     } catch (error: any) {
