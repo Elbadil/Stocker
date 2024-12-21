@@ -69,7 +69,7 @@ export const areFieldsFilled = (fields: FormValues) => {
   return Object.values(fields).every((value) => value.trim() !== '');
 };
 
-export const areFieldsEmpty = (object: { [key: string]: string | number }) =>
+export const areFieldsEmpty = (object: { [key: string]: any}) =>
   Object.values(object).every(
     (value) =>
       value === null ||
@@ -158,7 +158,7 @@ export const locationField = () =>
     .transform((loc) => {
       // If all properties are null or undefined, return undefined
       return Object.values(loc).every(
-        (val) => val === null || val === undefined,
+        (val) => val === null || val === undefined || (val) === '',
       )
         ? null
         : loc;

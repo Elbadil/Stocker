@@ -1,5 +1,5 @@
-import { UseFormSetValue } from 'react-hook-form';
-import { SaleSchema } from './AddSale';
+import { UseFormSetError, UseFormSetValue } from 'react-hook-form';
+import { SaleSchema, SoldItemSchema } from './AddSale';
 
 export const findCountryAndSetCitiesForSale = (
   countryName: string,
@@ -23,7 +23,7 @@ export const findCountryAndSetCitiesForSale = (
     if (currentValues && setValue) {
       const currentCity = currentValues?.shipping_address?.city ?? null;
       if (currentCity && !country.cities.includes(currentCity)) {
-        setValue('shipping_address.city', null, { shouldDirty: true });
+        setValue('shipping_address.city', null);
       }
     }
   }

@@ -27,6 +27,7 @@ import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { handleSaleExport, handleSalesBulkExport } from './utils';
 import { useSales } from '../../contexts/SalesContext';
 import AddSale from './AddSale';
+import EditSale from './EditSale';
 
 export interface SoldItem {
   id: string;
@@ -45,7 +46,7 @@ export interface SaleProps {
   sold_items: SoldItem[];
   delivery_status: string;
   payment_status: string;
-  shipping_address?: Location | null;
+  shipping_address: Location | null;
   shipping_cost: number;
   net_profit: number;
   source?: string | null;
@@ -280,6 +281,10 @@ const Sales = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (openEditSale) getAndSetSelectedRows();
+  }, [openEditSale]);
+
   return (
     <>
       <div className="mx-auto max-w-full">
@@ -415,14 +420,13 @@ const Sales = () => {
                           isOpen={openEditSale}
                           onClose={() => setOpenEditSale(false)}
                         >
-                          <div>Hi</div>
-                          {/* <EditSupplierOrder
-                            supplierOrder={selectedRows[0]}
+                          <EditSale
+                            sale={selectedRows[0]}
                             open={openEditSale}
                             setOpen={setOpenEditSale}
                             rowNode={getRowNode(selectedRows[0].id)}
                             setRowData={setRowData}
-                          /> */}
+                          />
                         </ModalOverlay>
                       )}
                       {/* Add Sale */}

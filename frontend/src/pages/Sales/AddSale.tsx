@@ -12,7 +12,7 @@ import Select, { SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { SaleProps, SoldItem } from './Sales';
+import { SaleProps } from './Sales';
 import { useAlert } from '../../contexts/AlertContext';
 import {
   locationField,
