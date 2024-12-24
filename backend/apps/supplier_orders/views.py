@@ -5,7 +5,9 @@ from django.db.models import CharField, Q
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models.functions import Cast
 from utils.tokens import Token
-from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
+from utils.views import (CreatedByUserMixin,
+                         validate_linked_items_for_deletion,
+                         validate_deletion_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
                           COMPLETED_STATUS,
@@ -245,18 +247,11 @@ class GetUpdateDeleteSupplierOrderedItems(CreatedByUserMixin,
         ordered_item = self.get_object()
 
         # Validate ordered item order delivery status
-        if ordered_item.order.delivery_status.name == 'Delivered':
-            return Response(
-                {
-                    'error': (
-                        "This ordered item cannot be deleted because the order "
-                        f"with reference ID '{ordered_item.order.reference_id}' "
-                        "has already been marked as Delivered. Changes to delivered "
-                        "orders' ordered items are restricted to maintain data integrity."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        status_validation = (
+            validate_deletion_for_delivered_parent_instance(ordered_item.order)
+        )
+        if isinstance(status_validation, Response):
+            return status_validation
 
         # Validate order's ordered items records
         if len(ordered_item.order.items) == 1:
@@ -292,21 +287,12 @@ class BulkDeleteSupplierOrderedItems(CreatedByUserMixin, generics.DestroyAPIView
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         queryset = self.get_queryset()
-        order = self.get_queryset().first().order
+        order = queryset.first().order
         
         # Validate ordered items order delivery status
-        if order.delivery_status.name == 'Delivered':
-            return Response(
-                {
-                    'error': (
-                        "The ordered items cannot be deleted because the order "
-                        f"with reference ID '{order.reference_id}' has already been "
-                        "marked as Delivered. Changes to delivered orders'"
-                        "ordered items are restricted to maintain data integrity."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        status_validation = validate_deletion_for_delivered_parent_instance(order)
+        if isinstance(status_validation, Response):
+            return status_validation
 
         # Validate ids and items for deletion
         result = validate_linked_items_for_deletion(ids, queryset, SupplierOrder)

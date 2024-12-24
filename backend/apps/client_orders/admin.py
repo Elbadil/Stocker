@@ -26,11 +26,17 @@ class ClientOrderedItemAdmin(admin.ModelAdmin):
         return obj.item.name
 
 class ClientOrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'reference_id', 'client_name', 'delivery_status']
+    list_display = ['id',
+                    'reference_id',
+                    'client_name',
+                    'delivery_status',
+                    'payment_status',
+                    'linked_sale']
 
     @admin.display(ordering='client__name', description='Client')
     def client_name(self, obj):
         return obj.client.name
+
 
 
 admin.site.register(models.Location)

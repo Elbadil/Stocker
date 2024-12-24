@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from django.db import transaction
 from typing import List, Union
-from deepdiff import DeepDiff
 from utils.serializers import (datetime_repr_format,
                                get_location,
-                               get_or_create_location)
+                               get_or_create_location,
+                               validate_restricted_fields,
+                               validate_changes_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
 from utils.serializers import update_field, check_item_existence
@@ -211,6 +212,9 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
         supplier = validated_data.get('supplier')
         order = validated_data.get('order')
 
+        # Validate item's order delivery status
+        validate_changes_for_delivered_parent_instance(order)
+
         # Check supplier integrity
         self.check_supplier_integrity(user, supplier, item_name, order)
 
@@ -243,6 +247,9 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
                                               instance.ordered_quantity)
         ordered_price = validated_data.get('ordered_price',
                                            instance.ordered_price)
+
+        # Validate item's order delivery status
+        validate_changes_for_delivered_parent_instance(order)
 
         # Check supplier integrity
         self.check_supplier_integrity(user, supplier, item_name, order)
@@ -393,18 +400,6 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
                 item.in_inventory = True
             item.save()
 
-    def restricted_fields_have_changes(
-        self,
-        prev_values: SupplierOrder,
-        new_values: dict
-    ):
-        changed_fields = []
-        diff = DeepDiff(prev_values, new_values, ignore_order=True)
-        if diff:
-            values_changed = diff.get('values_changed', {})
-            changed_fields = [key.split("'")[1] for key in values_changed.keys()]
-        return changed_fields
-
     def validate_supplier(self, value):
         user = self.context.get('request').user
         supplier = Supplier.objects.filter(created_by=user,
@@ -487,49 +482,29 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         # Retrieve special fields
         request = self.context.get('request')
         user = request.user
-        supplier = validated_data.pop('supplier', None)
+        supplier = validated_data.get('supplier', instance.supplier)
         ordered_items = validated_data.pop('ordered_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
         payment_status = validated_data.pop('payment_status', None)
 
-        # Update order record
-        order = super().update(instance, validated_data)
-    
+        prev_delivery_status = instance.delivery_status.name
+
         # Validate if prev delivery status was set to 'Delivered'
         # and restricted fields were changed
-        order_data = self.to_representation(order)
-        keys_to_remove_from_items = {'total_price', 'in_inventory'}
-        prev_ordered_items = []
-        for ordered_item in order_data['ordered_items']:
-            prev_ordered_items.append({key: value for key,
-                                       value in ordered_item.items()
-                                       if key not in keys_to_remove_from_items})
-        prev_values = {
-            'supplier': order_data['supplier'],
-            'ordered_items': prev_ordered_items,
-            'delivery_status': order_data['delivery_status']
-        }
-
-        new_values = {
-            'supplier': supplier.name,
-            'ordered_items': ordered_items,
-            'delivery_status': delivery_status.name
-        }
-
         if instance.delivery_status.name == 'Delivered':
-            changed_fields = self.restricted_fields_have_changes(prev_values, new_values)
-            if changed_fields:
-                raise serializers.ValidationError({
-                    'error': {
-                        'message': 'This order has already been marked as delivered '
-                                   'and restricted fields cannot be modified.',
-                        'restricted_fields': changed_fields,
-                    }
-                })
+            order_data = self.to_representation(instance)
+            keys_to_remove_from_items = ['total_price', 'in_inventory']
+            validate_restricted_fields(
+                instance,
+                order_data,
+                supplier,
+                ordered_items,
+                keys_to_remove_from_items,
+                delivery_status
+            )
     
-        # Update supplier of the order
-        if supplier != order.supplier:
-            order.supplier = supplier
+        # Update order record
+        order = super().update(instance, validated_data)
 
         # Update ordered items of the order
         if ordered_items:
@@ -540,16 +515,16 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
                 ordered_items
             )
 
-        # Update delivery status
+        # Update delivery & payment status
         if delivery_status:
-            if delivery_status.name == 'Delivered':
-                # Update ordered items inventory state
-                self.update_ordered_items_inventory_state(user, order)
             order.delivery_status = delivery_status
-
-        # Update payment status
         if payment_status:
             order.payment_status = payment_status
+
+        # Update ordered items inventory state
+        if (delivery_status and prev_delivery_status != 'Delivered'
+            and delivery_status.name == 'Delivered'):
+            self.update_ordered_items_inventory_state(user, order)
 
         order.updated = True
         order.save()

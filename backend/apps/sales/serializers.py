@@ -7,7 +7,10 @@ from utils.serializers import (datetime_repr_format,
                                get_or_create_location,
                                get_or_create_source,
                                update_item_quantity,
-                               check_item_existence)
+                               update_field,
+                               check_item_existence,
+                               validate_restricted_fields,
+                               validate_changes_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import Sale, SoldItem
@@ -54,7 +57,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
             )
 
         return item
-    
+
     def validate_item_uniqueness(self, item_name: str, sale: Sale):
         item_exists = check_item_existence(SoldItem, sale, item_name)
         if item_exists:
@@ -81,18 +84,19 @@ class SoldItemSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
         item = validated_data.get('item')
         sale = validated_data.get('sale')
-        from_order = validated_data.pop('from_order', False)
         sold_quantity = validated_data.get('sold_quantity')
 
-        # Validate item's uniqueness in the order's list of ordered items
+        # Validate item's sale delivery status
+        validate_changes_for_delivered_parent_instance(sale)
+
+        # Validate item's uniqueness in the order's list of sold items
         self.validate_item_uniqueness(item.name, sale)
 
-        # Validate and subtract sold quantity if sold item isn't being created from order
-        if not from_order:
-            if item.quantity < sold_quantity:
-                self.sold_quantity_validation_error(item.name)
-            item.quantity -= sold_quantity
-            item.save()
+        # Validate item's quantity and subtract sold quantity from inventory
+        if item.quantity < sold_quantity:
+            self.sold_quantity_validation_error(item.name)
+        item.quantity -= sold_quantity
+        item.save()
 
         # return sold item instance
         return SoldItem.objects.create(created_by=user, **validated_data)
@@ -103,31 +107,33 @@ class SoldItemSerializer(serializers.ModelSerializer):
         item = validated_data.get('item', None)
         sale = validated_data.get('sale', instance.sale)
         sold_quantity = validated_data.get('sold_quantity',
-                                           instance.sold_quantity)
+                                           instance.sold_quantity)        
+
+        # Validate item's sale delivery status
+        validate_changes_for_delivered_parent_instance(sale)
 
         # Case: Item instance has changed
         if item and instance.item != item:
-            # Validate item's uniqueness in the order's list of ordered items
-            self.validate_item_uniqueness(item.name, sale)
-    
-            # Validate new item's quantity
+            # Validate item's uniqueness in case item changed
+            if item and instance.item != item:
+                self.validate_item_uniqueness(item.name, sale)
             if item.quantity < sold_quantity:
                 self.sold_quantity_validation_error(item.name)
 
-            # Reset prev item inventory quantity
-            instance.item.quantity += instance.sold_quantity
-            instance.item.save()
+                # Reset prev item inventory quantity
+                instance.item.quantity += instance.sold_quantity
+                instance.item.save()
 
-            # Subtract the ordered quantity from item's inventory quantity
-            item.quantity -= sold_quantity
-            item.save()
+                # Subtract the ordered quantity from item's inventory quantity
+                item.quantity -= sold_quantity
+                item.save()
 
         # Case: Item instance remained the same
         else:
             item = item or instance.item
             item_new_quantity = update_item_quantity(item,
-                                                     instance.sold_quantity,
-                                                     sold_quantity)
+                                                    instance.sold_quantity,
+                                                    sold_quantity)
             # Validate new item's quantity
             if item_new_quantity < 0:
                 self.sold_quantity_validation_error(item.name)
@@ -166,6 +172,7 @@ class SaleSerializer(serializers.ModelSerializer):
                                    allow_blank=True,
                                    required=False)
     shipping_address = LocationSerializer(many=False, required=False, allow_null=True)
+    from_order = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Sale
@@ -183,6 +190,7 @@ class SaleSerializer(serializers.ModelSerializer):
             'tracking_number',
             'net_profit',
             'from_order',
+            'linked_order',
             'created_at',
             'updated_at',
             'updated',
@@ -210,7 +218,6 @@ class SaleSerializer(serializers.ModelSerializer):
     ) -> None:
         for sold_item in sold_items:
             sold_item['sale'] = sale.id
-            sold_item['from_order'] = sale.from_order
             serializer = SoldItemSerializer(data=sold_item,
                                             context={'request': request})
             if serializer.is_valid():
@@ -276,6 +283,34 @@ class SaleSerializer(serializers.ModelSerializer):
             inventory_item.quantity += item_for_deletion.sold_quantity
             inventory_item.save()
             item_for_deletion.delete()
+
+
+    def update_linked_order(self, sale: Sale) -> None:
+        from ..client_orders.serializers import ClientOrderSerializer
+
+        order_sale_mutable_data = {
+            'payment_status': sale.payment_status,
+            'shipping_address': sale.shipping_address,
+            'shipping_cost': sale.shipping_cost,
+            'tracking_number': sale.tracking_number,
+            'source': sale.source,
+            'updated': True
+        }
+
+        serializer = ClientOrderSerializer(data=order_sale_mutable_data)
+        serializer.update_without_validation(sale.order, serializer.initial_data)
+
+    def prepare_sold_items(self, sale, items):
+        return [
+            SoldItem(
+                sale=sale,
+                created_by=sold_item.created_by,
+                item=sold_item.item,
+                sold_quantity=sold_item.ordered_quantity,
+                sold_price=sold_item.ordered_price
+            )
+            for sold_item in items
+        ]
 
     def validate_client(self, value):
         client = Client.objects.filter(name__iexact=value).first()
@@ -357,15 +392,44 @@ class SaleSerializer(serializers.ModelSerializer):
         return sale
 
     @transaction.atomic
-    def update(self, instance, validated_data):
+    def create_without_validation(self, data: dict) -> Sale:
+        # Extract special fields
+        items = data.pop('sold_items')
+
+        # Create a sale with the remaining data
+        sale = Sale.objects.create(**data)
+        sold_items = self.prepare_sold_items(sale, items)
+        # Add sold items to the sale
+        SoldItem.objects.bulk_create(sold_items)
+
+        # Return sale instance
+        return sale
+
+    @transaction.atomic
+    def update(self, instance: Sale, validated_data):
         # Extract special fields
         request = self.context.get('request')
         user = request.user
+        client = validated_data.get('client', instance.client)
         sold_items = validated_data.pop('sold_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
         payment_status = validated_data.pop('payment_status', None)
         shipping_address = validated_data.pop('shipping_address', None)
         source = validated_data.pop('source', None)
+
+        # Validate if prev delivery status was set to 'Delivered'
+        # and restricted fields were changed
+        if instance.from_order and instance.delivery_status.name == 'Delivered':
+            sale_data = self.to_representation(instance)
+            keys_to_remove_from_items = ['total_price', 'total_profit']
+            validate_restricted_fields(
+                instance,
+                sale_data,
+                client,
+                sold_items,
+                keys_to_remove_from_items,
+                delivery_status
+            )
 
         # Update sale instance with the remaining data
         sale = super().update(instance, validated_data)
@@ -380,18 +444,40 @@ class SaleSerializer(serializers.ModelSerializer):
         if payment_status:
             sale.payment_status = payment_status
 
-        # Update shipping address if any
-        if shipping_address:
-            sale.shipping_address = get_or_create_location(user,
-                                                           shipping_address)
+        # Update sale's shipping address
+        update_field(self,
+                     sale,
+                     'shipping_address',
+                     shipping_address,
+                     get_or_create_location,
+                     user)
 
-        # Update source of acquisition if any
-        if source:
-            sale.source = get_or_create_source(user, source)
+        # Update sale's source of acquisition
+        update_field(self,
+                     sale,
+                     'source',
+                     source,
+                     get_or_create_source,
+                     user)
 
-        # Save changes and return sale instance
+        # Save changes
         sale.updated = True
         sale.save()
+
+        # Update sale's linked order if any
+        if sale.from_order:
+            self.update_linked_order(sale)
+
+        # Return sale instance
+        return sale
+
+    @transaction.atomic
+    def update_without_validation(self, instance: Sale, data: dict) -> Sale:
+        sale = instance
+        for field, value in data.items():
+            setattr(sale, field, value)
+        sale.save()
+
         return sale
 
     def to_representation(self, instance: Sale):

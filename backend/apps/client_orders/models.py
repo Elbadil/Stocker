@@ -118,6 +118,9 @@ class ClientOrder(BaseModel):
                                    help_text="The user who created this order",
                                    null=True,
                                    blank=True)
+    sale = models.OneToOneField('sales.Sale', on_delete=models.CASCADE,
+                                null=True, blank=True,
+                                related_name='order')
     client = models.ForeignKey(Client, on_delete=models.PROTECT,
                                related_name="orders",
                                null=True)
@@ -156,11 +159,14 @@ class ClientOrder(BaseModel):
 
     @property
     def net_profit(self):
-        items_total_profit = sum(item.total_profit for item in self.items)
-        return items_total_profit - self.shipping_cost if self.shipping_cost else items_total_profit
+        return self.total_price - self.shipping_cost if self.shipping_cost else self.total_price
+
+    @property
+    def linked_sale(self):
+        return self.sale.reference_id if self.sale else None
 
     def __str__(self) -> str:
-        return f'Order by: {self.client.name}'
+        return self.reference_id
 
 
 class ClientOrderedItem(BaseModel):

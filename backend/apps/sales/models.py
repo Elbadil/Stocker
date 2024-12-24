@@ -65,6 +65,10 @@ class Sale(BaseModel):
             return self.total_price - self.shipping_cost
         return self.total_price
 
+    @property
+    def linked_order(self):
+        return self.order.reference_id if self.from_order else None
+
     def __str__(self):
         return self.reference_id
 

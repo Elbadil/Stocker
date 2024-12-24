@@ -5,7 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, CharField
 from django.db.models.functions import Cast
 from utils.tokens import Token
-from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
+from utils.views import (CreatedByUserMixin,
+                         validate_linked_items_for_deletion,
+                         validate_deletion_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
                           COMPLETED_STATUS,
@@ -261,6 +263,13 @@ class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
     def delete(self, request, *args, **kwargs):
         ordered_item = self.get_object()
 
+        # Validate ordered item order delivery status
+        status_validation = (
+            validate_deletion_for_delivered_parent_instance(ordered_item.order)
+        )
+        if isinstance(status_validation, Response):
+            return status_validation
+
         # Validate order's ordered items records
         if len(ordered_item.order.items) == 1:
             return Response(
@@ -300,6 +309,12 @@ class BulkDeleteClientOrderedItems(CreatedByUserMixin, generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         queryset = self.get_queryset()
+        order = queryset.first().order
+
+        # Validate ordered item order delivery status
+        status_validation = validate_deletion_for_delivered_parent_instance(order)
+        if isinstance(status_validation, Response):
+            return status_validation
 
         # Validate ids and items for deletion
         result = validate_linked_items_for_deletion(ids, queryset, ClientOrder)
@@ -307,7 +322,7 @@ class BulkDeleteClientOrderedItems(CreatedByUserMixin, generics.DestroyAPIView):
         # Return Response if validation failed
         if isinstance(result, Response):
             return result
-        
+
         # Perform items deletion
         order, items_for_deletion = result
         reset_client_ordered_items(order.items)

@@ -8,7 +8,9 @@ from utils.serializers import (datetime_repr_format,
                                get_or_create_source,
                                update_item_quantity,
                                update_field,
-                               check_item_existence)
+                               check_item_existence,
+                               validate_restricted_fields,
+                               validate_changes_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
 from .models import (Client,
@@ -267,12 +269,15 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
         )
 
     @transaction.atomic
-    def create(self, validated_data):
+    def create(self, validated_data: dict):
         # Extract special fields
         user = self.context.get('request').user
         item = validated_data.pop('item', None)
         order = validated_data.get('order')
         ordered_quantity = validated_data.get('ordered_quantity')
+
+        # Validate item's order delivery status
+        validate_changes_for_delivered_parent_instance(order)
 
         # Validate item's uniqueness in the order's list of ordered items
         self.validate_item_uniqueness(item.name, order)
@@ -291,12 +296,15 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
                                                 **validated_data)
 
     @transaction.atomic
-    def update(self, instance: ClientOrderedItem, validated_data):
+    def update(self, instance: ClientOrderedItem, validated_data: dict):
         # Extract special fields
         item = validated_data.get('item', None)
         order = validated_data.get('order', instance.order)
         ordered_quantity = validated_data.get('ordered_quantity',
                                               instance.ordered_quantity)
+
+        # Validate item's order delivery status
+        validate_changes_for_delivered_parent_instance(order)
 
         # Case: Item instance has changed
         if item and instance.item != item:
@@ -360,6 +368,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             'id',
             'reference_id',
             'created_by',
+            'sale',
             'client',
             'ordered_items',
             'delivery_status',
@@ -379,7 +388,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         request,
         order: ClientOrder,
         ordered_items: List[dict],
-    ):
+    ) -> None:
         for item in ordered_items:
             item['order'] = order.id
             serializer = ClientOrderedItemSerializer(data=item,
@@ -394,7 +403,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         request,
         order: ClientOrder,
         user: User,
-        ordered_items: List[dict]):
+        ordered_items: List[dict]
+    ) -> None:
         # Filter inventory items by old and new ordered items
         names_query = Q()
         items_names = [old_ordered_item.item.name for old_ordered_item in order.items]
@@ -446,7 +456,41 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             inventory_item.save()
             item_to_delete.delete()
 
-    def get_ordered_items(self, order: ClientOrder):
+    def create_sale_from_order(self, order: ClientOrder) -> None:
+        from ..sales.serializers import SaleSerializer
+
+        sale_order_data = {
+            'created_by': order.created_by,
+            'client': order.client,
+            'delivery_status': order.delivery_status,
+            'payment_status': order.payment_status,
+            'shipping_address': order.shipping_address,
+            'shipping_cost': order.shipping_cost,
+            'tracking_number': order.tracking_number,
+            'source': order.source,
+            'sold_items': order.items,
+            'from_order': True
+        }
+        serializer = SaleSerializer(data=sale_order_data)
+        sale = serializer.create_without_validation(serializer.initial_data)
+        order.sale = sale
+        order.save()
+
+    def update_linked_sale(self, order: ClientOrder) -> None:
+        from ..sales.serializers import SaleSerializer
+
+        sale_order_mutable_data = {
+            'payment_status': order.payment_status,
+            'shipping_address': order.shipping_address,
+            'shipping_cost': order.shipping_cost,
+            'tracking_number': order.tracking_number,
+            'source': order.source,
+            'updated': True
+        }
+        serializer = SaleSerializer(data=sale_order_mutable_data)
+        serializer.update_without_validation(order.sale, serializer.initial_data)
+
+    def get_ordered_items(self, order: ClientOrder) -> Union[List[dict], None]:
         if order.items:
             ordered_items = []
             for ordered_item in order.items:
@@ -503,8 +547,10 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             if not client:
                 raise serializers.ValidationError(
                     {
-                        'client': f"Client '{client_name}' does not exist. "
-                                   "Please create a new client if this is a new entry."
+                        'client': (
+                            f"Client '{client_name}' does not exist. "
+                            "Please create a new client if this is a new entry."
+                        )
                     }
                 )
 
@@ -531,7 +577,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         self.create_ordered_items_for_client_order(
             request,
             order,
-            user,
             ordered_items
         )
 
@@ -546,6 +591,12 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             order.payment_status = payment_status
 
         order.save()
+
+        # Create a sale instance from the order's data
+        # if the order's delivery_status is set to Delivered
+        if order.delivery_status.name == 'Delivered':
+            self.create_sale_from_order(order)
+
         return order
 
     @transaction.atomic
@@ -555,12 +606,29 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         user = request.user
 
         # Exclude special fields from validated_data
+        client = validated_data.get('client', instance.client)
         ordered_items = validated_data.pop('ordered_items', None)
         shipping_address = validated_data.pop('shipping_address', None)
         source = validated_data.pop('source', None)
         delivery_status = validated_data.pop('delivery_status', None)
         payment_status = validated_data.pop('payment_status', None)
 
+        prev_delivery_status = instance.delivery_status.name
+
+        # Validate if prev delivery status was set to 'Delivered'
+        # and restricted fields were changed
+        if instance.delivery_status.name == 'Delivered':
+            order_data = self.to_representation(instance)
+            keys_to_remove_from_items = ['total_price', 'total_profit']
+            validate_restricted_fields(
+                instance,
+                order_data,
+                client,
+                ordered_items,
+                keys_to_remove_from_items,
+                delivery_status
+            )
+    
         # Update order with remaining data
         order = super().update(instance, validated_data)
 
@@ -595,10 +663,34 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         if payment_status:
             order.payment_status = payment_status
 
+        # Save order changes
         order.updated = True
-
         order.save()
+
+        # Create a sale instance from the order's data
+        # if the order's delivery_status has been changed to Delivered
+        if (delivery_status and prev_delivery_status != 'Delivered'
+            and delivery_status.name == 'Delivered'):
+            print('yes time to create a sale from this order')
+            self.create_sale_from_order(order)
+
+        # Update order's linked sale with updated order data if any
+        elif order.sale:
+            self.update_linked_sale(order)
+
+        # Return updated order instance
         return order
+    
+    @transaction.atomic
+    def update_without_validation(
+        self,
+        instance: ClientOrder,
+        data=dict
+    ) -> ClientOrder:
+        order = instance
+        for field, value in data.items():
+            setattr(order, field, value)
+        order.save()
 
     def to_representation(self, instance: ClientOrder):
         order_repr = super().to_representation(instance)

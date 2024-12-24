@@ -3,7 +3,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models.functions import Cast
 from django.db.models import CharField
-from utils.views import CreatedByUserMixin, validate_linked_items_for_deletion
+from utils.views import (CreatedByUserMixin,
+                         validate_linked_items_for_deletion,
+                         validate_deletion_for_delivered_parent_instance)
 from utils.tokens import Token
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
@@ -136,6 +138,13 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
     def delete(self, request, *args, **kwargs):
         sold_item = self.get_object()
 
+        # Validate sold item's sale delivery status
+        status_validation = (
+            validate_deletion_for_delivered_parent_instance(sold_item.sale)
+        )
+        if isinstance(status_validation, Response):
+            return status_validation
+
         # Validate sale's sold items records
         if len(sold_item.sale.items) == 1:
             return Response(
@@ -172,6 +181,12 @@ class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         queryset = self.get_queryset()
+        sale = queryset.first().sale
+
+        # Validate sold item sale delivery status
+        status_validation = validate_deletion_for_delivered_parent_instance(sale)
+        if isinstance(status_validation, Response):
+            return status_validation
 
         # Validate ids and items for deletion
         result = validate_linked_items_for_deletion(ids, queryset, Sale)

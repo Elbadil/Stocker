@@ -8,7 +8,8 @@ class SaleAdmin(admin.ModelAdmin):
                     'client_name',
                     'delivery_status',
                     'payment_status',
-                    'from_order']
+                    'from_order',
+                    'linked_order']
     
     @admin.display(ordering='client__name', description='Client')
     def client_name(self, obj):
@@ -26,11 +27,11 @@ class SoldItemAdmin(admin.ModelAdmin):
     @admin.display(ordering='order__reference_id', description='Ref')
     def order_ref_id(self, obj):
         return obj.sale.reference_id
-    
+
     @admin.display(ordering='order__client__name', description='Client')
     def client_name(self, obj):
         return obj.sale.client.name
-    
+
     @admin.display(ordering='item__name', description='Item')
     def item_name(self, obj):
         return obj.item.name

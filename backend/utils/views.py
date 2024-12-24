@@ -92,3 +92,30 @@ def validate_linked_items_for_deletion(
     # Return parent instance and items for deletion
     # to perform deletion in its custom view
     return (parent_instance, items_for_deletion)
+
+
+def validate_deletion_for_delivered_parent_instance(
+    parent_instance: Union[ClientOrder, SupplierOrder, Sale]
+) -> Union[Response, None]:
+    """
+    Returns a response with an error message if the linked parent
+    instance of the items has already been set to delivered
+    """
+    if isinstance(parent_instance, Sale):
+        parent_instance_name = 'sale'
+        items_name = 'sold items'
+    else:
+        parent_instance_name = 'order'
+        items_name = 'ordered items'
+
+    if parent_instance.delivery_status.name == 'Delivered':
+        return Response({
+            'error': (
+                f"Cannot perform item deletion because the {parent_instance_name} "
+                f"with reference ID '{parent_instance.reference_id}' has "
+                "already been marked as Delivered. Changes to delivered "
+                f"{parent_instance_name}s' {items_name} are restricted to "
+                "maintain data integrity."
+            )},
+            status=status.HTTP_400_BAD_REQUEST
+        )
