@@ -44,13 +44,12 @@ class Sale(BaseModel):
                                         null=True,
                                         blank=True)
     tracking_number = models.CharField(max_length=100, null=True, blank=True)
-    from_order = models.BooleanField(default=False)
     updated = models.BooleanField(default=False)
 
     @property
     def items(self):
         return self.sold_items.all()
-    
+
     @property
     def total_quantity(self):
         return sum(item.sold_quantity for item in self.items)        
@@ -66,8 +65,12 @@ class Sale(BaseModel):
         return self.total_price
 
     @property
+    def has_order(self):
+        return hasattr(self, 'order')
+
+    @property
     def linked_order(self):
-        return self.order.reference_id if self.from_order else None
+        return self.order.reference_id if self.has_order else None
 
     def __str__(self):
         return self.reference_id

@@ -64,6 +64,7 @@ const EditSale = ({
   const [initialValues, setInitialValues] = useState<SaleSchema | undefined>(
     undefined,
   );
+  const [isSaleLinked, setIsSaleLinked] = useState<boolean>(false);
 
   const {
     register,
@@ -306,6 +307,9 @@ const EditSale = ({
 
   const saleHasChanges = () => {
     if (!initialValues || !currentValues) return false;
+    if (initialValues.sold_items.length !== currentValues.sold_items.length)
+      return true;
+
     const numberFields = ['sold_quantity', 'sold_price', 'shipping_cost'];
     return (Object.keys(dirtyFields) as Array<keyof SaleSchema>).some((key) => {
       if (numberFields.includes(key)) {
@@ -343,6 +347,7 @@ const EditSale = ({
     if (open) {
       setInitialValues(sale);
       reset(sale);
+      if (sale.linked_order) setIsSaleLinked(true);
     }
   }, [open]);
 
@@ -377,6 +382,17 @@ const EditSale = ({
         {/* Form Content */}
         <div className="max-w-full overflow-y-auto min-h-[60vh] max-h-[80vh] flex flex-col">
           <div className="p-6">
+            {/* Sale From Order Note */}
+            {isSaleLinked && (
+              <div className="text-sm font-medium mb-4 text-black dark:text-slate-300">
+                * This sale is linked to a client order and the order has been
+                marked as Delivered. Please note that the sale, sold items, and
+                delivery status cannot be modified to maintain data integrity,
+                and any changes made to the sale record will be synchronized
+                between both the sale and the order record.
+              </div>
+            )}
+
             {/* Client */}
             <div className="mb-4">
               <div className="flex items-center gap-2.5 mb-2">
@@ -386,13 +402,15 @@ const EditSale = ({
                 >
                   Client*
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenAddClient(true)}
-                  className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
-                >
-                  new client?
-                </button>
+                {!isSaleLinked && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenAddClient(true)}
+                    className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                  >
+                    new client?
+                  </button>
+                )}
               </div>
               <div className="w-full">
                 {open && (
@@ -418,6 +436,7 @@ const EditSale = ({
                         }
                         options={clientOptions}
                         styles={customSelectStyles(isDarkMode)}
+                        isDisabled={isSaleLinked}
                       />
                     )}
                   />
@@ -439,20 +458,24 @@ const EditSale = ({
                 >
                   Sold Item(s)*
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenAddItem(true)}
-                  className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
-                >
-                  new item?
-                </button>
+                {!isSaleLinked && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenAddItem(true)}
+                    className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                  >
+                    new item?
+                  </button>
+                )}
               </div>
               {/* Sold Items Note */}
-              <div className="text-sm mb-2.5 text-black dark:text-slate-300">
-                * Note: You can only select items that exist in the inventory or
-                create a new one. Sold item quantities will be automatically
-                deducted from inventory upon sale submission.
-              </div>
+              {!isSaleLinked && (
+                <div className="text-sm mb-2.5 text-black dark:text-slate-300">
+                  * Note: You can only select items that exist in the inventory
+                  or create a new one. Sold item quantities will be
+                  automatically deducted from inventory upon sale submission.
+                </div>
+              )}
               {/* Sold Items Fields List */}
               {fields.map((field, index) => (
                 <div
@@ -495,13 +518,14 @@ const EditSale = ({
                                 }
                                 options={itemOptions}
                                 styles={customSelectStyles(isDarkMode)}
+                                isDisabled={isSaleLinked}
                               />
                             )}
                           />
                         )}
                       </div>
                       {/* Delete Item Field */}
-                      {fields.length > 1 && (
+                      {fields.length > 1 && !isSaleLinked && (
                         <div>
                           <button
                             type="button"
@@ -528,9 +552,13 @@ const EditSale = ({
                       Quantity*
                     </label>
                     <input
-                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                      className={`w-full rounded border ${
+                        isSaleLinked &&
+                        'disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none'
+                      } border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary`}
                       type="number"
                       placeholder="e.g. 1"
+                      disabled={isSaleLinked}
                       {...register(`sold_items.${index}.sold_quantity`)}
                     />
                     {errors.sold_items?.[index]?.sold_quantity && (
@@ -548,9 +576,13 @@ const EditSale = ({
                       Price per unit*
                     </label>
                     <input
-                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                      className={`w-full rounded border ${
+                        isSaleLinked &&
+                        'disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none'
+                      } border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary`}
                       type="number"
-                      placeholder="e.g. 19.99"
+                      placeholder="e.g. 1"
+                      disabled={isSaleLinked}
                       {...register(`sold_items.${index}.sold_price`)}
                     />
                     {errors.sold_items?.[index]?.sold_price && (
@@ -560,7 +592,7 @@ const EditSale = ({
                     )}
                   </div>
                   {/* Add Item Button */}
-                  {index === fields.length - 1 && (
+                  {index === fields.length - 1 && !isSaleLinked && (
                     <button
                       type="button"
                       className="mt-3 text-sm inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-2 text-center font-medium text-white hover:bg-opacity-90"
@@ -602,6 +634,7 @@ const EditSale = ({
                         options={deliveryStatusOptions}
                         styles={customSelectStyles(isDarkMode)}
                         placeholder={<span>Select delivery status...</span>}
+                        isDisabled={isSaleLinked}
                       />
                     )}
                   />

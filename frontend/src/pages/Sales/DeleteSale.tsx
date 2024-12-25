@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { SaleProps } from './Sale';
 import { useAlert } from '../../contexts/AlertContext';
@@ -63,6 +64,8 @@ const DeleteSale = ({
       return soldItemsMap;
     },
   };
+
+  const linkedSalesCount = sales.filter((sale) => sale.linked_order).length;
 
   const updateRowData = () => {
     const saleIds = new Set(salesSummary.ids);
@@ -177,15 +180,38 @@ const DeleteSale = ({
           <ol className="list-inside list-disc">
             {sales.map((sale, index: number) => (
               <li className="mt-2" key={index}>
-                Sale {sale.reference_id} - Made by {sale.client}
+                Sale {sale.reference_id} - by {sale.client}
+                {sale.linked_order && (
+                  <InfoOutlinedIcon
+                    sx={{
+                      color: '#f97316',
+                      fontSize: '22px',
+                      paddingBottom: '4px',
+                      marginLeft: '1.5px',
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ol>
           <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-500">
-            * Deleting {sales.length > 1 ? 'these sales' : 'this sale'} will
-            automatically restore the linked sold item quantities to the
-            inventory.
+            * Deleting non-linked sales will automatically update the inventory
+            by restoring the quantities of the associated items.
           </div>
+          {linkedSalesCount > 0 && (
+            <div className="mt-2 text-sm text-orange-500 flex justify-start gap-0.5">
+              <InfoOutlinedIcon
+                sx={{
+                  fontSize: '17.5px',
+                  paddingTop: '3px',
+                }}
+              />
+              <p>
+                This sale is linked to an order. Deleting it won't affect the
+                order but may impact data integrity.
+              </p>
+            </div>
+          )}
           {deleteErrors && (
             <p className="mt-2 text-red-500 font-medium text-sm italic">
               {deleteErrors}

@@ -32,7 +32,7 @@ export interface SaleProps {
   net_profit: number;
   source?: string | null;
   tracking_number?: string | null;
-  from_order: boolean;
+  linked_order?: string | null; 
   created_at: string;
   updated_at: string;
   updated: boolean;
@@ -159,6 +159,17 @@ const Sale = ({
                 {sale.reference_id}
               </p>
             </div>
+            {/* Linked Order */}
+            {sale.linked_order && (
+              <div className="mb-2 pt-3">
+                <div className="mb-1 block text-base font-medium text-black dark:text-white">
+                  Linked Order Ref
+                </div>
+                <p className="text-base text-slate-900 truncate dark:text-slate-300">
+                  {sale.linked_order}
+                </p>
+              </div>
+            )}
             {/* Created | Updated at */}
             <div className="mb-3 pt-3 flex flex-row gap-9.5">
               {/* Created at */}

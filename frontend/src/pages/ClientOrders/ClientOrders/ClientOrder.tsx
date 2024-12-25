@@ -30,6 +30,7 @@ export interface ClientOrderProps {
   shipping_cost?: number | null;
   net_profit: number;
   source?: string | null;
+  linked_sale?: string | null; 
   created_at: string;
   updated_at: string;
   updated: boolean;
@@ -156,6 +157,17 @@ const ClientOrder = ({
                 {order.reference_id}
               </p>
             </div>
+            {/* Linked Sale */}
+            {order.linked_sale && (
+              <div className="mb-2 pt-3">
+                <div className="mb-1 block text-base font-medium text-black dark:text-white">
+                  Linked Sale Ref
+                </div>
+                <p className="text-base text-slate-900 truncate dark:text-slate-300">
+                  {order.linked_sale}
+                </p>
+              </div>
+            )}
             {/* Created | Updated at */}
             <div className="mb-3 pt-3 flex flex-row gap-9.5">
               {/* Created at */}

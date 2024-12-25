@@ -194,6 +194,12 @@ const ClientOrders = () => {
       sortable: false,
     },
     {
+      field: 'linked_sale',
+      headerName: 'Linked Sale Ref',
+      minWidth: 155,
+      flex: 2,
+    },
+    {
       field: 'shipping_address',
       headerName: 'Address',
       valueGetter: (params: ValueGetterParams<ClientOrderProps, Location>) => {

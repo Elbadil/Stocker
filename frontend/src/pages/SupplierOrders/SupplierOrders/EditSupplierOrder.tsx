@@ -174,7 +174,7 @@ const EditSupplierOrder = ({
     console.log(data);
     try {
       const res = await api.put(
-        `/supplier_orders/orders/${supplierOrder.id}/`,
+        `/supplier_orders/${supplierOrder.id}/`,
         data,
       );
       const orderUpdate = res.data;

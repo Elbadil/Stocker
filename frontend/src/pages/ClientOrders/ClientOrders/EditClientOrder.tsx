@@ -68,6 +68,7 @@ const EditClientOrder = ({
   const [initialValues, setInitialValues] = useState<ClientOrderSchema | null>(
     null,
   );
+  const [isOrderDelivered, setIsOrderDelivered] = useState<boolean>(false);
 
   const {
     register,
@@ -84,6 +85,7 @@ const EditClientOrder = ({
   });
 
   const currentValues = watch();
+  const currentDeliveryStatus = watch('delivery_status');
 
   const { fields, append, remove } = useFieldArray({
     name: 'ordered_items',
@@ -251,7 +253,7 @@ const EditClientOrder = ({
     if (quantityErrors) return;
     console.log(data);
     try {
-      const res = await api.put(`/client_orders/orders/${order.id}/`, data);
+      const res = await api.put(`/client_orders/${order.id}/`, data);
       const orderUpdate = res.data;
       console.log('Order Update', orderUpdate);
       // Update rowNode
@@ -382,6 +384,7 @@ const EditClientOrder = ({
           setValue,
         );
       }
+      if (order.delivery_status === 'Delivered') setIsOrderDelivered(true);
     };
 
     if (open) loadData();
@@ -422,6 +425,17 @@ const EditClientOrder = ({
         {/* Form Content */}
         <div className="max-w-full overflow-y-auto min-h-[60vh] max-h-[80vh] flex flex-col">
           <div className="p-6">
+            {/* Delivered Order Note */}
+            {isOrderDelivered && (
+              <div className="text-sm font-medium mb-4 text-black dark:text-slate-300">
+                * This order has been marked as Delivered. Please note that the
+                client, ordered items, and delivery status cannot be modified to
+                maintain data integrity, and any changes made to the order
+                record will be synchronized between both the order and the sale
+                record.
+              </div>
+            )}
+
             {/* Client */}
             <div className="mb-4">
               <div className="flex items-center gap-2.5 mb-2">
@@ -431,13 +445,15 @@ const EditClientOrder = ({
                 >
                   Client*
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenAddClient(true)}
-                  className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
-                >
-                  new client?
-                </button>
+                {!isOrderDelivered && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenAddClient(true)}
+                    className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                  >
+                    new client?
+                  </button>
+                )}
               </div>
               <div className="w-full">
                 {open && (
@@ -463,6 +479,7 @@ const EditClientOrder = ({
                         }
                         options={clientOptions}
                         styles={customSelectStyles(isDarkMode)}
+                        isDisabled={isOrderDelivered}
                       />
                     )}
                   />
@@ -484,20 +501,24 @@ const EditClientOrder = ({
                 >
                   Ordered Item(s)*
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenAddItem(true)}
-                  className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
-                >
-                  new item?
-                </button>
+                {!isOrderDelivered && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenAddItem(true)}
+                    className="text-sm font-medium text-slate-400 hover:text-black dark:text-slate-400 dark:hover:text-white hover:underline"
+                  >
+                    new item?
+                  </button>
+                )}
               </div>
               {/* Ordered Items Note */}
-              <div className="text-sm mb-2.5 text-black dark:text-slate-300">
-                * Note: You can only select items that exist in the inventory or
-                create a new one. Ordered item quantities will be automatically
-                deducted from inventory upon order submission.
-              </div>
+              {!isOrderDelivered && (
+                <div className="text-sm mb-2.5 text-black dark:text-slate-300">
+                  * Note: You can only select items that exist in the inventory
+                  or create a new one. Ordered item quantities will be
+                  automatically deducted from inventory upon order submission.
+                </div>
+              )}
               {/* Ordered Items Fields List */}
               {fields.map((field, index) => (
                 <div
@@ -540,13 +561,14 @@ const EditClientOrder = ({
                                 }
                                 options={itemOptions}
                                 styles={customSelectStyles(isDarkMode)}
+                                isDisabled={isOrderDelivered}
                               />
                             )}
                           />
                         )}
                       </div>
                       {/* Delete Item Field */}
-                      {fields.length > 1 && (
+                      {fields.length > 1 && !isOrderDelivered && (
                         <div>
                           <button
                             type="button"
@@ -573,9 +595,13 @@ const EditClientOrder = ({
                       Quantity*
                     </label>
                     <input
-                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                      className={`w-full rounded border ${
+                        isOrderDelivered &&
+                        'disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none'
+                      } border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary`}
                       type="number"
                       placeholder="e.g. 1"
+                      disabled={isOrderDelivered}
                       {...register(`ordered_items.${index}.ordered_quantity`)}
                     />
                     {errors.ordered_items?.[index]?.ordered_quantity && (
@@ -593,9 +619,13 @@ const EditClientOrder = ({
                       Price per unit*
                     </label>
                     <input
-                      className="w-full rounded border border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary"
+                      className={`w-full rounded border ${
+                        isOrderDelivered &&
+                        'disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none'
+                      } border-stroke bg-gray pl-3 py-2 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary`}
                       type="number"
                       placeholder="e.g. 19.99"
+                      disabled={isOrderDelivered}
                       {...register(`ordered_items.${index}.ordered_price`)}
                     />
                     {errors.ordered_items?.[index]?.ordered_price && (
@@ -605,7 +635,7 @@ const EditClientOrder = ({
                     )}
                   </div>
                   {/* Add Item Button */}
-                  {index === fields.length - 1 && (
+                  {index === fields.length - 1 && !isOrderDelivered && (
                     <button
                       type="button"
                       className="mt-3 text-sm inline-flex items-center justify-center rounded-md bg-meta-3 py-2 px-2 text-center font-medium text-white hover:bg-opacity-90"
@@ -649,11 +679,41 @@ const EditClientOrder = ({
                         options={deliveryStatusOptions}
                         styles={customSelectStyles(isDarkMode)}
                         placeholder={<span>Select delivery status...</span>}
+                        isDisabled={isOrderDelivered}
                       />
                     )}
                   />
                 )}
               </div>
+              {/* 'Delivered' delivery status note */}
+              {!errors.delivery_status &&
+                !isOrderDelivered &&
+                currentDeliveryStatus === 'Delivered' && (
+                  <div className="mt-2.5 p-2 text-sm text-yellow-600 dark:text-yellow-500 rounded border-l-4 border-yellow-500">
+                    <p className="font-semibold">Important:</p>
+                    <p>
+                      Once you submit the order with the delivery status set to
+                      <strong> "Delivered"</strong>, the following will occur:
+                    </p>
+                    <ul className="ml-4 list-disc">
+                      <li>
+                        A new sale record will be created and added to the sales
+                        list, containing the order's details.
+                      </li>
+                      <li>
+                        Any future changes made to the linked sale or order
+                        record will be synchronized between both records.
+                      </li>
+                    </ul>
+                    <p className="mt-2">
+                      Additionally, you will no longer be able to modify the
+                      <strong> client</strong>, <strong>ordered items</strong>{' '}
+                      or <strong>delivery status</strong> fields. Please ensure
+                      all details are correct before submitting.
+                    </p>
+                  </div>
+                )}
+
               {errors.delivery_status && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
                   {errors.delivery_status.message}

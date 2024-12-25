@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ClipLoader from 'react-spinners/ClipLoader';
 import { ClientOrderProps } from './ClientOrder';
 import { api } from '../../../api/axios';
@@ -65,6 +66,8 @@ const DeleteClientOrder = ({
     },
   };
 
+  const linkedOrdersCount = orders.filter((order) => order.linked_sale).length;
+
   const updateRowData = () => {
     const ordersIds = new Set(ordersSummary.ids);
     const filteredRows = rowData.filter((row) => !ordersIds.has(row.id));
@@ -111,11 +114,11 @@ const DeleteClientOrder = ({
     try {
       let res;
       if (orders.length > 1) {
-        res = await api.delete('/client_orders/orders/bulk_delete/', {
+        res = await api.delete('/client_orders/bulk_delete/', {
           data: { ids: ordersSummary.ids },
         });
       } else {
-        res = await api.delete(`/client_orders/orders/${orders[0].id}/`);
+        res = await api.delete(`/client_orders/${orders[0].id}/`);
       }
       console.log(res.data);
       // Remove deleted order(s) from the orders table
@@ -179,14 +182,37 @@ const DeleteClientOrder = ({
             {orders.map((order, index: number) => (
               <li className="mt-2" key={index}>
                 Order {order.reference_id} - by {order.client}
+                {order.linked_sale && (
+                  <InfoOutlinedIcon
+                    sx={{
+                      color: '#f97316',
+                      fontSize: '22px',
+                      paddingBottom: '4px',
+                      marginLeft: '1.5px',
+                    }}
+                  />
+                )}
               </li>
             ))}
           </ol>
           <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-500">
-            * Deleting {orders.length > 1 ? 'these orders' : 'this order'} will
-            automatically restore the linked ordered item quantities to the
-            inventory.
+            * Deleting non-linked orders will automatically update the inventory
+            by restoring the quantities of the associated items.
           </div>
+          {linkedOrdersCount > 0 && (
+            <div className="mt-2 text-sm text-orange-500 flex justify-start gap-0.5">
+              <InfoOutlinedIcon
+                sx={{
+                  fontSize: '17.5px',
+                  paddingTop: '3px',
+                }}
+              />
+              <p>
+                This order is linked to a sale. Deleting it won't affect the
+                sale but may impact data integrity.
+              </p>
+            </div>
+          )}
           {deleteErrors && (
             <p className="mt-2 text-red-500 font-medium text-sm italic">
               {deleteErrors}

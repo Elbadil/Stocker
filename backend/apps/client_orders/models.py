@@ -118,7 +118,7 @@ class ClientOrder(BaseModel):
                                    help_text="The user who created this order",
                                    null=True,
                                    blank=True)
-    sale = models.OneToOneField('sales.Sale', on_delete=models.CASCADE,
+    sale = models.OneToOneField('sales.Sale', on_delete=models.SET_NULL,
                                 null=True, blank=True,
                                 related_name='order')
     client = models.ForeignKey(Client, on_delete=models.PROTECT,
@@ -135,7 +135,7 @@ class ClientOrder(BaseModel):
     tracking_number = models.CharField(max_length=50, null=True, blank=True,
                                        help_text="Tracking number for the shipment")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,
-                                         null=True)
+                                         null=True, blank=True)
     shipping_cost = models.DecimalField(max_digits=6, decimal_places=2,
                                         null=True, blank=True)
     source = models.ForeignKey(AcquisitionSource,

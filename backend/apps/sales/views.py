@@ -39,7 +39,7 @@ class GetUpdateDeleteSales(CreatedByUserMixin,
         sale = self.get_object()
 
         # Reset sale's sold items if the sale is not from order
-        if not sale.from_order:
+        if not sale.has_order:
             reset_sold_items(sale.items)
 
         return super().delete(request, *args, **kwargs)
@@ -91,7 +91,7 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
         sales_for_deletion = self.get_queryset().filter(id__in=ids)
         delete_count = 0
         for sale in sales_for_deletion:
-            if not sale.from_order:
+            if not sale.has_order:
                 reset_sold_items(sale.items)
             SoldItem.objects.filter(sale=sale).delete()
             sale.delete()
@@ -159,9 +159,8 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
             )
 
         # Reset item's inventory quantity
-        if not sold_item.sale.from_order:
-            sold_item.item.quantity += sold_item.sold_quantity
-            sold_item.item.save()
+        sold_item.item.quantity += sold_item.sold_quantity
+        sold_item.item.save()
 
         return super().delete(request, *args, **kwargs)
 
@@ -197,8 +196,7 @@ class BulkDeleteSoldItems(CreatedByUserMixin, generics.DestroyAPIView):
 
         # Perform deletion
         sale, items_for_deletion = result
-        if not sale.from_order:
-            reset_sold_items(items_for_deletion)
+        reset_sold_items(items_for_deletion)
         delete_count, _ = items_for_deletion.delete()
 
         return Response({'message': f'{delete_count} sold items successfully deleted.'},

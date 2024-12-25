@@ -165,7 +165,8 @@ class GetUpdateDeleteClientOrders(CreatedByUserMixin,
 
     def destroy(self, request, *args, **kwargs):
         order = self.get_object()
-        reset_client_ordered_items(order.items)
+        if not order.sale:
+            reset_client_ordered_items(order.items)
         ClientOrderedItem.objects.filter(order=order).delete()
         return super().destroy(request, *args, **kwargs)
 
@@ -216,7 +217,8 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
         orders = self.get_queryset().filter(id__in=order_ids)
         delete_count = 0
         for order in orders:
-            reset_client_ordered_items(order.items)
+            if not order.sale:
+                reset_client_ordered_items(order.items)
             ClientOrderedItem.objects.filter(order=order).delete()
             order.delete()
             delete_count += 1

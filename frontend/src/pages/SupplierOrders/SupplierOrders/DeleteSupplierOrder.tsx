@@ -58,11 +58,11 @@ const DeleteSupplierOrder = ({
     try {
       let res;
       if (orders.length > 1) {
-        res = await api.delete('/supplier_orders/orders/bulk_delete/', {
+        res = await api.delete('/supplier_orders/bulk_delete/', {
           data: { ids: ordersSummary.ids },
         });
       } else {
-        res = await api.delete(`/supplier_orders/orders/${orders[0].id}/`);
+        res = await api.delete(`/supplier_orders/${orders[0].id}/`);
       }
       console.log(res.data);
       // Remove deleted orders rows

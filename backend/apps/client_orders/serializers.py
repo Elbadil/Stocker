@@ -368,7 +368,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             'id',
             'reference_id',
             'created_by',
-            'sale',
             'client',
             'ordered_items',
             'delivery_status',
@@ -378,6 +377,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             'shipping_cost',
             'net_profit',
             'source',
+            'linked_sale',
             'created_at',
             'updated_at',
             'updated'
@@ -468,8 +468,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             'shipping_cost': order.shipping_cost,
             'tracking_number': order.tracking_number,
             'source': order.source,
-            'sold_items': order.items,
-            'from_order': True
+            'sold_items': order.items
         }
         serializer = SaleSerializer(data=sale_order_data)
         sale = serializer.create_without_validation(serializer.initial_data)
@@ -671,7 +670,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         # if the order's delivery_status has been changed to Delivered
         if (delivery_status and prev_delivery_status != 'Delivered'
             and delivery_status.name == 'Delivered'):
-            print('yes time to create a sale from this order')
             self.create_sale_from_order(order)
 
         # Update order's linked sale with updated order data if any

@@ -22,7 +22,6 @@ from ..client_orders.serializers import LocationSerializer
 class SoldItemSerializer(serializers.ModelSerializer):
     """Sold Item Serializer"""
     item = serializers.CharField()
-    from_order = serializers.BooleanField(required=False)
 
     class Meta:
         model = SoldItem
@@ -35,7 +34,6 @@ class SoldItemSerializer(serializers.ModelSerializer):
             'sold_price',
             'total_price',
             'total_profit',
-            'from_order',
             'created_at',
             'updated_at'
         ]
@@ -172,7 +170,6 @@ class SaleSerializer(serializers.ModelSerializer):
                                    allow_blank=True,
                                    required=False)
     shipping_address = LocationSerializer(many=False, required=False, allow_null=True)
-    from_order = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Sale
@@ -189,7 +186,6 @@ class SaleSerializer(serializers.ModelSerializer):
             'shipping_cost',
             'tracking_number',
             'net_profit',
-            'from_order',
             'linked_order',
             'created_at',
             'updated_at',
@@ -419,7 +415,7 @@ class SaleSerializer(serializers.ModelSerializer):
 
         # Validate if prev delivery status was set to 'Delivered'
         # and restricted fields were changed
-        if instance.from_order and instance.delivery_status.name == 'Delivered':
+        if instance.order and instance.delivery_status.name == 'Delivered':
             sale_data = self.to_representation(instance)
             keys_to_remove_from_items = ['total_price', 'total_profit']
             validate_restricted_fields(
@@ -465,7 +461,7 @@ class SaleSerializer(serializers.ModelSerializer):
         sale.save()
 
         # Update sale's linked order if any
-        if sale.from_order:
+        if sale.has_order:
             self.update_linked_order(sale)
 
         # Return sale instance

@@ -93,6 +93,7 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
     reset,
     setError,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ClientOrderSchema>({
     resolver: zodResolver(schema),
@@ -115,6 +116,8 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
     name: 'ordered_items',
     control,
   });
+
+  const currentDeliveryStatus = watch('delivery_status');
 
   const clientOptions = selectOptionsFromStrings(clients.names);
   const itemOptions = selectOptionsFromObjects(items);
@@ -195,7 +198,7 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
     const orderedItems = data.ordered_items;
     console.log(data);
     try {
-      const res = await api.post('/client_orders/orders/', data);
+      const res = await api.post('/client_orders/', data);
       const newOrder = res.data;
       const orderStatusType = statusType(newOrder.delivery_status);
       console.log(newOrder);
@@ -533,6 +536,34 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
                   />
                 )}
               </div>
+              {/* 'Delivered' delivery status note */}
+              {!errors.delivery_status &&
+                currentDeliveryStatus === 'Delivered' && (
+                  <div className="mt-2.5 p-2 text-sm text-yellow-600 dark:text-yellow-500 rounded border-l-4 border-yellow-500">
+                    <p className="font-semibold">Important:</p>
+                    <p>
+                      Once you submit the order with the delivery status set to
+                      <strong> "Delivered"</strong>, the following will occur:
+                    </p>
+                    <ul className="ml-4 list-disc">
+                      <li>
+                        A new sale record will be created and added to the sales
+                        list, containing the order's details.
+                      </li>
+                      <li>
+                        Any future changes made to the linked sale or order
+                        record will be synchronized between both records.
+                      </li>
+                    </ul>
+                    <p className="mt-2">
+                      Additionally, you will no longer be able to modify the
+                      <strong> client</strong>, <strong>ordered items</strong>{' '}
+                      or <strong>delivery status</strong> fields. Please ensure
+                      all details are correct before submitting.
+                    </p>
+                  </div>
+                )}
+
               {errors.delivery_status && (
                 <p className="text-red-500 font-medium text-sm italic mt-2">
                   {errors.delivery_status.message}

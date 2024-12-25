@@ -173,7 +173,7 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
 
   const onSubmit: SubmitHandler<SupplierOrderSchema> = async (data) => {
     try {
-      const res = await api.post('/supplier_orders/orders/', data);
+      const res = await api.post('/supplier_orders/', data);
       const newOrder = res.data;
       // Add new order to rowData
       setRowData((prev) => [newOrder, ...prev]);
@@ -550,9 +550,9 @@ const AddSupplierOrder = ({ open, setOpen, setRowData }: AddSupplierOrder) => {
                     </ul>
                     <p className="mt-2">
                       Additionally, you will no longer be able to modify the
-                      <strong> supplier</strong> or{' '}
-                      <strong>ordered items</strong> fields. Please ensure all
-                      details are correct before submitting.
+                      <strong> supplier</strong>, <strong>ordered items</strong>{' '}
+                      or <strong>delivery status</strong> fields. Please ensure
+                      all details are correct before submitting.
                     </p>
                   </div>
                 )}

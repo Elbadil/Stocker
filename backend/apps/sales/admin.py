@@ -8,7 +8,6 @@ class SaleAdmin(admin.ModelAdmin):
                     'client_name',
                     'delivery_status',
                     'payment_status',
-                    'from_order',
                     'linked_order']
     
     @admin.display(ordering='client__name', description='Client')
