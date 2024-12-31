@@ -11,14 +11,14 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 import os
-from .models import User
-from .serializers import (UserSerializer,
+from ..models import User
+from ..serializers import (UserSerializer,
                           UserLoginSerializer,
                           UserRegisterSerializer,
                           ChangePasswordSerializer,
                           ResetPasswordSerializer)
-from .auth import TokenVersionAuthentication
-from .utils import get_tokens_for_user, set_refresh_token
+from ..auth import TokenVersionAuthentication
+from ..utils import get_tokens_for_user, set_refresh_token
 
 
 class CustomTokenRefreshView(APIView):

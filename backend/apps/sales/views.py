@@ -9,7 +9,7 @@ from utils.views import (CreatedByUserMixin,
 from utils.tokens import Token
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
-                          ACTIVE_STATUS,
+                          ACTIVE_DELIVERY_STATUS,
                           COMPLETED_STATUS,
                           FAILED_STATUS)
 from .utils import validate_sale, reset_sold_items
@@ -220,15 +220,24 @@ class GetSalesData(CreatedByUserMixin, generics.GenericAPIView):
         }
 
         # Active sales
-        active_sales = sales.filter(delivery_status__name__in=ACTIVE_STATUS).count()
+        active_sales = (
+            sales.filter(delivery_status__name__in=ACTIVE_DELIVERY_STATUS)
+            .count()
+        )
         sale_status['active'] = active_sales
 
         # Completed sales
-        completed_sales = sales.filter(delivery_status__name__in=COMPLETED_STATUS).count()
+        completed_sales = (
+            sales.filter(delivery_status__name__in=COMPLETED_STATUS)
+            .count()
+        )
         sale_status['completed'] = completed_sales
 
         # Completed sales
-        failed_sales = sales.filter(delivery_status__name__in=FAILED_STATUS).count()
+        failed_sales = (
+            sales.filter(delivery_status__name__in=FAILED_STATUS)
+            .count()
+        )
         sale_status['failed'] = failed_sales
 
         return Response({'sales_count': sales.count(),

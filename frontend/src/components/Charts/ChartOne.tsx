@@ -1,14 +1,15 @@
 import { ApexOptions } from 'apexcharts';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactApexChart from 'react-apexcharts';
+import { api } from '../../api/axios';
 
-const options: ApexOptions = {
+const defaultOptions: ApexOptions = {
   legend: {
     show: false,
     position: 'top',
     horizontalAlign: 'left',
   },
-  colors: ['#3C50E0', '#80CAEE'],
+  colors: ['#F87185', '#3C50E0'],
   chart: {
     fontFamily: 'Satoshi, sans-serif',
     height: 335,
@@ -70,7 +71,7 @@ const options: ApexOptions = {
   markers: {
     size: 4,
     colors: '#fff',
-    strokeColors: ['#3056D3', '#80CAEE'],
+    strokeColors: ['#F87185', '#3056D3'],
     strokeWidth: 3,
     strokeOpacity: 0.9,
     strokeDashArray: 0,
@@ -81,29 +82,6 @@ const options: ApexOptions = {
       sizeOffset: 5,
     },
   },
-  xaxis: {
-    type: 'category',
-    categories: [
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-    ],
-    axisBorder: {
-      show: false,
-    },
-    axisTicks: {
-      show: false,
-    },
-  },
   yaxis: {
     title: {
       style: {
@@ -111,38 +89,70 @@ const options: ApexOptions = {
       },
     },
     min: 0,
-    max: 100,
+    max: 10,
+  },
+  noData: {
+    text: 'Loading...',
+    align: 'center',
+    verticalAlign: 'middle',
+    offsetX: 0,
+    offsetY: 0,
+    style: {
+      color: '#000000',
+      fontSize: '14px',
+      fontFamily: 'Satoshi, sans-serif',
+    },
   },
 };
 
-interface ChartOneState {
-  series: {
-    name: string;
-    data: number[];
-  }[];
-}
-
 const ChartOne: React.FC = () => {
-  const [state, setState] = useState<ChartOneState>({
-    series: [
-      {
-        name: 'Product One',
-        data: [23, 11, 22, 27, 13, 22, 37, 21, 44, 22, 30, 45],
-      },
+  const [currentFilter, setCurrentFilter] = useState<string>('week');
+  const [categories, setCategories] = useState<string[]>([
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ]);
+  const [series, setSeries] = useState<ApexAxisChartSeries>([]);
+  const [dateRange, setDateRange] = useState<string>('');
 
-      {
-        name: 'Product Two',
-        data: [30, 25, 36, 30, 45, 35, 64, 52, 59, 36, 39, 51],
+  const options: ApexOptions = {
+    ...defaultOptions,
+    xaxis: {
+      type: currentFilter === 'month' ? 'datetime': 'category',
+      categories: categories,
+      axisBorder: {
+        show: false,
       },
-    ],
-  });
-
-  const handleReset = () => {
-    setState((prevState) => ({
-      ...prevState,
-    }));
+      axisTicks: {
+        show: false,
+      },
+      tickAmount: 10,
+    },
   };
-  handleReset;
+
+  useEffect(() => {
+    const loadData = async (period: string) => {
+      setCategories([]);
+      setSeries([]);
+      try {
+        const res = await api.get(
+          `/dashboard/sales_analytics/?period=${period}`,
+        );
+        const { categories, series, date_range } = res.data;
+        setCategories(categories);
+        setDateRange(date_range);
+        setSeries(series);
+      } catch (error: any) {
+        console.log('Error fetching sales analytics', error);
+      }
+    };
+
+    loadData(currentFilter);
+  }, [currentFilter]);
 
   return (
     <div className="col-span-12 rounded-sm border border-stroke bg-white px-5 pt-7.5 pb-5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5 xl:col-span-8">
@@ -153,30 +163,41 @@ const ChartOne: React.FC = () => {
               <span className="block h-2.5 w-full max-w-2.5 rounded-full bg-primary"></span>
             </span>
             <div className="w-full">
-              <p className="font-semibold text-primary">Total Revenue</p>
-              <p className="text-sm font-medium">12.04.2022 - 12.05.2022</p>
+              <p className="font-semibold text-primary">Completed Sales</p>
+              <p className="text-sm font-medium">{dateRange}</p>
             </div>
           </div>
           <div className="flex min-w-47.5">
-            <span className="mt-1 mr-2 flex h-4 w-full max-w-4 items-center justify-center rounded-full border border-secondary">
-              <span className="block h-2.5 w-full max-w-2.5 rounded-full bg-secondary"></span>
+            <span className="mt-1 mr-2 flex h-4 w-full max-w-4 items-center justify-center rounded-full border border-red-400">
+              <span className="block h-2.5 w-full max-w-2.5 rounded-full bg-red-400"></span>
             </span>
             <div className="w-full">
-              <p className="font-semibold text-secondary">Total Sales</p>
-              <p className="text-sm font-medium">12.04.2022 - 12.05.2022</p>
+              <p className="font-semibold text-red-400">
+                Failed Sales - Orders
+              </p>
+              <p className="text-sm font-medium">{dateRange}</p>
             </div>
           </div>
         </div>
         <div className="flex w-full max-w-45 justify-end">
           <div className="inline-flex items-center rounded-md bg-whiter p-1.5 dark:bg-meta-4">
-            <button className="rounded bg-white py-1 px-3 text-xs font-medium text-black shadow-card hover:bg-white hover:shadow-card dark:bg-boxdark dark:text-white dark:hover:bg-boxdark">
-              Day
+            <button
+              onClick={() => setCurrentFilter('week')}
+              className={`rounded ${
+                currentFilter === 'week' &&
+                'bg-white dark:bg-boxdark shadow-card'
+              } py-1 px-3 text-xs font-medium text-black hover:bg-white hover:shadow-card dark:text-white dark:hover:bg-boxdark`}
+            >
+              This Week
             </button>
-            <button className="rounded py-1 px-3 text-xs font-medium text-black hover:bg-white hover:shadow-card dark:text-white dark:hover:bg-boxdark">
-              Week
-            </button>
-            <button className="rounded py-1 px-3 text-xs font-medium text-black hover:bg-white hover:shadow-card dark:text-white dark:hover:bg-boxdark">
-              Month
+            <button
+              onClick={() => setCurrentFilter('month')}
+              className={`rounded ${
+                currentFilter === 'month' &&
+                'bg-white dark:bg-boxdark shadow-card'
+              } py-1 px-3 text-xs font-medium text-black hover:bg-white hover:shadow-card dark:text-white dark:hover:bg-boxdark`}
+            >
+              This Month
             </button>
           </div>
         </div>
@@ -186,7 +207,7 @@ const ChartOne: React.FC = () => {
         <div id="chartOne" className="-ml-5">
           <ReactApexChart
             options={options}
-            series={state.series}
+            series={series}
             type="area"
             height={350}
           />

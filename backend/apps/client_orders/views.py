@@ -11,7 +11,7 @@ from utils.views import (CreatedByUserMixin,
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
                           COMPLETED_STATUS,
-                          ACTIVE_STATUS,
+                          ACTIVE_DELIVERY_STATUS,
                           FAILED_STATUS)
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
@@ -398,7 +398,7 @@ class GetClientOrdersData(generics.GenericAPIView):
             ClientOrder.objects
             .filter(
                 created_by=user,
-                delivery_status__name__in=ACTIVE_STATUS)
+                delivery_status__name__in=ACTIVE_DELIVERY_STATUS)
             .count()
         )
 

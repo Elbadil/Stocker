@@ -1,9 +1,11 @@
 import React, { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 interface CardDataStatsProps {
   title: string;
-  total: string;
+  total: string | number;
   rate: string;
+  link?: string;
   levelUp?: boolean;
   levelDown?: boolean;
   children: ReactNode;
@@ -13,6 +15,7 @@ const CardDataStats: React.FC<CardDataStatsProps> = ({
   title,
   total,
   rate,
+  link,
   levelUp,
   levelDown,
   children,
@@ -28,7 +31,11 @@ const CardDataStats: React.FC<CardDataStatsProps> = ({
           <h4 className="text-title-md font-bold text-black dark:text-white">
             {total}
           </h4>
-          <span className="text-sm font-medium">{title}</span>
+          <span
+            className={`text-sm font-medium ${link && 'hover:text-primary'}`}
+          >
+            {link ? <Link to={link}>{title}</Link> : `${title}`}
+          </span>
         </div>
 
         <span

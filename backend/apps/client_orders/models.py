@@ -142,7 +142,7 @@ class ClientOrder(BaseModel):
                                on_delete=models.SET_NULL,
                                related_name='acquired_orders',
                                help_text="The source through which this order was acquired",
-                               null=True)
+                               null=True, blank=True)
     updated = models.BooleanField(default=False)
 
     @property

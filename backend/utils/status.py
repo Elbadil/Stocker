@@ -32,7 +32,9 @@ PAYMENT_STATUS_OPTIONS_LOWER = [
 
 COMPLETED_STATUS = ['Paid', 'Delivered']
 
-ACTIVE_STATUS = ['Pending', 'Shipped']
+ACTIVE_DELIVERY_STATUS = ['Pending', 'Shipped']
+
+ACTIVE_PAYMENT_STATUS = ['Pending', 'Paid']
 
 FAILED_STATUS = ['Canceled', 'Failed', 'Refunded', 'Returned']
 

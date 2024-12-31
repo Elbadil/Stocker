@@ -31,7 +31,8 @@ class ClientOrderAdmin(admin.ModelAdmin):
                     'client_name',
                     'delivery_status',
                     'payment_status',
-                    'linked_sale']
+                    'linked_sale',
+                    'created_at']
 
     @admin.display(ordering='client__name', description='Client')
     def client_name(self, obj):
