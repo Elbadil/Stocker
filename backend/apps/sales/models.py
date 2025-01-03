@@ -59,10 +59,15 @@ class Sale(BaseModel):
         return sum(item.total_price for item in self.items)
 
     @property
-    def net_profit(self):
+    def total_cost(self):
+        items_cost = sum(item.total_cost for item in self.items)
         if self.shipping_cost:
-            return self.total_price - self.shipping_cost
-        return self.total_price
+            return items_cost + self.shipping_cost
+        return items_cost
+
+    @property
+    def net_profit(self):
+        return self.total_price - self.total_cost
 
     @property
     def has_order(self):
@@ -92,9 +97,12 @@ class SoldItem(BaseModel):
         return self.sold_quantity * self.sold_price
 
     @property
+    def total_cost(self):
+        return self.sold_quantity * self.item.price
+
+    @property
     def total_profit(self):
-        return ((self.sold_quantity * self.sold_price) - 
-                (self.sold_quantity * self.item.price))
+        return self.total_price - self.total_cost
 
     @property
     def unit_profit(self):

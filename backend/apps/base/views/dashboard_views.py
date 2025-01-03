@@ -2,15 +2,13 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Sum, Q
-from django.db.models.functions import ExtractIsoWeekDay, ExtractDay
-from datetime import datetime, timedelta, date, time
-import calendar
 from ..auth import TokenVersionAuthentication
 from apps.inventory.models import Item
 from apps.client_orders.models import ClientOrder
 from apps.sales.models import Sale
 from utils.views import CreatedByUserMixin
-from ..utils import make_aware_datetime, records_per_day
+from ..utils import (generate_filter_info, records_per_day,
+                     revenue_per_day)
 from utils.status import (ACTIVE_DELIVERY_STATUS,
                           ACTIVE_PAYMENT_STATUS,
                           FAILED_STATUS)
@@ -61,74 +59,28 @@ class GetDashboardInfo(generics.GenericAPIView):
 
 
 class GetSalesStatus(CreatedByUserMixin, generics.GenericAPIView):
-    """Returns Sales data for dashboard charts"""
+    """Returns Sales data for dashboard's Sales status chart"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
         user = request.user
-        date_range_q = request.GET.get('period', 'week')
-        today = date.today()
-        year = today.year
-        month = today.month
+        period_q = request.GET.get('period', 'week')
 
-        if date_range_q == 'week':
-            DAY_NAMES = {
-                1: 'Mon',
-                2: 'Tue',
-                3: 'Wed',
-                4: 'Thu',
-                5: 'Fri',
-                6: 'Sat',
-                7: 'Sun',
-            }
-            categories = list(DAY_NAMES.values())
-            start_of_week = datetime.combine(
-                datetime.today() - timedelta(days=today.weekday()),
-                time.min
-            )
-            end_of_week = datetime.combine(start_of_week + timedelta(days=6),
-                                           time.max)
+        result = generate_filter_info(period_q)
+        if isinstance(result, Response):
+            return result
 
-            date_range = (start_of_week.strftime("%d.%m.%Y") 
-                          + ' - ' + end_of_week.strftime("%d.%m.%Y"))
-            initial_days_map = {i: 0 for i in range(1, 8)}
-            date_type_query = {'day': ExtractIsoWeekDay('created_at')}
-
-            created_at_range = [
-                make_aware_datetime(start_of_week),
-                make_aware_datetime(end_of_week)
-            ]
-
-        else:
-            _, last_day = calendar.monthrange(year, month)
-
-            categories = [
-                date(year, month, day).strftime("%d.%m.%Y")
-                for day in range(1, last_day + 1)
-            ]
-
-            start_of_month = make_aware_datetime(
-                datetime.combine(datetime(year, month, 1), time.min)
-            )
-            end_of_month = make_aware_datetime(
-                datetime.combine(datetime(year, month, last_day), time.max)
-            )
-
-            date_range = categories[0] + ' - ' + categories[-1] 
-            initial_days_map = {i: 0 for i in range(1, last_day + 1)}
-            date_type_query = {'day': ExtractDay('created_at')}
-
-            created_at_range = [start_of_month, end_of_month]
+        filter_info = result
 
         sales = Sale.objects.filter(
             created_by=user,
-            created_at__range=created_at_range
+            created_at__range=filter_info['created_at_range']
         )
 
         client_orders = ClientOrder.objects.filter(
             created_by=user,
-            created_at__range=created_at_range
+            created_at__range=filter_info['created_at_range']
         )
 
         # Completed sales and failed sales - orders query
@@ -143,16 +95,16 @@ class GetSalesStatus(CreatedByUserMixin, generics.GenericAPIView):
         # Completed sales per day
         completed_sales_per_day = records_per_day(
             completed_query,
-            initial_days_map,
-            date_type_query,
+            filter_info['initial_days_map'],
+            filter_info['date_type_query'],
             sales
         )
 
         # Failed sales orders per day
         failed_sales_orders_per_day = records_per_day(
             failed_query,
-            initial_days_map,
-            date_type_query,
+            filter_info['initial_days_map'],
+            filter_info['date_type_query'],
             sales,
             client_orders
         )
@@ -169,6 +121,66 @@ class GetSalesStatus(CreatedByUserMixin, generics.GenericAPIView):
         ]
 
         return Response({'series': series,
-                         'date_range': date_range,
-                         'categories': categories},
+                         'date_range': filter_info['date_range'],
+                         'categories': filter_info['categories']},
+                         status=status.HTTP_200_OK)
+
+
+class GetSalesRevenue(CreatedByUserMixin, generics.GenericAPIView):
+    """Returns Sales data for dashboard's Sales Profit chart"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    queryset = Sale.objects.all()
+
+    def get(self, request, *args, **kwargs):
+        period_q = request.GET.get('period', 'week')
+
+        result = generate_filter_info(period_q)
+        if isinstance(result, Response):
+            return result
+
+        filter_info = result
+
+        sales = self.get_queryset()
+        completed_sales = (
+            sales
+            .filter(
+                delivery_status__name='Delivered',
+                payment_status__name='Paid',
+                created_at__range=filter_info['created_at_range']
+            )
+        )
+
+        # Completed sales revenue per day
+        sales_revenue_per_day = revenue_per_day(
+            completed_sales,
+            filter_info['date_type_query'],
+            filter_info['initial_revenue_per_day_map']
+        )
+
+        # Extract costs and profits
+        costs, profits = zip(*(
+            (value['cost'], value['profit'])
+            for value in sales_revenue_per_day.values()
+        ))
+        costs_list = list(costs)
+        profits_list = list(profits)
+
+        series = [
+            {
+                'name': 'Cost',
+                'data': costs_list
+            },
+            {
+                'name': 'Profit',
+                'data': profits_list
+            }
+        ]
+
+        total_revenue = sum(costs_list + profits_list)
+
+        return Response({'series': series,
+                         'date_range': filter_info['date_range'],
+                         'categories': filter_info['categories'],
+                         'total_revenue': total_revenue},
                          status=status.HTTP_200_OK)

@@ -415,7 +415,7 @@ class SaleSerializer(serializers.ModelSerializer):
 
         # Validate if prev delivery status was set to 'Delivered'
         # and restricted fields were changed
-        if instance.order and instance.delivery_status.name == 'Delivered':
+        if instance.has_order and instance.delivery_status.name == 'Delivered':
             sale_data = self.to_representation(instance)
             keys_to_remove_from_items = ['total_price', 'total_profit']
             validate_restricted_fields(

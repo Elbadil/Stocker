@@ -1,8 +1,9 @@
 import { ApexOptions } from 'apexcharts';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactApexChart from 'react-apexcharts';
+import { api } from '../../api/axios';
 
-const options: ApexOptions = {
+const defaultOptions: ApexOptions = {
   colors: ['#3C50E0', '#80CAEE'],
   chart: {
     fontFamily: 'Satoshi, sans-serif',
@@ -43,9 +44,6 @@ const options: ApexOptions = {
     enabled: false,
   },
 
-  xaxis: {
-    categories: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  },
   legend: {
     position: 'top',
     horizontalAlign: 'left',
@@ -60,53 +58,120 @@ const options: ApexOptions = {
   fill: {
     opacity: 1,
   },
+  noData: {
+    text: 'Loading...',
+    align: 'center',
+    verticalAlign: 'middle',
+    offsetX: 0,
+    offsetY: 0,
+    style: {
+      color: '#000000',
+      fontSize: '14px',
+      fontFamily: 'Satoshi, sans-serif',
+    },
+  },
+  tooltip: {
+    shared: true,
+    intersect: false,
+    custom: ({ dataPointIndex, w }) => {
+      // Extract data for cost and profit
+      const cost = w.globals.series[0][dataPointIndex];
+      const profit = w.globals.series[1][dataPointIndex];
+
+      // Calculate revenue as cost + profit
+      const revenue = cost + profit;
+
+      // Get the category label (e.g., the x-axis category)
+      const category = w.globals.labels[dataPointIndex];
+
+      // Create a custom tooltip HTML structure
+      let tooltipContent = `
+        <div style="padding: 10px; font-size: 14px;">
+          <div style="padding-bottom: 2px"><strong>${category}</strong></div>
+          <hr>
+          <div style="padding-top: 2px">Cost: <strong>${cost.toFixed(
+            2,
+          )} MAD</strong></div>
+          <div>Profit: <strong>${profit.toFixed(2)} MAD</strong></div>
+          <div style="color: #10B981; font-weight: bold;"><strong>Revenue:</strong> ${revenue.toFixed(
+            2,
+          )} MAD</div>
+        </div>
+      `;
+
+      return tooltipContent;
+    },
+  },
 };
 
-interface ChartTwoState {
-  series: {
-    name: string;
-    data: number[];
-  }[];
-}
-
 const ChartTwo: React.FC = () => {
-  const [state, setState] = useState<ChartTwoState>({
-    series: [
-      {
-        name: 'Sales',
-        data: [44, 55, 41, 67, 22, 43, 65],
+  const [currentFilter, setCurrentFilter] = useState<string>('week');
+  const [revenue, setRevenue] = useState<number>(0);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<string>('');
+  const [series, setSeries] = useState<ApexAxisChartSeries>([]);
+
+  const options: ApexOptions = {
+    ...defaultOptions,
+    xaxis: {
+      categories: categories,
+      axisTicks: {
+        show: false,
       },
-      {
-        name: 'Revenue',
-        data: [13, 23, 20, 8, 13, 27, 15],
-      },
-    ],
-  });
-  
-  const handleReset = () => {
-    setState((prevState) => ({
-      ...prevState,
-    }));
+      tickAmount: 10,
+    },
   };
-  handleReset;  
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setCurrentFilter(value);
+  };
+
+  useEffect(() => {
+    const loadData = async (filter: string) => {
+      setCategories([]);
+      setSeries([]);
+      try {
+        const res = await api.get(`/dashboard/sales_revenue/?period=${filter}`);
+        const { categories, date_range, series, total_revenue } = res.data;
+        setRevenue(total_revenue);
+        setCategories(categories);
+        setDateRange(date_range);
+        setSeries(series);
+      } catch (error: any) {
+        console.log('Error fetching sales revenue data', error);
+      }
+    };
+
+    loadData(currentFilter);
+  }, [currentFilter]);
 
   return (
     <div className="col-span-12 rounded-sm border border-stroke bg-white p-7.5 shadow-default dark:border-strokedark dark:bg-boxdark xl:col-span-4">
       <div className="mb-4 justify-between gap-4 sm:flex">
         <div>
           <h4 className="text-xl font-semibold text-black dark:text-white">
-            Profit this week
+            Revenue this {currentFilter}
           </h4>
+          <div className="text-lg font-semibold py-1 text-black dark:text-meta-3">
+            {revenue.toFixed(2)} MAD
+          </div>
+          <div className="text-sm font-medium">{dateRange}</div>
         </div>
         <div>
           <div className="relative z-20 inline-block">
             <select
+              onChange={handleSelectChange}
               name="#"
               id="#"
-              className="relative z-20 inline-flex appearance-none bg-transparent py-1 pl-3 pr-8 text-sm font-medium outline-none"
+              className="relative z-20 inline-flex appearance-none cursor-pointer bg-transparent py-1 pl-3 pr-8 text-sm font-medium outline-none"
             >
-              <option value="" className='dark:bg-boxdark'>This Week</option>
-              <option value="" className='dark:bg-boxdark'>Last Week</option>
+              <option value="week" className="dark:bg-boxdark">
+                This Week
+              </option>
+              <option value="month" className="dark:bg-boxdark">
+                This Month
+              </option>
             </select>
             <span className="absolute top-1/2 right-3 z-10 -translate-y-1/2">
               <svg
@@ -136,7 +201,7 @@ const ChartTwo: React.FC = () => {
         <div id="chartTwo" className="-ml-5 -mb-9">
           <ReactApexChart
             options={options}
-            series={state.series}
+            series={series}
             type="bar"
             height={350}
           />
