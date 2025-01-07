@@ -20,10 +20,14 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def validate_username(self, value):
-        if User.objects.filter(username=value.lower()).exclude(id=self.instance.id).exists():
-            raise serializers.ValidationError('user with this username already exists.')
+        if (User.objects
+            .filter(username=value.lower())
+            .exclude(id=self.instance.id).exists()):
+            raise serializers.ValidationError(
+                'user with this username already exists.'
+            )
         return value.lower()
-    
+
     def validate(self, attrs):
         return handle_null_fields(attrs)
 

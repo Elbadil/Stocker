@@ -132,7 +132,7 @@ const ChartTwo: React.FC = () => {
       setCategories([]);
       setSeries([]);
       try {
-        const res = await api.get(`/dashboard/sales_revenue/?period=${filter}`);
+        const res = await api.get(`/dashboard/?info=sales-revenue&?period=${filter}`);
         const { categories, date_range, series, total_revenue } = res.data;
         setRevenue(total_revenue);
         setCategories(categories);

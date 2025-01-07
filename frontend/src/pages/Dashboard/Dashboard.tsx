@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const res = await api.get('/dashboard');
+        const res = await api.get('/dashboard/?info=general');
         setDashboardData(res.data);
       } catch (error: any) {
         console.log('Error fetching dashboard data', error);
@@ -73,7 +73,7 @@ const Dashboard: React.FC = () => {
           <LoyaltyOutlinedIcon sx={{ fontSize: '28px', paddingTop: '2px' }} />
         </CardDataStats>
         <CardDataStats
-          title={`Active Sales | Orders`}
+          title="Active Sales | Orders"
           total={dashboardData.active_sales_orders}
           rate="4.35%"
           levelUp
@@ -94,12 +94,13 @@ const Dashboard: React.FC = () => {
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
         <ChartOne />
         <ChartTwo />
-        <ChartThree />
-        <MapOne />
         <div className="col-span-12 xl:col-span-8">
           <TableOne />
         </div>
         <ChatCard />
+        <ChartThree />
+        <MapOne />
+        
       </div>
     </>
   );

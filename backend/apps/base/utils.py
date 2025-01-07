@@ -103,7 +103,7 @@ def generate_filter_info(filter: str) -> Union[dict, Response]:
 
     else:
         return Response(
-            {'error': 'period query param must be either week or month'},
+            {'error': 'period parameter must be either week or month.'},
             status=status.HTTP_400_BAD_REQUEST
         )
 

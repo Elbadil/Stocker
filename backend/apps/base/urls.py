@@ -42,12 +42,6 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/',
-         dashboard_views.GetDashboardInfo.as_view(),
-         name='dashboard_data'),
-    path('dashboard/sales_status/',
-         dashboard_views.GetSalesStatus.as_view(),
-         name='dashboard_sales_status'),
-    path('dashboard/sales_revenue/',
-         dashboard_views.GetSalesRevenue.as_view(),
-         name='dashboard_sales_revenue')
+         dashboard_views.DashboardAPIView.as_view(),
+         name='dashboard_info'),
 ]

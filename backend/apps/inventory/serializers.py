@@ -233,14 +233,15 @@ class ItemSerializer(serializers.ModelSerializer):
         user = self.context.get('request').user
 
         # Updating Item's category
-        update_field(item,
+        update_field(self,
+                     item,
                      'category',
                       category_name,
                       self._get_or_create_category,
                       user)
 
         # Updating Item's supplier
-        update_field(item, 'supplier', supplier)
+        update_field(self, item, 'supplier', supplier)
 
         item.updated = True
         item.save()

@@ -299,6 +299,11 @@ const EditItem = ({
       console.log('loaded data', formData);
       setInitialValues(formData);
       setPictureModified(false);
+      setItemPicture(null);
+      setPreviewPictureUrl(null);
+      if (!formData.picture) {
+        setValue('picture', undefined);
+      }
       reset(formData);
     };
 
@@ -330,7 +335,7 @@ const EditItem = ({
         URL.revokeObjectURL(previewPictureUrl);
       }
     };
-  }, [previewPictureUrl]);
+  }, [previewPictureUrl, open]);
 
   useEffect(() => {
     itemHasChanges();

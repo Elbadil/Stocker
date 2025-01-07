@@ -88,7 +88,7 @@ def update_field(
     user: Optional[User] = None
 ) -> None:
     """Updates instance field value with optional creation function"""
-    if value:
+    if value is not None:
         if create_func and user:
             setattr(instance, field_name, create_func(user, value))
         else:
