@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework.validators import ValidationError
 import json
 from utils.serializers import handle_null_fields, update_field
+from utils.activity import register_activity
 from ..base.models import User
 from .models import Item, Category, Variant, VariantOption
 from ..supplier_orders.models import Supplier
@@ -219,6 +220,9 @@ class ItemSerializer(serializers.ModelSerializer):
         # Creating and Adding Item's variants with options
         if variants:
             self._get_or_create_variants_with_options(item, user, variants)
+        
+        # Register item creation in the activities table
+        register_activity(user, "created", "item", Item, item.id)
 
         return item
 
@@ -251,6 +255,9 @@ class ItemSerializer(serializers.ModelSerializer):
         VariantOption.objects.filter(item=item).delete()
         if variants:
             self._get_or_create_variants_with_options(item, user, variants)
+
+        # Register item update in the activities table
+        register_activity(user, "updated", "item", Item, item.id)
 
         return item
 

@@ -9,7 +9,6 @@ from ..models import User
 from apps.inventory.models import Item
 from apps.client_orders.models import ClientOrder
 from apps.sales.models import Sale, SoldItem
-from utils.views import CreatedByUserMixin
 from ..utils import (generate_filter_info, records_per_day,
                      revenue_per_day)
 from utils.status import (ACTIVE_DELIVERY_STATUS,
@@ -95,7 +94,6 @@ class DashboardAPIView(generics.GenericAPIView):
                          'active_sales_orders': active_sales + active_orders,
                          'total_profit': total_profit},
                          status=status.HTTP_200_OK)
-
 
     def get_sales_status_info(self, user: User, period_q: str):
         """

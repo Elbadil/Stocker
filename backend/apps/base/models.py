@@ -1,10 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils.translation import gettext_lazy as _
-from datetime import timedelta
 from utils.tokens import Token
 from utils.models import BaseModel
-
 
 
 class UserManager(BaseUserManager):
@@ -52,7 +52,6 @@ def user_avatar_path(user, filename):
     """Determine upload path for user avatar."""
     return f"base/images/user/{user.id}/{filename}"
 
-
 class User(AbstractUser):
     """Custom User Model"""
     id = models.UUIDField(default=Token.generate_uuid,
@@ -77,3 +76,17 @@ class User(AbstractUser):
 
     def __str__(self) -> str:
         return self.username
+
+
+class Activity(BaseModel):
+    """Activity Model"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name="activities")
+    action = models.CharField(max_length=50)
+    model_name = models.CharField(max_length=50)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.UUIDField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    def __str__(self):
+        return f"{self.user.username} {self.action} {self.model_name} {self.content_object.name}"
