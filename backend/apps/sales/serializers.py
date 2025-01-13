@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import Q
 from typing import List
-from utils.serializers import (datetime_repr_format,
+from utils.serializers import (date_repr_format,
                                get_location,
                                get_or_create_location,
                                get_or_create_source,
@@ -13,6 +13,7 @@ from utils.serializers import (datetime_repr_format,
                                validate_changes_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.activity import register_activity
 from .models import Sale, SoldItem
 from ..inventory.models import Item
 from ..client_orders.models import Client, OrderStatus
@@ -149,8 +150,8 @@ class SoldItemSerializer(serializers.ModelSerializer):
         sold_item_repr['created_by'] = (instance.created_by.username
                                         if instance.created_by else None)
         sold_item_repr['item'] = instance.item.name
-        sold_item_repr['created_at'] = datetime_repr_format(instance.created_at)
-        sold_item_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        sold_item_repr['created_at'] = date_repr_format(instance.created_at)
+        sold_item_repr['updated_at'] = date_repr_format(instance.updated_at)
         return sold_item_repr
 
 
@@ -385,6 +386,9 @@ class SaleSerializer(serializers.ModelSerializer):
 
         # Save changes and return sale instance
         sale.save()
+
+        register_activity(user, "created", "sale", [sale.reference_id])
+
         return sale
 
     @transaction.atomic
@@ -463,6 +467,8 @@ class SaleSerializer(serializers.ModelSerializer):
         # Update sale's linked order if any
         if sale.has_order:
             self.update_linked_order(sale)
+        
+        register_activity(user, "updated", "sale", [sale.reference_id])
 
         # Return sale instance
         return sale
@@ -485,6 +491,6 @@ class SaleSerializer(serializers.ModelSerializer):
         sale_repr['delivery_status'] = instance.delivery_status.name
         sale_repr['payment_status'] = instance.payment_status.name
         sale_repr['shipping_address'] = get_location(instance.shipping_address)
-        sale_repr['created_at'] = datetime_repr_format(instance.created_at)
-        sale_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        sale_repr['created_at'] = date_repr_format(instance.created_at)
+        sale_repr['updated_at'] = date_repr_format(instance.updated_at)
         return sale_repr

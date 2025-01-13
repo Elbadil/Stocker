@@ -7,6 +7,7 @@ from utils.views import (CreatedByUserMixin,
                          validate_linked_items_for_deletion,
                          validate_deletion_for_delivered_parent_instance)
 from utils.tokens import Token
+from utils.activity import register_activity
 from utils.status import (DELIVERY_STATUS_OPTIONS,
                           PAYMENT_STATUS_OPTIONS,
                           ACTIVE_DELIVERY_STATUS,
@@ -37,10 +38,11 @@ class GetUpdateDeleteSales(CreatedByUserMixin,
 
     def delete(self, request, *args, **kwargs):
         sale = self.get_object()
-
         # Reset sale's sold items if the sale is not from order
         if not sale.has_order:
             reset_sold_items(sale.items)
+        
+        register_activity(request.user, "deleted", "sale", [sale.reference_id])
 
         return super().delete(request, *args, **kwargs)
 
@@ -89,6 +91,11 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
     
         # Perform sales deletion after validation
         sales_for_deletion = self.get_queryset().filter(id__in=ids)
+        sales_for_deletion_ref_ids = list(
+            sales_for_deletion
+            .values_list('reference_id', flat=True)
+        )
+
         delete_count = 0
         for sale in sales_for_deletion:
             if not sale.has_order:
@@ -96,6 +103,8 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
             SoldItem.objects.filter(sale=sale).delete()
             sale.delete()
             delete_count += 1
+
+        register_activity(request.user, "deleted", "sale", sales_for_deletion_ref_ids)
 
         return Response({'message': f'{delete_count} sales successfully deleted.'},
                          status=status.HTTP_200_OK)

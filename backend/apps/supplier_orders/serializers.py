@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
 from typing import List, Union
-from utils.serializers import (datetime_repr_format,
+from utils.serializers import (date_repr_format,
                                get_location,
                                get_or_create_location,
                                validate_restricted_fields,
@@ -9,6 +9,7 @@ from utils.serializers import (datetime_repr_format,
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
 from utils.serializers import update_field, check_item_existence
+from utils.activity import register_activity
 from ..base.models import User
 from ..inventory.models import Item
 from ..client_orders.serializers import LocationSerializer
@@ -61,6 +62,8 @@ class SupplierSerializer(serializers.ModelSerializer):
             supplier.location = get_or_create_location(user, location)
             supplier.save()
         
+        register_activity(user, "created", "supplier", [supplier.name])
+        
         return supplier
     
     @transaction.atomic
@@ -83,14 +86,16 @@ class SupplierSerializer(serializers.ModelSerializer):
         supplier.updated = True
         supplier.save()
 
+        register_activity(user, "updated", "supplier", [supplier.name])
+
         return supplier
 
     def to_representation(self, instance: Supplier):
         supplier_to_repr = super().to_representation(instance)
         supplier_to_repr['created_by'] = instance.created_by.username if instance.created_by else None
         supplier_to_repr['location'] = get_location(instance.location)
-        supplier_to_repr['created_at'] = datetime_repr_format(instance.created_at)
-        supplier_to_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        supplier_to_repr['created_at'] = date_repr_format(instance.created_at)
+        supplier_to_repr['updated_at'] = date_repr_format(instance.updated_at)
         return supplier_to_repr
 
 
@@ -279,8 +284,8 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
         item_to_repr['supplier'] = instance.supplier.name
         item_to_repr['item'] = instance.item.name
         item_to_repr['in_inventory'] = instance.in_inventory
-        item_to_repr['created_at'] = datetime_repr_format(instance.created_at)
-        item_to_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        item_to_repr['created_at'] = date_repr_format(instance.created_at)
+        item_to_repr['updated_at'] = date_repr_format(instance.updated_at)
         return item_to_repr
 
 
@@ -475,6 +480,9 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             order.payment_status = payment_status
 
         order.save()
+    
+        register_activity(user, "created", "supplier order", [order.reference_id])
+
         return order
 
     @transaction.atomic
@@ -528,6 +536,9 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
 
         order.updated = True
         order.save()
+
+        register_activity(user, "updated", "supplier order", [order.reference_id])
+
         return order
 
     def to_representation(self, instance: SupplierOrder):
@@ -537,7 +548,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         order_repr['ordered_items'] = self.get_ordered_items(instance)
         order_repr['delivery_status'] = instance.delivery_status.name
         order_repr['payment_status'] = instance.payment_status.name
-        order_repr['created_at'] = datetime_repr_format(instance.created_at)
-        order_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        order_repr['created_at'] = date_repr_format(instance.created_at)
+        order_repr['updated_at'] = date_repr_format(instance.updated_at)
 
         return order_repr

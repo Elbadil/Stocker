@@ -13,6 +13,7 @@ from utils.status import (DELIVERY_STATUS_OPTIONS,
                           COMPLETED_STATUS,
                           ACTIVE_DELIVERY_STATUS,
                           FAILED_STATUS)
+from utils.activity import register_activity
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
 from .utils import validate_supplier_order
@@ -40,6 +41,7 @@ class GetUpdateDeleteSuppliers(CreatedByUserMixin,
 
     def destroy(self, request, *args, **kwargs):
         supplier = self.get_object()
+
         if supplier.total_orders > 0:
             return Response(
                 {
@@ -47,6 +49,9 @@ class GetUpdateDeleteSuppliers(CreatedByUserMixin,
                               'Manage orders before deletion.'
                 },
                 status=status.HTTP_400_BAD_REQUEST)
+
+        register_activity(request.user, "deleted", "supplier", [supplier.name])
+
         return super().destroy(request, *args, **kwargs)
 
 
@@ -119,8 +124,13 @@ class BulkDeleteSuppliers(CreatedByUserMixin, generics.DestroyAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         # Case 2: both suppliers with orders and without orders exist
+        suppliers_for_deletion = list(
+            suppliers_without_orders
+            .values_list('name', flat=True)
+        )
         if suppliers_with_orders.exists() and suppliers_without_orders.exists():
             delete_count, _ = suppliers_without_orders.delete()
+            register_activity(request.user, "deleted", "supplier", suppliers_for_deletion)
             suppliers_with_orders_count = suppliers_with_orders.count()
             supplier_text = "suppliers" if delete_count > 1 else "supplier"
             linked_supplier_text = "suppliers" if suppliers_with_orders_count > 1 else "supplier"
@@ -136,6 +146,7 @@ class BulkDeleteSuppliers(CreatedByUserMixin, generics.DestroyAPIView):
             )
         # Case 3: All suppliers are not linked to orders
         delete_count, _ = suppliers_without_orders.delete()
+        register_activity(request.user, "deleted", "supplier", suppliers_for_deletion)
         return Response({'message': f'{delete_count} suppliers successfully deleted.'},
                          status=status.HTTP_200_OK)
 
@@ -157,6 +168,18 @@ class GetUpdateDeleteSupplierOrders(CreatedByUserMixin,
     serializer_class = serializers.SupplierOrderSerializer
     queryset = SupplierOrder.objects.all()
     lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        order = self.get_object()
+
+        register_activity(
+            request.user,
+            "deleted",
+            "supplier order",
+            [order.reference_id]
+        )
+
+        return super().destroy(request, *args, **kwargs)
 
 
 class BulkDeleteSupplierOrders(CreatedByUserMixin, generics.DestroyAPIView):
@@ -202,8 +225,20 @@ class BulkDeleteSupplierOrders(CreatedByUserMixin, generics.DestroyAPIView):
             )
         # Delete selected orders
         orders_for_deletion = SupplierOrder.objects.filter(id__in=ids)
+        orders_for_deletion_ref_ids = list(
+            orders_for_deletion
+            .values_list('reference_id', flat=True)
+        )
         orders_for_deletion_count = orders_for_deletion.count()
         orders_for_deletion.delete()
+
+        register_activity(
+            request.user,
+            "deleted",
+            "supplier order",
+            orders_for_deletion_ref_ids
+        )
+
         return Response({'message': f'{orders_for_deletion_count} supplier orders successfully deleted.'},
                          status=status.HTTP_200_OK)
  

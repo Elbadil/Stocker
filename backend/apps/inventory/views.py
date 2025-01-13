@@ -7,6 +7,7 @@ from django.db.models import CharField, Q
 from django.db.models.functions import Cast
 from utils.tokens import Token
 from utils.views import CreatedByUserMixin
+from utils.activity import register_activity
 from ..base.auth import TokenVersionAuthentication
 from . import serializers
 from .models import Item, Category, Variant
@@ -57,6 +58,9 @@ class GetUpdateDeleteItems(CreatedByUserMixin,
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        register_activity(request.user, "deleted", "item", [item.name])
+
         return super().delete(request, *args, **kwargs)
 
 
@@ -115,7 +119,8 @@ class BulkDeleteItems(CreatedByUserMixin,
             .filter(
                 id__in=ids,
                 clientordereditem__isnull=True,
-                supplierordereditem__isnull=True)
+                supplierordereditem__isnull=True
+            )
         )
         items_without_orders_count = items_without_orders.count()
         # Case 1: All item items are linked to orders
@@ -131,8 +136,10 @@ class BulkDeleteItems(CreatedByUserMixin,
                 status=status.HTTP_400_BAD_REQUEST
             )
         # Case 2: Some items are linked to orders
+        items_for_deletion = list(items_without_orders.values_list('name', flat=True))
         if items_with_orders.exists() and items_without_orders.exists():
             items_without_orders.delete()
+            register_activity(request.user, "deleted", "item", items_for_deletion)
             items_with_orders_count = items_with_orders.count()
             item_text = "items" if items_without_orders_count > 1 else "item"
             linked_item_text = "items" if items_with_orders_count > 1 else "item"
@@ -148,6 +155,7 @@ class BulkDeleteItems(CreatedByUserMixin,
             )
         # Case 3: None of the items are linked to orders
         items_without_orders.delete()
+        register_activity(request.user, "deleted", "item", items_for_deletion)
         return Response({'message': f'{items_without_orders_count} items successfully deleted.'},
                          status=status.HTTP_200_OK)
 

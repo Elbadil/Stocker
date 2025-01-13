@@ -2,8 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from utils.serializers import handle_null_fields
-from .models import User
+from utils.serializers import handle_null_fields, datetime_repr_format
+from .models import User, Activity
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -178,3 +178,23 @@ class ResetPasswordSerializer(serializers.Serializer):
         self.user.set_password(new_password1)
         self.user.save()
         return self.user
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    """Activity Serializer"""
+    class Meta:
+        model = Activity
+        fields = [
+            'id',
+            'user',
+            'action',
+            'model_name',
+            'object_ref',
+            'created_at',
+        ]
+
+    def to_representation(self, instance: Activity):
+        activity_repr = super().to_representation(instance)
+        activity_repr['user'] = instance.user.username
+        activity_repr['created_at'] = datetime_repr_format(instance.created_at)
+        return activity_repr

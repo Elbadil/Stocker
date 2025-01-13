@@ -2,7 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import ValidationError
 import json
-from utils.serializers import handle_null_fields, update_field
+from utils.serializers import handle_null_fields, update_field, date_repr_format
 from utils.activity import register_activity
 from ..base.models import User
 from .models import Item, Category, Variant, VariantOption
@@ -221,8 +221,7 @@ class ItemSerializer(serializers.ModelSerializer):
         if variants:
             self._get_or_create_variants_with_options(item, user, variants)
         
-        # Register item creation in the activities table
-        register_activity(user, "created", "item", Item, item.id)
+        register_activity(user, "created", "item", [item.name])
 
         return item
 
@@ -256,8 +255,7 @@ class ItemSerializer(serializers.ModelSerializer):
         if variants:
             self._get_or_create_variants_with_options(item, user, variants)
 
-        # Register item update in the activities table
-        register_activity(user, "updated", "item", Item, item.id)
+        register_activity(user, "updated", "item", [item.name])
 
         return item
 
@@ -267,6 +265,6 @@ class ItemSerializer(serializers.ModelSerializer):
         representation['category'] = instance.category.name if instance.category else None
         representation['supplier'] = instance.supplier.name if instance.supplier else None
         representation['variants'] = self.get_variants(instance)
-        representation['created_at'] = instance.created_at.strftime('%d/%m/%Y')
-        representation['updated_at'] = instance.updated_at.strftime('%d/%m/%Y')
+        representation['created_at'] = date_repr_format(instance.created_at)
+        representation['updated_at'] = date_repr_format(instance.updated_at)
         return representation

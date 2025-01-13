@@ -15,9 +15,13 @@ from apps.supplier_orders.models import (Supplier,
 from apps.sales.models import Sale, SoldItem
 
 
-def datetime_repr_format(datetime) -> str:
-    """Returns the correct format for datetime data representation"""
+def date_repr_format(datetime) -> str:
+    """Returns the suitable format for datetime date representation"""
     return datetime.strftime('%d/%m/%Y')
+
+def datetime_repr_format(datetime) -> str:
+    """Returns the suitable format for datetime data representation"""
+    return datetime.strftime('%d/%m/%Y, %H:%M:%S')
 
 def get_or_create_source(
     user: User,
@@ -119,7 +123,6 @@ def check_item_existence(
         return item_model.objects.filter(**query).exclude(id=instance.id).exists()
 
     return item_model.objects.filter(**query).exists()
-
 
 def restricted_fields_have_changes(
     prev_values: dict,

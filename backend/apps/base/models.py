@@ -84,9 +84,11 @@ class Activity(BaseModel):
                              related_name="activities")
     action = models.CharField(max_length=50)
     model_name = models.CharField(max_length=50)
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.UUIDField()
-    content_object = GenericForeignKey('content_type', 'object_id')
+    object_ref = models.JSONField(default=list)
 
     def __str__(self):
-        return f"{self.user.username} {self.action} {self.model_name} {self.content_object.name}"
+        return (
+            f"{self.user.username} "
+            f"{self.action} {self.model_name} "
+            f"{self.object_ref}"
+        )

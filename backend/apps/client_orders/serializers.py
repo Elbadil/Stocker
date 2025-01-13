@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import Q
 from typing import List, Union
-from utils.serializers import (datetime_repr_format,
+from utils.serializers import (date_repr_format,
                                get_location,
                                get_or_create_location,
                                get_or_create_source,
@@ -13,6 +13,7 @@ from utils.serializers import (datetime_repr_format,
                                validate_changes_for_delivered_parent_instance)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.activity import register_activity
 from .models import (Client,
                      Country,
                      City,
@@ -158,6 +159,8 @@ class ClientSerializer(serializers.ModelSerializer):
             client.source = get_or_create_source(user, source)
         client.save()
 
+        register_activity(user, "created", "client", [client.name])
+
         return client
 
     @transaction.atomic
@@ -191,6 +194,8 @@ class ClientSerializer(serializers.ModelSerializer):
         client.updated = True
         client.save()
 
+        register_activity(user, "updated", "client", [client.name])
+
         return client
 
     def to_representation(self, instance: Client):
@@ -198,8 +203,8 @@ class ClientSerializer(serializers.ModelSerializer):
         client_repr['created_by'] = instance.created_by.username
         client_repr['location'] = get_location(instance.location)
         client_repr['source'] = instance.source.name if instance.source else None
-        client_repr['created_at'] = datetime_repr_format(instance.created_at)
-        client_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        client_repr['created_at'] = date_repr_format(instance.created_at)
+        client_repr['updated_at'] = date_repr_format(instance.updated_at)
         return client_repr
 
 
@@ -344,8 +349,8 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
         ordered_item_repr = super().to_representation(instance)
         ordered_item_repr['item'] = instance.item.name
         ordered_item_repr['created_by'] = instance.created_by.username
-        ordered_item_repr['created_at'] = datetime_repr_format(instance.created_at)
-        ordered_item_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        ordered_item_repr['created_at'] = date_repr_format(instance.created_at)
+        ordered_item_repr['updated_at'] = date_repr_format(instance.updated_at)
         return ordered_item_repr
 
 
@@ -596,6 +601,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         if order.delivery_status.name == 'Delivered':
             self.create_sale_from_order(order)
 
+        register_activity(user, "created", "client order", [order.reference_id])
+
         return order
 
     @transaction.atomic
@@ -676,9 +683,11 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         elif order.sale:
             self.update_linked_sale(order)
 
+        register_activity(user, "updated", "client order", [order.reference_id])
+
         # Return updated order instance
         return order
-    
+
     @transaction.atomic
     def update_without_validation(
         self,
@@ -696,6 +705,6 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         order_repr['source'] = instance.source.name if instance.source else None
         order_repr['ordered_items'] = self.get_ordered_items(instance)
         order_repr['shipping_address'] = get_location(instance.shipping_address)
-        order_repr['created_at'] = datetime_repr_format(instance.created_at)
-        order_repr['updated_at'] = datetime_repr_format(instance.updated_at)
+        order_repr['created_at'] = date_repr_format(instance.created_at)
+        order_repr['updated_at'] = date_repr_format(instance.updated_at)
         return order_repr

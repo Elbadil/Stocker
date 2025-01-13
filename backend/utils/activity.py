@@ -1,21 +1,17 @@
-from django.contrib.contenttypes.models import ContentType
 from apps.base.models import Activity, User
-from typing import Literal, Any
+from typing import List, Literal, Union
 
 
 def register_activity(
     user: User,
     action: Literal["created", "updated", "deleted"],
     model_name: str,
-    model: Any,
-    instance_id: str
+    object_ref: List[str],
 ) -> Activity:
-    """Registers and returns the newly created activity instance"""
-    model_content_type = ContentType.objects.get_for_model(model)
+    """Registers and returns a new activity instance"""
     return Activity.objects.create(
         user=user,
         action=action,
         model_name=model_name,
-        content_type=model_content_type,
-        object_id=instance_id
+        object_ref=object_ref
     )

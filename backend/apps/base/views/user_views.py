@@ -2,7 +2,7 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
-from rest_framework import status
+from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -11,14 +11,16 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 import os
-from ..models import User
+from ..models import User, Activity
 from ..serializers import (UserSerializer,
                           UserLoginSerializer,
                           UserRegisterSerializer,
                           ChangePasswordSerializer,
-                          ResetPasswordSerializer)
+                          ResetPasswordSerializer,
+                          ActivitySerializer)
 from ..auth import TokenVersionAuthentication
 from ..utils import get_tokens_for_user, set_refresh_token
+from utils.views import CreatedByUserMixin
 
 
 class CustomTokenRefreshView(APIView):
@@ -214,3 +216,27 @@ class ResetPassword(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+
+class GetUserActivities(generics.ListAPIView):
+    """Returns user activities"""
+    authentication_classes = (TokenVersionAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = ActivitySerializer
+    queryset = Activity.objects.all()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        limit_q = request.GET.get('limit', 10)
+        try:
+            limit = int(limit_q)
+            queryset = self.get_queryset()[:limit]
+        except ValueError:
+            return Response({'error': 'limit parameter must be a number'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

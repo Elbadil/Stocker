@@ -13,6 +13,7 @@ from utils.status import (DELIVERY_STATUS_OPTIONS,
                           COMPLETED_STATUS,
                           ACTIVE_DELIVERY_STATUS,
                           FAILED_STATUS)
+from utils.activity import register_activity
 from ..base.auth import TokenVersionAuthentication
 from ..inventory.models import Item
 from .utils import validate_client_order, reset_client_ordered_items
@@ -45,6 +46,7 @@ class GetUpdateDeleteClients(CreatedByUserMixin,
 
     def delete(self, request, *args, **kwargs):
         client = self.get_object()
+
         if client.total_orders > 0:
             return Response(
                 {
@@ -53,6 +55,9 @@ class GetUpdateDeleteClients(CreatedByUserMixin,
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        register_activity(request.user, "deleted", "client", [client.name])
+        
         return super().delete(request, *args, **kwargs)
 
 
@@ -124,8 +129,13 @@ class BulkDeleteClients(CreatedByUserMixin, generics.DestroyAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         # Case 2: Some clients have orders
+        clients_for_deletion = list(
+            clients_without_orders
+            .values_list('name', flat=True)
+        )
         if clients_with_orders.exists() and clients_without_orders.exists():
             delete_count, _ = clients_without_orders.delete()
+            register_activity(request.user, "deleted", "client", clients_for_deletion)
             clients_with_orders_count = clients_with_orders.count()
             client_text = "clients" if delete_count > 1 else "client"
             linked_client_text = "clients" if clients_with_orders_count > 1 else "client"
@@ -141,6 +151,7 @@ class BulkDeleteClients(CreatedByUserMixin, generics.DestroyAPIView):
             )
         # Case 3: None of the clients have orders
         delete_count, _ = clients_without_orders.delete()
+        register_activity(request.user, "deleted", "client", clients_for_deletion)
         return Response({'message': f'{delete_count} clients successfully deleted.'},
                          status=status.HTTP_200_OK)
 
@@ -165,9 +176,18 @@ class GetUpdateDeleteClientOrders(CreatedByUserMixin,
 
     def destroy(self, request, *args, **kwargs):
         order = self.get_object()
+
         if not order.sale:
             reset_client_ordered_items(order.items)
         ClientOrderedItem.objects.filter(order=order).delete()
+
+        register_activity(
+            request.user,
+            "deleted",
+            "client order",
+            [order.reference_id]
+        )
+
         return super().destroy(request, *args, **kwargs)
 
 
@@ -215,6 +235,7 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
             )
         # Reset items quantities linked to the orders and delete
         orders = self.get_queryset().filter(id__in=order_ids)
+        orders_for_deletion = list(orders.values_list('reference_id', flat=True))
         delete_count = 0
         for order in orders:
             if not order.sale:
@@ -222,6 +243,13 @@ class BulkDeleteClientOrders(CreatedByUserMixin, generics.DestroyAPIView):
             ClientOrderedItem.objects.filter(order=order).delete()
             order.delete()
             delete_count += 1
+
+        register_activity(
+            request.user,
+            "deleted",
+            "client order",
+            orders_for_deletion
+        )
 
         return Response({'message': f'{delete_count} client orders successfully deleted.'},
                          status=status.HTTP_200_OK)

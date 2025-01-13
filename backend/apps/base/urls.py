@@ -39,6 +39,9 @@ urlpatterns = [
     path('auth/user/change-password/',
          user_views.ChangePasswordView.as_view(),
          name="change_password"),
+    path('auth/user/activities/',
+         user_views.GetUserActivities.as_view(),
+         name="get_user_activities"),
 
     # Dashboard
     path('dashboard/',
