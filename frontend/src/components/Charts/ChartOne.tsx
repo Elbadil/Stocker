@@ -140,7 +140,7 @@ const ChartOne: React.FC = () => {
       setSeries([]);
       try {
         const res = await api.get(
-          `/dashboard/?info=sales-status&?period=${period}`,
+          `/dashboard/?info=sales-status&period=${period}`,
         );
         const { categories, series, date_range } = res.data;
         setCategories(categories);

@@ -165,7 +165,6 @@ class ResetPasswordSerializer(serializers.Serializer):
         if new_password1 != new_password2:
             raise serializers.ValidationError(
                 {'new_password2': 'The two new password fields do not match.'})
-
         try:
             validate_password(new_password1, user=self.user)
         except ValidationError as err:
@@ -193,8 +192,20 @@ class ActivitySerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
+    def get_user(self, instance):
+        request = self.context.get('request', None)
+        domain = (
+            request.build_absolute_uri('/')[:-1]
+            if request else 'http://localhost:8000'
+        )
+
+        return {
+            'username': instance.user.username,
+            'avatar': f'{domain}{instance.user.avatar.url}'
+        }
+
     def to_representation(self, instance: Activity):
         activity_repr = super().to_representation(instance)
-        activity_repr['user'] = instance.user.username
+        activity_repr['user'] = self.get_user(instance)
         activity_repr['created_at'] = datetime_repr_format(instance.created_at)
         return activity_repr

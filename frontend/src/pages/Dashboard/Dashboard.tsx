@@ -7,7 +7,7 @@ import CardDataStats from '../../components/CardDataStats';
 import ChartOne from '../../components/Charts/ChartOne';
 import ChartThree from '../../components/Charts/ChartThree';
 import ChartTwo from '../../components/Charts/ChartTwo';
-import ChatCard from '../../components/Chat/ChatCard';
+import RecentActivitiesCard from '../../components/Cards/RecentActivitiesCard';
 import MapOne from '../../components/Maps/MapOne';
 import TableOne from '../../components/Tables/TableOne';
 import { useAlert } from '../../contexts/AlertContext';
@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
         <div className="col-span-12 xl:col-span-8">
           <TableOne />
         </div>
-        <ChatCard />
+        <RecentActivitiesCard />
         <ChartThree />
         <MapOne />
         

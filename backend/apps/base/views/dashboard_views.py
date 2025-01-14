@@ -5,7 +5,8 @@ from django.db.models import Sum, Q, F, Value, CharField
 from django.db.models.functions import Concat
 from django.conf import settings
 from ..auth import TokenVersionAuthentication
-from ..models import User
+from ..models import User, Activity
+from ..serializers import ActivitySerializer
 from apps.inventory.models import Item
 from apps.client_orders.models import ClientOrder
 from apps.sales.models import Sale, SoldItem
@@ -14,6 +15,7 @@ from ..utils import (generate_filter_info, records_per_day,
 from utils.status import (ACTIVE_DELIVERY_STATUS,
                           ACTIVE_PAYMENT_STATUS,
                           FAILED_STATUS)
+from typing import Union
 
 
 class DashboardAPIView(generics.GenericAPIView):
@@ -21,7 +23,7 @@ class DashboardAPIView(generics.GenericAPIView):
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs) -> Response:
         user = request.user
         info = request.GET.get('info', None)
         period_q = request.GET.get('period', 'week')
@@ -45,13 +47,16 @@ class DashboardAPIView(generics.GenericAPIView):
         elif info == 'top-selling-items':
             return self.get_top_selling_items_info(request, user, limit_q)
         
+        elif info == 'recent-activities':
+            return self.get_recent_activities_info(request, user, limit_q)
+
         else:
             return Response(
                 {'error': 'Invalid info parameter.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-    def get_general_info(self, user: User):
+    def get_general_info(self, user: User) -> Response:
         """
         Returns dashboard's general info:
             - Total Profit
@@ -95,7 +100,7 @@ class DashboardAPIView(generics.GenericAPIView):
                          'total_profit': total_profit},
                          status=status.HTTP_200_OK)
 
-    def get_sales_status_info(self, user: User, period_q: str):
+    def get_sales_status_info(self, user: User, period_q: str) -> Response:
         """
         Returns sales status info with week and month as period options
         """
@@ -157,7 +162,7 @@ class DashboardAPIView(generics.GenericAPIView):
                          'categories': filter_info['categories']},
                          status=status.HTTP_200_OK)
 
-    def get_sales_revenue_info(self, user: User, period_q: str):
+    def get_sales_revenue_info(self, user: User, period_q: str) -> Response:
         """
         Returns sales revenue info with week and month as period options
         """
@@ -208,11 +213,18 @@ class DashboardAPIView(generics.GenericAPIView):
                          'total_revenue': total_revenue},
                          status=status.HTTP_200_OK)
 
-    def get_top_selling_items_info(self, request, user: User, limit_q: int):
+    def get_top_selling_items_info(
+        self,
+        request,
+        user: User,
+        limit_q: Union[int, str]
+    ) -> Response:
         """
         Returns top selling items based on completed sales' sold quantity
         """
-        if not limit_q.isdigit():
+        try:
+            limit = int(limit_q)
+        except ValueError:
             return Response(
                 {'error': 'limit parameter must be a number.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -241,7 +253,31 @@ class DashboardAPIView(generics.GenericAPIView):
                 ),
                 total_revenue=Sum(F('sold_quantity') * F('sold_price')),
             )
-            .order_by('-total_quantity')[:int(limit_q)]
+            .order_by('-total_quantity')[:limit]
         )
 
         return Response(top_selling_items, status=status.HTTP_200_OK)
+
+    def get_recent_activities_info(
+        self,
+        request,
+        user: User,
+        limit_q: Union[int, str]
+    ) -> Response:
+        """"""
+        try:
+            limit = int(limit_q)
+        except ValueError:
+            return Response(
+                {'error': 'limit parameter must be a number.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        activities = Activity.objects.filter(user=user)[:limit]
+        serializer = ActivitySerializer(
+            activities,
+            many=True,
+            context={'request': request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
