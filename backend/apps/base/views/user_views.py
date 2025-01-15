@@ -230,7 +230,7 @@ class GetUserActivities(generics.ListAPIView):
         return queryset.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        limit_q = request.GET.get('limit', 10)
+        limit_q = request.GET.get('limit', 30)
         try:
             limit = int(limit_q)
             queryset = self.get_queryset()[:limit]

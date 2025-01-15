@@ -22,6 +22,7 @@ import ClientOrders from './pages/ClientOrders/ClientOrders/ClientOrders';
 import Suppliers from './pages/SupplierOrders/Suppliers/Suppliers';
 import SupplierOrders from './pages/SupplierOrders/SupplierOrders/SupplierOrders';
 import Sales from './pages/Sales/Sales';
+import ActivityLog from './pages/ActivityLog/ActivityLog';
 import { AuthProvider } from './contexts/AuthContext';
 import { AlertProvider } from './contexts/AlertContext';
 import { InventoryProvider } from './contexts/InventoryContext';
@@ -110,6 +111,16 @@ function App() {
                           <PageTitle title="Sales | Stocker" />
                           <Sales />
                         </SalesProvider>
+                      </>
+                    }
+                  />
+                  {/* Sales */}
+                  <Route
+                    path="/activity-log"
+                    element={
+                      <>
+                        <PageTitle title="Sales | Stocker" />
+                        <ActivityLog />
                       </>
                     }
                   />

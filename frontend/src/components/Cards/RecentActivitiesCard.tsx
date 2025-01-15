@@ -1,30 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ActivityProps } from '../../pages/ActivityLog/ActivityLog';
 import Activity from '../../pages/ActivityLog/Activity';
 import { api } from '../../api/axios';
 
-interface RecentActivity {
-  id: string;
-  user: {
-    username: string;
-    avatar: string | null;
-  };
-  action: 'created' | 'updated' | 'deleted';
-  model_name:
-    | 'item'
-    | 'client'
-    | 'supplier'
-    | 'client order'
-    | 'supplier order'
-    | 'sale';
-  object_ref: string[];
-  created_at: string;
-}
-
 const RecentActivitiesCard = () => {
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(
-    [],
-  );
+  const [recentActivities, setRecentActivities] = useState<ActivityProps[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -46,16 +27,18 @@ const RecentActivitiesCard = () => {
       </h4>
 
       <div className="mb-2">
-        {recentActivities.map((activity, key) => (
-          <Activity
-            key={key}
-            user={activity.user}
-            action={activity.action}
-            modelName={activity.model_name}
-            objectRef={activity.object_ref}
-            createdAt={activity.created_at}
-          />
-        ))}
+        <div className="px-4">
+          {recentActivities.map((activity, key) => (
+            <Activity
+              key={key}
+              user={activity.user}
+              action={activity.action}
+              modelName={activity.model_name}
+              objectRef={activity.object_ref}
+              createdAt={activity.created_at}
+            />
+          ))}
+        </div>
       </div>
       <Link
         to="/activity-log"

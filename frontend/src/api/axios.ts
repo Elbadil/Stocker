@@ -14,6 +14,7 @@ api.interceptors.request.use(async function (config) {
     '/auth/user/',
     '/auth/logout/',
     '/auth/user/change-password/',
+    '/auth/user/activities/'
   ];
   if (
     config.url &&

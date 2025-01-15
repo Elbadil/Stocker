@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined';
+import FormatListBulletedOutlinedIcon from '@mui/icons-material/FormatListBulletedOutlined';
 import MonetizationOnOutlinedIcon from '@mui/icons-material/MonetizationOnOutlined';
 import Logo from '../../images/logo/logo.svg';
 
@@ -340,10 +341,25 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                     pathname.includes('sales') && 'bg-graydark dark:bg-meta-4'
                   }`}
                 >
-                  <MonetizationOnOutlinedIcon />
+                  <MonetizationOnOutlinedIcon sx={{marginLeft: '-3px'}}/>
                   Sales
                 </NavLink>
               </li>
+
+              {/* <!-- Menu Item Calendar --> */}
+              <li>
+                <NavLink
+                  to="/activity-log"
+                  className={`group relative flex items-center gap-2.5 rounded-sm py-2 px-4 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 ${
+                    pathname.includes('activity') &&
+                    'bg-graydark dark:bg-meta-4'
+                  }`}
+                >
+                  <FormatListBulletedOutlinedIcon sx={{marginLeft: '-3px'}} />
+                  Activity Log
+                </NavLink>
+              </li>
+
               {/* <!-- Menu Item Calendar --> */}
               <li>
                 <NavLink

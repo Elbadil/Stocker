@@ -41,7 +41,7 @@ const ActivityDetails = ({
           <p className="mb-4 text-slate-600 dark:text-slate-400">
             {capitalizeFirstLetter(action)} at {createdAt}
           </p>
-          <ol className="list-inside list-disc text-black dark:text-white">
+          <ol className="mb-2 list-inside list-disc text-black dark:text-white">
             {objectList.map((object, index: number) => (
               <li className={`${index !== 0 ? 'mt-2' : ''}`} key={index}>
                 {capitalizeFirstLetter(modelName)}
