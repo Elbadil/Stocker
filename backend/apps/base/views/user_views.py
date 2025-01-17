@@ -20,7 +20,7 @@ from ..serializers import (UserSerializer,
                           ActivitySerializer)
 from ..auth import TokenVersionAuthentication
 from ..utils import get_tokens_for_user, set_refresh_token
-from utils.views import CreatedByUserMixin
+from utils.pagination import CustomCursorPagination
 
 
 class CustomTokenRefreshView(APIView):
@@ -224,19 +224,8 @@ class GetUserActivities(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = ActivitySerializer
     queryset = Activity.objects.all()
+    pagination_class = CustomCursorPagination
 
     def get_queryset(self):
         queryset = super().get_queryset()
         return queryset.filter(user=self.request.user)
-
-    def list(self, request, *args, **kwargs):
-        limit_q = request.GET.get('limit', 30)
-        try:
-            limit = int(limit_q)
-            queryset = self.get_queryset()[:limit]
-        except ValueError:
-            return Response({'error': 'limit parameter must be a number'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)

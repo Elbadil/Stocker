@@ -119,7 +119,7 @@ function App() {
                     path="/activity-log"
                     element={
                       <>
-                        <PageTitle title="Sales | Stocker" />
+                        <PageTitle title="Activity Log | Stocker" />
                         <ActivityLog />
                       </>
                     }

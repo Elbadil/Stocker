@@ -28,9 +28,9 @@ const RecentActivitiesCard = () => {
 
       <div className="mb-2">
         <div className="px-4">
-          {recentActivities.map((activity, key) => (
+          {recentActivities.map((activity) => (
             <Activity
-              key={key}
+              key={activity.id}
               user={activity.user}
               action={activity.action}
               modelName={activity.model_name}
