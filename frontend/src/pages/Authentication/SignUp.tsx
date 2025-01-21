@@ -19,12 +19,12 @@ const SignUp: React.FC = () => {
 
   const schema = z
     .object({
-      username: requiredStringField("Username"),
-      first_name: requiredStringField("First Name"),
-      last_name: requiredStringField("Last Name"),
-      email: requiredStringField("Email").email(),
-      password1: requiredStringField("Password"),
-      password2: requiredStringField("Password Confirmation"),
+      username: requiredStringField('Username'),
+      first_name: requiredStringField('First Name'),
+      last_name: requiredStringField('Last Name'),
+      email: requiredStringField('Email').email(),
+      password1: requiredStringField('Password'),
+      password2: requiredStringField('Password Confirmation'),
     })
     .refine((data) => data.password1 === data.password2, {
       message: 'The two password fields do not match',
@@ -82,7 +82,9 @@ const SignUp: React.FC = () => {
                   Stocker
                 </h1>
               </Link>
-              <p className="2xl:px-20">Inventory Management Web App</p>
+              <p className="font-medium 2xl:px-20">
+                Your go-to app for managing inventory, sales, and orders.
+              </p>
 
               <span className="mt-15 inline-block">
                 <svg
@@ -457,8 +459,8 @@ const SignUp: React.FC = () => {
                 <div className="mt-6 text-center">
                   <p>
                     Already have an account?{' '}
-                    <Link to="/auth/signin" className="text-primary">
-                      Sign in
+                    <Link to="/auth/login" className="text-primary">
+                      Login
                     </Link>
                   </p>
                 </div>

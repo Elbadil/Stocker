@@ -60,7 +60,8 @@ const ResetPassword = () => {
 
   return (
     <>
-      <Breadcrumb pageName="Reset Password" />
+      <div></div>
+      <Breadcrumb main="Authentication" pageName="Reset Password" />
       <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
         <div className="flex flex-wrap items-center">
           <div className="hidden w-full xl:block xl:w-1/2">
@@ -70,7 +71,9 @@ const ResetPassword = () => {
                   Stocker
                 </h1>
               </Link>
-              <p className="2xl:px-20">Inventory Management Web App</p>
+              <p className="font-medium 2xl:px-20">
+                Your go-to app for managing inventory, sales, and orders.
+              </p>
 
               <span className="mt-15 inline-block">
                 <svg

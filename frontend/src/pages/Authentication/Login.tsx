@@ -8,20 +8,18 @@ import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
 import { Alert } from '../UiElements/Alert';
 import { api } from '../../api/axios';
-import {
-  requiredStringField
-} from '../../utils/form';
+import { requiredStringField } from '../../utils/form';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
 
-const SignIn: React.FC = () => {
+const Login: React.FC = () => {
   const { alert } = useAlert();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const schema = z.object({
-    email: requiredStringField("Email").email(),
-    password: requiredStringField("Password"),
+    email: requiredStringField('Email').email(),
+    password: requiredStringField('Password'),
   });
 
   const {
@@ -61,7 +59,7 @@ const SignIn: React.FC = () => {
   return (
     <>
       {alert && <Alert {...alert} />}
-      <Breadcrumb main="Authentication" pageName="Sign In" />
+      <Breadcrumb main="Authentication" pageName="Login" />
       <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
         <div className="flex flex-wrap items-center">
           <div className="hidden w-full xl:block xl:w-1/2">
@@ -71,7 +69,9 @@ const SignIn: React.FC = () => {
                   Stocker
                 </h1>
               </Link>
-              <p className="2xl:px-20">Inventory Management Web App</p>
+              <p className="font-medium 2xl:px-20">
+                Your go-to app for managing inventory, sales, and orders.
+              </p>
 
               <span className="mt-15 inline-block">
                 <svg
@@ -202,7 +202,7 @@ const SignIn: React.FC = () => {
             <div className="w-full p-4 sm:p-12.5 xl:p-17.5">
               <span className="mb-1.5 block font-medium">Start for free</span>
               <h2 className="mb-9 text-2xl font-bold text-black dark:text-white sm:text-title-xl2">
-                Sign In to Stocker
+                Login to Stocker
               </h2>
 
               <form onSubmit={handleSubmit(onSubmit)}>
@@ -298,7 +298,7 @@ const SignIn: React.FC = () => {
                     {isSubmitting ? (
                       <ClipLoader color="#ffffff" size={27} />
                     ) : (
-                      'Sign In'
+                      'Login'
                     )}
                   </button>
                 </div>
@@ -329,4 +329,4 @@ const SignIn: React.FC = () => {
   );
 };
 
-export default SignIn;
+export default Login;

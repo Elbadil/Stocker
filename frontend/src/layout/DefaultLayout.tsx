@@ -4,14 +4,39 @@ import Header from '../components/Header/index';
 import Sidebar from '../components/Sidebar/index';
 import { useAuth } from '../contexts/AuthContext';
 import Loader from '../common/Loader';
+import { useLocation } from 'react-router-dom';
+import AuthHeader from '../components/AuthHeader';
 
 const DefaultLayout: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { loading } = useAuth();
+  const { pathname } = useLocation();
 
-  return loading ? (
-    <Loader />
-  ) : (
+  const isAuthRoute = pathname.startsWith('/auth/');
+
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (isAuthRoute) {
+    return (
+      <div className="dark:bg-boxdark-2 dark:text-bodydark">
+        <div className="flex h-screen overflow-hidden">
+          <div className="relative flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+            <AuthHeader />
+            <main>
+              <div className="mx-auto max-w-screen-2xl p-8 md:p-8 2xl:p-10">
+                <Toaster />
+                {children}
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="dark:bg-boxdark-2 dark:text-bodydark">
       {/* <!-- ===== Page Wrapper Start ===== --> */}
       <div className="flex h-screen overflow-hidden">

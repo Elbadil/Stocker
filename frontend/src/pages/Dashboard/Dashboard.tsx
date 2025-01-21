@@ -5,10 +5,8 @@ import InventoryOutlinedIcon from '@mui/icons-material/InventoryOutlined';
 import LoyaltyOutlinedIcon from '@mui/icons-material/LoyaltyOutlined';
 import CardDataStats from '../../components/CardDataStats';
 import ChartOne from '../../components/Charts/ChartOne';
-import ChartThree from '../../components/Charts/ChartThree';
 import ChartTwo from '../../components/Charts/ChartTwo';
 import RecentActivitiesCard from '../../components/Cards/RecentActivitiesCard';
-import MapOne from '../../components/Maps/MapOne';
 import TableOne from '../../components/Tables/TableOne';
 import { useAlert } from '../../contexts/AlertContext';
 import { Alert } from '../UiElements/Alert';
@@ -57,35 +55,27 @@ const Dashboard: React.FC = () => {
         <CardDataStats
           title="Total Profit"
           total={`${dashboardData.total_profit.toFixed(2)} MAD`}
-          rate="0.43%"
           link="/sales"
-          levelUp
         >
           <AttachMoneyOutlinedIcon sx={{ fontSize: '28px' }} />
         </CardDataStats>
         <CardDataStats
           title="Total Sales"
           total={dashboardData.total_sales}
-          rate="0.95%"
           link="/sales"
-          levelDown
         >
           <LoyaltyOutlinedIcon sx={{ fontSize: '28px', paddingTop: '2px' }} />
         </CardDataStats>
         <CardDataStats
           title="Active Sales | Orders"
           total={dashboardData.active_sales_orders}
-          rate="4.35%"
-          levelUp
         >
           <ShoppingCartOutlinedIcon sx={{ fontSize: '27px' }} />
         </CardDataStats>
         <CardDataStats
           title="Total Items"
           total={dashboardData.total_items}
-          rate="2.59%"
           link="/inventory/items"
-          levelUp
         >
           <InventoryOutlinedIcon sx={{ fontSize: '28px' }} />
         </CardDataStats>
@@ -94,13 +84,10 @@ const Dashboard: React.FC = () => {
       <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
         <ChartOne />
         <ChartTwo />
-        <div className="col-span-12 xl:col-span-8">
+        <div className="col-span-12 xl:col-span-12">
           <TableOne />
         </div>
         <RecentActivitiesCard />
-        <ChartThree />
-        <MapOne />
-        
       </div>
     </>
   );

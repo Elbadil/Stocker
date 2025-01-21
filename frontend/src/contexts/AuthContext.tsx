@@ -27,13 +27,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { setAlert } = useAlert();
-  const user = useSelector((state: RootState) => state.auth.user);
+  const { user, isAuthenticated } = useSelector(
+    (state: RootState) => state.auth,
+  );
   const [loading, setLoading] = useState<boolean>(true);
   const dispatch = useDispatch<AppDispatch>();
 
+  const isAuthRoute = pathname.startsWith('/auth/');
+
   const checkAuth = async () => {
     console.log('Hi from authContext, pathname:', pathname);
-    if (!pathname.startsWith('/auth')) {
+    if (isAuthenticated && isAuthRoute) {
+      navigate('/');
+    }
+    if (!isAuthRoute) {
       const resultAction = await dispatch(validateTokenAndSetUserAsync());
       if (validateTokenAndSetUserAsync.fulfilled.match(resultAction)) {
         console.log('User is authenticated.');
@@ -47,7 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           description:
             'Oops! It looks like your session has expired or you are not logged in. Please log in again to continue.',
         });
-        navigate('/auth/signin');
+        navigate('/auth/login');
       }
     }
     setLoading(false);

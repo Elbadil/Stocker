@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import PageTitle from './components/PageTitle';
-import SignIn from './pages/Authentication/SignIn';
+import Login from './pages/Authentication/Login';
 import SignUp from './pages/Authentication/SignUp';
 import RequestPasswordReset from './pages/Authentication/RequestPasswordReset';
 import ResetPassword from './pages/Authentication/ResetPassword';
@@ -208,11 +208,11 @@ function App() {
                   />
                   {/* Authentication */}
                   <Route
-                    path="/auth/signin"
+                    path="/auth/login"
                     element={
                       <>
-                        <PageTitle title="Signin | Stocker" />
-                        <SignIn />
+                        <PageTitle title="Login | Stocker" />
+                        <Login />
                       </>
                     }
                   />

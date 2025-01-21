@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link } from 'react-router-dom';
 import ClipLoader from 'react-spinners/ClipLoader';
 import toast from 'react-hot-toast';
@@ -14,7 +15,6 @@ const RequestPasswordReset = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const submitForm = async (e: React.FormEvent) => {
-    console.log(seconds);
     e.preventDefault();
     setLoading(true);
     setEmailErrors('');
@@ -42,7 +42,6 @@ const RequestPasswordReset = () => {
   };
 
   useEffect(() => {
-    console.log('lets wait now');
     if (!seconds || !emailSent) return;
     const intervalId = setInterval(() => {
       setSeconds((prevSeconds) => {
@@ -60,7 +59,10 @@ const RequestPasswordReset = () => {
 
   return (
     <>
-      <Breadcrumb pageName="Reset Password" />
+      <Link to="/auth/login">
+        <ArrowBackIcon sx={{ marginBottom: 2, fontSize: 28 }} />
+      </Link>
+      <Breadcrumb main="Authentication" pageName="Reset Password" />
       <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
         <div className="flex flex-wrap items-center">
           <div className="hidden w-full xl:block xl:w-1/2">
@@ -70,7 +72,9 @@ const RequestPasswordReset = () => {
                   Stocker
                 </h1>
               </Link>
-              <p className="2xl:px-20">Inventory Management Web App</p>
+              <p className="font-medium 2xl:px-20">
+                Your go-to app for managing inventory, sales, and orders.
+              </p>
 
               <span className="mt-15 inline-block">
                 <svg
