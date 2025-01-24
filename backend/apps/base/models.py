@@ -1,7 +1,7 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from utils.tokens import Token
 from utils.models import BaseModel
@@ -10,23 +10,42 @@ from utils.models import BaseModel
 class UserManager(BaseUserManager):
     """Custom User Manager Model"""
     def create_user(self, email, password=None, **extra_fields):
-        """Creates and returns a regular
-        User with the given email and password"""
+        """
+        Creates and returns a regular
+        User with the given email and password
+        """
         # This ensures that a user cannot be created without an email address.
         if not email:
             raise ValueError(_('The Email field must be set'))
-        # Email normalization typically converts the email address to a consistent lowercase format
-        # ensuring uniqueness and consistency in database operations.
+
+        # Email normalization typically converts the email address to a consistent
+        # lowercase format ensuring uniqueness and consistency in database operations.
         email = self.normalize_email(email)
+
         # Uses self.model (which refers to the user model managed by this manager,
         # likely a subclass of AbstractUser or a custom user model
         # inheriting from AbstractBaseUser) to create a new instance of the user model.
         user = self.model(email=email, **extra_fields)
-        # This method handles hashing the password securely before saving it in the database
+
+        # Ensure password is provided, if not, raise an error
+        if not password:
+            raise ValueError(_('The Password field must be set'))
+
+        # Validate password using Django's built-in password validation
+        try:
+            validate_password(password, user)
+        except ValidationError as e:
+            raise ValueError(_('Password validation failed: ') + str(e))
+
+        # This method handles hashing the password securely before saving
+        # it in the database
         user.set_password(password)
+
         # Saves the user instance to the database 
         user.save(using=self._db)
-        # Returns the created user instance (user) once it has been successfully saved to the database.
+
+        # Returns the created user instance (user) once 
+        # it has been successfully saved to the database.
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
