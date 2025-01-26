@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
@@ -17,6 +18,11 @@ class UserManager(BaseUserManager):
         # This ensures that a user cannot be created without an email address.
         if not email:
             raise ValueError(_('The Email field must be set'))
+
+        try:
+            validate_email(email)
+        except ValidationError as e:
+            raise ValueError(_('Invalid email address.'))
 
         # Email normalization typically converts the email address to a consistent
         # lowercase format ensuring uniqueness and consistency in database operations.
