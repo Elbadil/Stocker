@@ -15,6 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
             "username",
             "first_name",
             "last_name",
+            "email",
             "avatar",
             "bio",
         ]
@@ -96,14 +97,14 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     """User Login Serializer"""
     email = serializers.EmailField(error_messages={'blank': 'Please enter your email address.'})
-    password = serializers.CharField(error_messages={'blank': 'Please enter your email password.'})
+    password = serializers.CharField(error_messages={'blank': 'Please enter your password.'})
 
     def validate(self, validated_data):
         user = authenticate(email=validated_data['email'],
                             password=validated_data['password'])
         if not user:
             raise serializers.ValidationError(
-                {"password": "Login Unsuccessful. Please check your email and password."})
+                {"error": "Login Unsuccessful. Please check your email and password."})
         validated_data['user'] = user
         return validated_data
 
@@ -129,16 +130,16 @@ class ChangePasswordSerializer(serializers.Serializer):
         new_password2 = validated_data['new_password2']
         if new_password1 != new_password2:
             raise serializers.ValidationError(
-                {'new_password2': 'The two new password fields do not match.'})
+                {'new_password': 'The two new password fields do not match.'})
 
         if new_password1 == old_password:
             raise serializers.ValidationError(
-                {'new_password2': 'New password cannot be the same as the old password.'})
+                {'new_password': 'New password cannot be the same as the old password.'})
 
         try:
             validate_password(new_password1, user=self.user)
         except ValidationError as err:
-            raise serializers.ValidationError({'new_password2': err.messages})
+            raise serializers.ValidationError({'new_password': err.messages})
 
         return validated_data
 
@@ -164,11 +165,11 @@ class ResetPasswordSerializer(serializers.Serializer):
 
         if new_password1 != new_password2:
             raise serializers.ValidationError(
-                {'new_password2': 'The two new password fields do not match.'})
+                {'new_password': 'The two new password fields do not match.'})
         try:
             validate_password(new_password1, user=self.user)
         except ValidationError as err:
-            raise serializers.ValidationError({'new_password2': err.messages})
+            raise serializers.ValidationError({'new_password': err.messages})
 
         return validated_data
 
@@ -198,10 +199,15 @@ class ActivitySerializer(serializers.ModelSerializer):
             request.build_absolute_uri('/')[:-1]
             if request else 'http://localhost:8000'
         )
+        avatar = (
+            f'{domain}{instance.user.avatar.url}'
+            if instance.user.avatar
+            else None
+        )
 
         return {
             'username': instance.user.username,
-            'avatar': f'{domain}{instance.user.avatar.url}'
+            'avatar': avatar
         }
 
     def to_representation(self, instance: Activity):

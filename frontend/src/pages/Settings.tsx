@@ -187,9 +187,15 @@ const Settings = () => {
       console.log('Error during form submission:', error);
       if (error.response && error.response.status === 400) {
         (
-          Object.keys(error.response.data) as Array<keyof ResetPwdSchema>
+          Object.keys(error.response.data) as Array<
+            'old_password' | 'new_password1' | 'new_password2' | 'new_password'
+          >
         ).forEach((field) => {
-          setErrorPwd(field, { message: error.response.data[field] });
+          if (field === 'new_password') {
+            setErrorPwd('root', { message: error.response.data[field] });
+          } else {
+            setErrorPwd(field, { message: error.response.data[field] });
+          }
         });
       } else {
         setErrorPwd('root', {

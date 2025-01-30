@@ -11,7 +11,7 @@ def user_instance(db):
         first_name="Adil",
         last_name="El Bali",
         email="adxel.elb@gmail.com",
-        password="adelelb159@"
+        password="adeltest123@"
     )
 
 @pytest.fixture
@@ -47,7 +47,7 @@ class TestUserModel:
                 username="adelux",
                 first_name="Adil",
                 last_name="El Bali",
-                password="adelelb159@"
+                password="adeltest123@"
             )
 
     def test_user_password_is_required(self):
@@ -68,7 +68,7 @@ class TestUserModel:
                 first_name="Adil",
                 last_name="El Bali",
                 email="adil.elb@gmail.com",
-                password="adelelb159@"
+                password="adeltest123@"
             )
 
     def test_user_email_is_unique(self, user_instance):
@@ -78,7 +78,7 @@ class TestUserModel:
                 first_name="Adil",
                 last_name="El Bali",
                 email="adxel.elb@gmail.com",
-                password="adelelb159@"
+                password="adeltest123@"
             )
 
     def test_user_invalid_email(self, user_instance):
@@ -88,7 +88,7 @@ class TestUserModel:
                 first_name="Adil",
                 last_name="El Bali",
                 email="adxel.elbgmail.com",
-                password="adelelb159@"
+                password="adeltest123@"
             )
 
     def test_user_auto_now_add_field(self, user_instance):

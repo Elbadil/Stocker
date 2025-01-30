@@ -23,7 +23,7 @@ const ResetPassword = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({
     new_password1: '',
     new_password2: '',
-    detail: '',
+    new_password: '',
   });
 
   const submitForm = async (e: React.FormEvent) => {
@@ -48,7 +48,7 @@ const ResetPassword = () => {
       } else {
         handleInputErrors(
           {
-            detail: 'Something went wrong. Please try again later.',
+            new_password: 'Something went wrong. Please try again later.',
           },
           setFormErrors,
         );
@@ -305,9 +305,9 @@ const ResetPassword = () => {
                       {formErrors.new_password2}
                     </p>
                   )}
-                  {formErrors.detail && (
+                  {formErrors.new_password && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
-                      {formErrors.detail}
+                      {formErrors.new_password}
                     </p>
                   )}
                 </div>

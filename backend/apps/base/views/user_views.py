@@ -134,7 +134,6 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
         return self.request.user
 
     def put(self, request, *args, **kwargs):
-        print(request.data)
         user = self.get_object()
         if 'avatar_deleted' in request.data:
             user.avatar = None

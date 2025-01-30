@@ -42,11 +42,19 @@ const Login: React.FC = () => {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
         (
-          Object.keys(err.response.data) as Array<keyof z.infer<typeof schema>>
+          Object.keys(err.response.data) as Array<
+            'email' | 'password' | 'error'
+          >
         ).forEach((field) => {
-          setError(field, {
-            message: err.response.data[field],
-          });
+          if (field === 'error') {
+            setError('root', {
+              message: err.response.data[field],
+            });
+          } else {
+            setError(field, {
+              message: err.response.data[field],
+            });
+          }
         });
       } else {
         setError('root', {
