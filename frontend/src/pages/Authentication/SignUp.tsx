@@ -6,7 +6,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import ClipLoader from 'react-spinners/ClipLoader';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAlert } from '../../contexts/AlertContext';
-import { requiredStringField, removeBlankFields } from '../../utils/form';
+import {
+  requiredStringField,
+  optionalStringField,
+} from '../../utils/form';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
 import { api } from '../../api/axios';
@@ -25,10 +28,11 @@ const SignUp: React.FC = () => {
       email: requiredStringField('Email').email(),
       password1: requiredStringField('Password'),
       password2: requiredStringField('Password Confirmation'),
+      password: optionalStringField(),
     })
     .refine((data) => data.password1 === data.password2, {
       message: 'The two password fields do not match',
-      path: ['password2'],
+      path: ['password'],
     });
 
   const {
@@ -39,11 +43,8 @@ const SignUp: React.FC = () => {
   } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
   const onSubmit: SubmitHandler<z.infer<typeof schema>> = async (data) => {
-    const cleanedValues = removeBlankFields(data);
     try {
-      const res = await api.post('/auth/signup/', {
-        ...cleanedValues,
-      });
+      const res = await api.post('/auth/signup/', data);
       dispatch(setUser(res.data));
       setAlert({
         type: 'success',
@@ -421,9 +422,14 @@ const SignUp: React.FC = () => {
                     </span>
                   </div>
                   {errors.password2 && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {errors.password2.message}
+                    </p>
+                  )}
+                  {errors.password && (
                     <div>
-                      {Array.isArray(errors.password2.message) ? (
-                        errors.password2.message.map(
+                      {Array.isArray(errors.password.message) ? (
+                        errors.password.message.map(
                           (errorMessage: string, index: number) => (
                             <p
                               key={index}
@@ -435,7 +441,7 @@ const SignUp: React.FC = () => {
                         )
                       ) : (
                         <p className="text-red-500 font-medium text-sm italic mt-2">
-                          {errors.password2.message}
+                          {errors.password.message}
                         </p>
                       )}
                     </div>

@@ -33,9 +33,7 @@ const Login: React.FC = () => {
 
   const onSubmit: SubmitHandler<z.infer<typeof schema>> = async (data) => {
     try {
-      const res = await api.post('/auth/login/', {
-        ...data,
-      });
+      const res = await api.post('/auth/login/', data);
       dispatch(setUser(res.data));
       return navigate('/');
     } catch (err: any) {

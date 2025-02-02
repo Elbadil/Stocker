@@ -91,7 +91,7 @@ class SignUpView(APIView):
             token = get_tokens_for_user(user)
             response = Response({'access_token': token['access'],
                                  'user': user_data},
-                                 status=status.HTTP_200_OK)
+                                 status=status.HTTP_201_CREATED)
 
             set_refresh_token(response, token['refresh'], token['refresh_payload'])
             return response

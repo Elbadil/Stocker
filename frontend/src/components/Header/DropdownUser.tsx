@@ -23,7 +23,7 @@ const DropdownUser = () => {
     } finally {
       dispatch(clearUser());
       setDropdownOpen(false);
-      return navigate('/auth/signin');
+      return navigate('/auth/login');
     }
   };
 

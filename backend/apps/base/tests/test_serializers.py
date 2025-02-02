@@ -214,16 +214,6 @@ class TestUserRegisterSerializer:
         assert "email" in serializer.errors
         assert serializer.errors["email"] == ["user with this email already exists."]
 
-    def test_user_register_email_is_unique(
-        self,
-        user_register_serializer_data,
-        user_serializer
-    ):
-        serializer = UserRegisterSerializer(data=user_register_serializer_data)
-        assert not serializer.is_valid()
-        assert "email" in serializer.errors
-        assert serializer.errors["email"] == ["user with this email already exists."]
-
     def test_user_register_invalid_email(
         self,
         user_register_serializer_data
@@ -242,8 +232,8 @@ class TestUserRegisterSerializer:
         user_register_serializer_data["password2"] = "deltest123"
         serializer = UserRegisterSerializer(data=user_register_serializer_data)
         assert not serializer.is_valid()
-        assert "password2" in serializer.errors
-        assert serializer.errors["password2"] == ["The two password fields do not match."]
+        assert "password" in serializer.errors
+        assert serializer.errors["password"] == ["The two password fields do not match."]
 
     def test_user_register_invalid_short_password(
         self,
@@ -253,9 +243,9 @@ class TestUserRegisterSerializer:
         user_register_serializer_data["password2"] = "128abc"
         serializer = UserRegisterSerializer(data=user_register_serializer_data)
         assert not serializer.is_valid()
-        assert "password2" in serializer.errors
+        assert "password" in serializer.errors
         assert (
-            serializer.errors["password2"] ==
+            serializer.errors["password"] ==
             ["This password is too short. It must contain at least 8 characters."]
         )
 
@@ -267,8 +257,8 @@ class TestUserRegisterSerializer:
         user_register_serializer_data["password2"] = "14958373"
         serializer = UserRegisterSerializer(data=user_register_serializer_data)
         assert not serializer.is_valid()
-        assert "password2" in serializer.errors
-        assert serializer.errors["password2"] == ["This password is entirely numeric."]
+        assert "password" in serializer.errors
+        assert serializer.errors["password"] == ["This password is entirely numeric."]
 
     def test_user_register_invalid_common_password(
         self,
@@ -278,8 +268,8 @@ class TestUserRegisterSerializer:
         user_register_serializer_data["password2"] = "abc12345"
         serializer = UserRegisterSerializer(data=user_register_serializer_data)
         assert not serializer.is_valid()
-        assert "password2" in serializer.errors
-        assert serializer.errors["password2"] == ["This password is too common."]
+        assert "password" in serializer.errors
+        assert serializer.errors["password"] == ["This password is too common."]
 
     def test_user_register_invalid_similar_to_user_attribute_password(
         self,
@@ -289,9 +279,9 @@ class TestUserRegisterSerializer:
         user_register_serializer_data["password2"] = "elbali12"
         serializer = UserRegisterSerializer(data=user_register_serializer_data)
         assert not serializer.is_valid()
-        assert "password2" in serializer.errors
+        assert "password" in serializer.errors
         assert (
-            serializer.errors["password2"] ==
+            serializer.errors["password"] ==
             ["The password is too similar to the last name."]
         )
 

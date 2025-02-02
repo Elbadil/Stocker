@@ -64,7 +64,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         password2 = validated_data.get('password2')
         if password1 != password2:
             raise serializers.ValidationError(
-                {'password2': "The two password fields do not match."})
+                {'password': "The two password fields do not match."})
         try:
            validate_password(
                password1,
@@ -76,7 +76,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
                 )
             )
         except ValidationError as err:
-            raise serializers.ValidationError({'password2': err.messages})
+            raise serializers.ValidationError({'password': err.messages})
 
     def validate(self, validated_data):
         self.validate_passwords(validated_data)
