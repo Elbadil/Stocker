@@ -22,10 +22,8 @@ class TokenVersionAuthentication(BaseAuthentication):
             return (user, token)
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed('Token has expired.')
-        except jwt.InvalidTokenError:
+        except (User.DoesNotExist, jwt.InvalidTokenError):
             raise AuthenticationFailed('Invalid token.')
-        except User.DoesNotExist:
-            raise AuthenticationFailed('User not found.')
         except Exception as e:
             # Log exception details if necessary
             raise AuthenticationFailed('Authentication failed due to an unexpected error.')

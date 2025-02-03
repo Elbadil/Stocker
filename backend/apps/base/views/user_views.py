@@ -28,7 +28,7 @@ class CustomTokenRefreshView(APIView):
     def post(self, request):
         refresh_token = request.COOKIES.get('refresh_token')
         if not refresh_token:
-            return Response({'errors': 'No refresh_token found in cookies.'},
+            return Response({'error': 'No refresh_token found in cookies.'},
                             status=status.HTTP_401_UNAUTHORIZED)
         try:
             refresh = RefreshToken(refresh_token)
@@ -36,21 +36,18 @@ class CustomTokenRefreshView(APIView):
             refresh_version = refresh.payload['token_version']
             user = User.objects.get(id=user_id)
             if user.token_version != refresh_version:
-                return Response({'errors': 'Invalid or expired token.'},
-                                status=status.HTTP_403_FORBIDDEN)
+                return Response({'error': 'Invalid or expired token.'},
+                                status=status.HTTP_401_UNAUTHORIZED)
             new_access_token = str(refresh.access_token)
             user_data = UserSerializer(user, context={'request': request}).data
             return Response({'access_token': new_access_token,
                              'user': user_data},
                             status=status.HTTP_200_OK)
-        except TokenError:
-            return Response({'errors': 'Invalid refresh token.'},
+        except (User.DoesNotExist, TokenError):
+            return Response({'error': 'Invalid refresh token.'},
                             status=status.HTTP_401_UNAUTHORIZED)
-        except User.DoesNotExist:
-            return Response({'errors': 'User not found.'},
-                            status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'errors': str(e)},
+            return Response({'error': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -107,18 +104,18 @@ class LogoutView(APIView):
         try:
             refresh_token = request.COOKIES.get('refresh_token')
             if not refresh_token:
-                return Response({'errors': 'No refresh token found.'},
+                return Response({'error': 'No refresh token found.'},
                                 status=status.HTTP_400_BAD_REQUEST)
             token = RefreshToken(refresh_token)
             token.blacklist()
             response = Response({'message': 'User has successfully logged out.'},
-                                status=status.HTTP_205_RESET_CONTENT)
+                                status=status.HTTP_204_NO_CONTENT)
             response.delete_cookie('refresh_token')
             return response
 
         except (InvalidToken, TokenError) as e:
-            response = Response({'errors': str(e)},
-                            status=status.HTTP_400_BAD_REQUEST)
+            response = Response({'error': str(e)},
+                                status=status.HTTP_400_BAD_REQUEST)
             response.delete_cookie('refresh_token', None)
             return response
 
@@ -171,7 +168,7 @@ class RequestPasswordReset(APIView):
     def post(self, request):
         email = request.data.get('email')
         if not email:
-            return Response({'errors': 'This field is required.'},
+            return Response({'error': 'This field is required.'},
                             status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email__iexact=email).first()
         if user:
