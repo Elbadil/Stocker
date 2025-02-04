@@ -8,6 +8,8 @@ from .models import User, Activity
 
 class UserSerializer(serializers.ModelSerializer):
     """User Model Serializer"""
+    email = serializers.EmailField(read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -31,6 +33,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         return handle_null_fields(attrs)
+    
+    def update(self, instance, validated_data):
+        if "email" in self.initial_data:
+            raise serializers.ValidationError({'email': "Email cannot be updated."})
+        return super().update(instance, validated_data)
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
