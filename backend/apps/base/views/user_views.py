@@ -44,7 +44,7 @@ class CustomTokenRefreshView(APIView):
                              'user': user_data},
                             status=status.HTTP_200_OK)
         except (User.DoesNotExist, TokenError):
-            return Response({'error': 'Invalid refresh token.'},
+            return Response({'error': 'Invalid or expired token.'},
                             status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             return Response({'error': str(e)},
@@ -115,7 +115,7 @@ class LogoutView(APIView):
 
         except (InvalidToken, TokenError) as e:
             response = Response({'error': str(e)},
-                                status=status.HTTP_400_BAD_REQUEST)
+                                status=status.HTTP_403_FORBIDDEN)
             response.delete_cookie('refresh_token', None)
             return response
 

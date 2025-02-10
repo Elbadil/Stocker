@@ -1,9 +1,15 @@
 import pytest
+import os
+import jwt
+from django.conf import settings
 from django.urls import reverse
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from datetime import datetime, timezone, timedelta
+from unittest.mock import MagicMock
 from apps.base.models import User
 
 
@@ -42,9 +48,16 @@ def update_user_data():
         "username": "adelux",
         "first_name": "Adel",
         "last_name": "Elb",
-        "avatar": "",
         "bio": "Backend Dev"
     }
+
+@pytest.fixture
+def cleanup_files():
+    yield
+    for user in User.objects.all():
+        image_path = os.path.join(settings.MEDIA_ROOT, str(user.avatar))
+        if os.path.exists(image_path):
+            os.remove(image_path)
 
 @pytest.fixture
 def login_credentials(user_data):
@@ -151,19 +164,19 @@ class TestLoginView:
         )
         assert options_res.status_code == 200
 
-    def test_login_view_unsuccessful_login(
+    def test_login_view_with_invalid_data(
         self,
         api_client,
         login_url,
         user_instance
     ):
-        incorrect_login_data = {
+        invalid_login_data = {
             "email": "elbaliadil@gmail.com",
             "password": "incorrectPassword"
         }
         res = api_client.post(
             login_url,
-            data=incorrect_login_data,
+            data=invalid_login_data,
             format='json'
         )
         assert res.status_code == 400
@@ -202,7 +215,7 @@ class TestLoginView:
         assert "password" in res.data
         assert res.data["password"] == ["This field is required."]
 
-    def test_login_view_email_does_not_exist(
+    def test_login_view_with_inexistent_email(
         self,
         api_client,
         login_url,
@@ -218,7 +231,7 @@ class TestLoginView:
         assert "error" in res.data
         assert res.data["error"][0].startswith("Login Unsuccessful.")
 
-    def test_login_view_incorrect_password(
+    def test_login_view_with_incorrect_password(
         self,
         api_client,
         login_url,
@@ -234,7 +247,21 @@ class TestLoginView:
         assert "error" in res.data
         assert res.data["error"][0].startswith("Login Unsuccessful.")
 
-    def test_login_view_successful_login(
+    def test_login_view_with_valid_data(
+        self,
+        api_client,
+        user_instance,
+        login_url,
+        login_credentials
+    ):
+        res = api_client.post(
+            login_url,
+            data=login_credentials,
+            format='json'
+        )
+        assert res.status_code == 200
+
+    def test_user_is_authenticated_after_login(
         self,
         api_client,
         user_instance,
@@ -249,13 +276,12 @@ class TestLoginView:
         assert res.status_code == 200
         assert user_instance.is_authenticated
 
-    def test_login_view_response_data_after_successful_login(
+    def test_access_token_in_response_after_login(
         self,
         api_client,
         user_instance,
         login_url,
         login_credentials,
-        expected_user_data
     ):
         res = api_client.post(
             login_url,
@@ -265,18 +291,99 @@ class TestLoginView:
         assert res.status_code == 200
         assert user_instance.is_authenticated
         assert "access_token" in res.data
+    
+    def test_valid_access_token_in_response_after_login(
+        self,
+        api_client,
+        user_instance,
+        login_url,
+        login_credentials,
+    ):
+        res = api_client.post(
+            login_url,
+            data=login_credentials,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert user_instance.is_authenticated
+        assert "access_token" in res.data
+
+        access_token = res.data["access_token"]
+        verify_token_url = reverse('token_verify')
+        verify_res = api_client.post(
+            verify_token_url,
+            data={'token': access_token}
+        )
+
+        assert verify_res.status_code == 200
+
+    def test_user_in_response_after_login(
+        self,
+        api_client,
+        user_instance,
+        login_url,
+        login_credentials,
+    ):
+        res = api_client.post(
+            login_url,
+            data=login_credentials,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert user_instance.is_authenticated
+        assert "user" in res.data
+    
+    def test_expected_user_fields_in_response_after_login(
+        self,
+        api_client,
+        user_instance,
+        login_url,
+        login_credentials
+    ):
+        res = api_client.post(
+            login_url,
+            data=login_credentials,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert user_instance.is_authenticated
         assert "user" in res.data
 
-        user_res_data = res.data['user']
-        assert user_res_data['username'] == expected_user_data['username']
-        assert user_res_data['first_name'] == expected_user_data['first_name']
-        assert user_res_data['last_name'] == expected_user_data['last_name']
-        assert user_res_data['email'] == expected_user_data['email']
-        assert user_res_data['avatar'] == expected_user_data['avatar']
-        assert user_res_data['bio'] == expected_user_data['bio']
+        user = res.data["user"]
+        assert "id" in user
+        assert "username" in user
+        assert "first_name" in user
+        assert "last_name" in user
+        assert "email" in user
+        assert "avatar" in user
+        assert "bio" in user
 
+    def test_expected_user_data_in_response_after_login(
+        self,
+        api_client,
+        user_instance,
+        expected_user_data,
+        login_url,
+        login_credentials
+    ):
+        res = api_client.post(
+            login_url,
+            data=login_credentials,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert user_instance.is_authenticated
+        assert "user" in res.data
 
-    def test_login_view_set_refresh_token_cookie_after_successful_login(
+        user = res.data["user"]
+        assert user["username"] == expected_user_data["username"]
+        assert user["first_name"] == expected_user_data["first_name"]
+        assert user["last_name"] == expected_user_data["last_name"]
+        assert user["email"] == expected_user_data["email"]
+        assert user["avatar"] == expected_user_data["avatar"]
+        assert user["bio"] == expected_user_data["bio"]
+
+    def test_refresh_token_is_set_in_cookies_after_login(
         self,
         api_client,
         user_instance,
@@ -471,7 +578,7 @@ class TestSignUpView:
         assert "email" in res.data
         assert res.data["email"] == ["user with this email already exists."]
     
-    def test_signup_view_invalid_email(
+    def test_signup_view_with_invalid_email(
         self,
         api_client,
         signup_url,
@@ -487,7 +594,7 @@ class TestSignUpView:
         assert "email" in res.data
         assert res.data["email"] == ["Enter a valid email address."]
 
-    def test_signup_view_mismatched_passwords(
+    def test_signup_view_with_mismatched_passwords(
         self,
         api_client,
         signup_url,
@@ -504,7 +611,7 @@ class TestSignUpView:
         assert "password" in res.data
         assert res.data["password"] == ["The two password fields do not match."]
     
-    def test_signup_view_invalid_short_password(
+    def test_signup_view_with_invalid_short_password(
         self,
         api_client,
         signup_url,
@@ -524,7 +631,7 @@ class TestSignUpView:
             ["This password is too short. It must contain at least 8 characters."]
         )
 
-    def test_signup_view_invalid_numeric_password(
+    def test_signup_view_with_invalid_numeric_password(
         self,
         api_client,
         signup_url,
@@ -541,7 +648,7 @@ class TestSignUpView:
         assert "password" in res.data
         assert res.data["password"] == ["This password is entirely numeric."]
 
-    def test_signup_view_invalid_similar_to_user_attribute_password(
+    def test_signup_view_with_invalid_similar_to_user_attribute_password(
         self,
         api_client,
         signup_url,
@@ -558,7 +665,7 @@ class TestSignUpView:
         assert "password" in res.data
         assert res.data["password"] == ["The password is too similar to the last name."]
     
-    def test_signup_view_successful_signup(
+    def test_signup_view_with_valid_data(
         self,
         api_client,
         signup_url,
@@ -571,7 +678,81 @@ class TestSignUpView:
         )
         assert res.status_code == 201
 
-    def test_signup_view_response_data_after_successful_signup(
+    def test_access_token_in_response_after_signup(
+        self,
+        api_client,
+        signup_url,
+        signup_view_data,
+    ):
+        res = api_client.post(
+            signup_url,
+            data=signup_view_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        assert "access_token" in res.data
+    
+    def test_valid_access_token_in_response_after_signup(
+        self,
+        api_client,
+        signup_url,
+        signup_view_data,
+    ):
+        res = api_client.post(
+            signup_url,
+            data=signup_view_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        assert "access_token" in res.data
+
+        access_token = res.data["access_token"]
+        verify_token_url = reverse('token_verify')
+        verify_res = api_client.post(
+            verify_token_url,
+            data={'token': access_token}
+        )
+
+        assert verify_res.status_code == 200
+
+    def test_user_in_response_after_signup(
+        self,
+        api_client,
+        signup_url,
+        signup_view_data,
+    ):
+        res = api_client.post(
+            signup_url,
+            data=signup_view_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        assert "user" in res.data
+    
+    def test_user_fields_in_response_after_signup(
+        self,
+        api_client,
+        signup_url,
+        signup_view_data,
+    ):
+        res = api_client.post(
+            signup_url,
+            data=signup_view_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        assert "user" in res.data
+
+        user = res.data['user']
+        assert 'id' in user
+        assert 'username' in user
+        assert 'first_name' in user
+        assert 'last_name' in user
+        assert 'email' in user
+        assert 'avatar' in user
+        assert 'bio' in user
+    
+    def test_expected_user_data_in_response_after_signup(
         self,
         api_client,
         signup_url,
@@ -584,21 +765,34 @@ class TestSignUpView:
             format='json'
         )
         assert res.status_code == 201
-        assert "access_token" in res.data
         assert "user" in res.data
 
-        user = User.objects.get(id=res.data['user']['id'])
+        user = res.data['user']
+        assert user['username'] == expected_user_data['username']
+        assert user['first_name'] == expected_user_data['first_name']
+        assert user['last_name'] == expected_user_data['last_name']
+        assert user['email'] == expected_user_data['email']
+        assert user['avatar'] == expected_user_data['avatar']
+        assert user['bio'] == expected_user_data['bio']
+
+    def test_user_is_authenticated_after_signup(
+        self,
+        api_client,
+        signup_url,
+        signup_view_data,
+    ):
+        res = api_client.post(
+            signup_url,
+            data=signup_view_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        assert "user" in res.data
+
+        user = User.objects.get(id=res.data["user"]["id"])
         assert user.is_authenticated
 
-        user_res_data = res.data['user']
-        assert user_res_data['username'] == expected_user_data['username']
-        assert user_res_data['first_name'] == expected_user_data['first_name']
-        assert user_res_data['last_name'] == expected_user_data['last_name']
-        assert user_res_data['email'] == expected_user_data['email']
-        assert user_res_data['avatar'] == expected_user_data['avatar']
-        assert user_res_data['bio'] == expected_user_data['bio']
-
-    def test_signup_view_set_refresh_token_cookie_after_successful_signup(
+    def test_refresh_token_is_set_in_cookies_after_signup(
         self,
         api_client,
         signup_url,
@@ -615,7 +809,7 @@ class TestSignUpView:
         user = User.objects.get(id=res.data['user']['id'])
         assert user.is_authenticated
 
-    def test_signup_view_confirmation_email_after_successful_signup(
+    def test_confirmation_email_after_signup(
         self,
         api_client,
         signup_url,
@@ -648,7 +842,61 @@ class TestCustomTokenRefreshView:
         res = auth_client.post(token_refresh_url)
         assert res.status_code == 200
 
-    def test_refresh_view_successful_token_refresh_response_data(
+    def test_access_token_in_response_after_token_refresh(
+        self,
+        auth_client,
+        token_refresh_url,
+    ):
+        res = auth_client.post(token_refresh_url)
+        assert res.status_code == 200
+        assert "access_token" in res.data
+    
+    def test_valid_access_token_in_response_after_token_refresh(
+        self,
+        auth_client,
+        token_refresh_url,
+    ):
+        res = auth_client.post(token_refresh_url)
+        assert res.status_code == 200
+        assert "access_token" in res.data
+
+        access_token = res.data["access_token"]
+        verify_token_url = reverse('token_verify')
+        verify_res = auth_client.post(
+            verify_token_url,
+            data={'token': access_token}
+        )
+
+        assert verify_res.status_code == 200
+
+    def test_user_in_response_after_token_refresh(
+        self,
+        auth_client,
+        token_refresh_url,
+    ):
+        res = auth_client.post(token_refresh_url)
+        assert res.status_code == 200
+        assert "user" in res.data
+
+    def test_user_fields_in_response_after_token_refresh(
+        self,
+        auth_client,
+        token_refresh_url,
+    ):
+        res = auth_client.post(token_refresh_url)
+        assert res.status_code == 200
+        assert "user" in res.data
+
+        user = res.data['user']
+        assert 'id' in user
+        assert 'username' in user
+        assert 'first_name' in user
+        assert 'last_name' in user
+        assert 'email' in user
+        assert 'avatar' in user
+        assert 'bio' in user
+
+    def test_user_data_in_response_after_token_refresh(
         self,
         auth_client,
         token_refresh_url,
@@ -656,18 +904,17 @@ class TestCustomTokenRefreshView:
     ):
         res = auth_client.post(token_refresh_url)
         assert res.status_code == 200
-        assert "access_token" in res.data
         assert "user" in res.data
 
-        user_res_data = res.data['user']
-        assert user_res_data['username'] == expected_user_data['username']
-        assert user_res_data['first_name'] == expected_user_data['first_name']
-        assert user_res_data['last_name'] == expected_user_data['last_name']
-        assert user_res_data['email'] == expected_user_data['email']
-        assert user_res_data['avatar'] == expected_user_data['avatar']
-        assert user_res_data['bio'] == expected_user_data['bio']
-    
-    def test_refresh_view_successful_token_refresh_new_access_token(
+        user = res.data['user']
+        assert user['username'] == expected_user_data['username']
+        assert user['first_name'] == expected_user_data['first_name']
+        assert user['last_name'] == expected_user_data['last_name']
+        assert user['email'] == expected_user_data['email']
+        assert user['avatar'] == expected_user_data['avatar']
+        assert user['bio'] == expected_user_data['bio']
+
+    def test_new_access_token_after_token_refresh(
         self,
         auth_client,
         access_token,
@@ -681,16 +928,47 @@ class TestCustomTokenRefreshView:
         # Get new access token
         token_after_refresh = res.data["access_token"]
 
-        # Verify new access token
+        assert token_before_refresh != token_after_refresh
+    
+    def test_valid_new_access_token_after_token_refresh(
+        self,
+        auth_client,
+        token_refresh_url,
+    ):
+        res = auth_client.post(token_refresh_url)
+        assert res.status_code == 200
+        assert "access_token" in res.data
+
+        access_token = res.data["access_token"]
         verify_token_url = reverse('token_verify')
         verify_res = auth_client.post(
             verify_token_url,
-            data={'token': token_after_refresh}
+            data={'token': access_token}
         )
-        assert verify_res.status_code == 200
-        assert token_before_refresh != token_after_refresh
 
-    def test_refresh_view_refresh_token_missing_from_request_cookies(
+        assert verify_res.status_code == 200
+    
+    def test_refresh_token_fails_with_expired_token(
+        self,
+        api_client,
+        user_instance,
+        token_refresh_url
+    ):
+        # Create expired refresh token for the user
+        refresh_token = RefreshToken.for_user(user_instance)
+        exp_time = datetime.now(timezone.utc) - timedelta(minutes=1)
+        refresh_token['exp'] = int(exp_time.timestamp())
+        refresh_token['token_version'] = 1
+        api_client.cookies['refresh_token'] = refresh_token
+
+        # Send token refresh request
+        res = api_client.post(token_refresh_url)
+
+        assert res.status_code == 401
+        assert "error" in res.data
+        assert res.data["error"] == "Invalid or expired token."
+
+    def test_refresh_token_missing_from_request_cookies(
         self,
         api_client,
         token_refresh_url
@@ -700,7 +978,7 @@ class TestCustomTokenRefreshView:
         assert "error" in res.data
         assert res.data["error"] == "No refresh_token found in cookies."
 
-    def test_refresh_view_invalid_user_token_version(
+    def test_refresh_view_with_invalid_user_token_version(
         self,
         auth_client,
         user_instance,
@@ -722,7 +1000,7 @@ class TestCustomTokenRefreshView:
         assert "error" in res.data
         assert res.data["error"] == "Invalid or expired token."
 
-    def test_refresh_view_invalid_refresh_token(
+    def test_refresh_view_with_invalid_refresh_token(
         self,
         auth_client,
         token_refresh_url,
@@ -732,9 +1010,9 @@ class TestCustomTokenRefreshView:
         res = auth_client.post(token_refresh_url)
         assert res.status_code == 401
         assert "error" in res.data
-        assert res.data["error"] == "Invalid refresh token."
+        assert res.data["error"] == "Invalid or expired token."
 
-    def test_refresh_view_user_not_found(
+    def test_refresh_view_with_inexistent_user(
         self,
         auth_client,
         token_refresh_url
@@ -748,7 +1026,7 @@ class TestCustomTokenRefreshView:
         res = auth_client.post(token_refresh_url)
         assert res.status_code == 401
         assert "error" in res.data
-        assert res.data["error"] == "Invalid refresh token."
+        assert res.data["error"] == "Invalid or expired token."
 
 
 @pytest.mark.django_db
@@ -764,7 +1042,7 @@ class TestLogoutView:
         assert res.status_code == 204
         assert res.data["message"] == "User has successfully logged out."
 
-    def test_logout_view_blacklist_refresh_token_after_logout(
+    def test_blacklist_refresh_token_after_logout(
         self,
         auth_client,
         logout_url
@@ -776,7 +1054,7 @@ class TestLogoutView:
         with pytest.raises(TokenError, match='Token is invalid or expired'):
             RefreshToken(refresh_token)
 
-    def test_logout_view_refresh_token_deletion_after_logout(
+    def test_refresh_token_deletion_after_logout(
         self,
         auth_client,
         logout_url
@@ -798,7 +1076,7 @@ class TestLogoutView:
         assert after_logout_token.value != initial_token.value
         assert after_logout_token.value == ""
 
-    def test_logout_view_refresh_token_missing_from_request_cookies(
+    def test_refresh_token_missing_from_request_cookies(
         self,
         auth_client,
         logout_url
@@ -808,15 +1086,40 @@ class TestLogoutView:
         assert res.status_code == 400
         assert "error" in res.data
         assert res.data["error"] == "No refresh token found."
+    
+    def test_logout_view_with_invalid_refresh_token(
+        self,
+        auth_client,
+        logout_url
+    ):
+        auth_client.cookies["refresh_token"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature"
+        res = auth_client.post(logout_url)
+        assert res.status_code == 403
+        assert "error" in res.data
+        assert res.data["error"] == "Token is invalid or expired"
 
     def test_logout_view_authentication_is_required(
         self,
-        client,
+        api_client,
         logout_url
     ):
-        res = client.post(logout_url)
+        res = api_client.post(logout_url)
         assert res.status_code == 403
         assert res.data["detail"] == "Authentication credentials were not provided."
+    
+    def test_logout_view_with_invalid_access_token(
+        self,
+        auth_client,
+        logout_url,
+    ):
+        auth_client.credentials(
+            HTTP_AUTHORIZATION=
+            f"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature"
+        )
+        res = auth_client.post(logout_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Given token not valid for any token type"
+        assert res.data["messages"][0]["message"] == "Token is invalid or expired"
 
     def test_logout_view_allowed_http_methods(
         self,
@@ -866,30 +1169,41 @@ class TestGetUpdateUserView:
         )
         assert put_res.status_code == 200
 
+        patch_res = auth_client.patch(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert patch_res.status_code == 200
+
         delete_res = auth_client.delete(get_update_user_url)
         assert delete_res.status_code == 405
         assert delete_res.data["detail"] == 'Method \"DELETE\" not allowed.'
 
         options_res = auth_client.options(get_update_user_url)
         assert options_res.status_code == 200
-
+    
     def test_user_view_authentication_is_required(
         self,
         api_client,
-        update_user_data,
         get_update_user_url
     ):
         get_res = api_client.get(get_update_user_url)
         assert get_res.status_code == 403
         assert get_res.data["detail"] == "Authentication credentials were not provided."
 
-        put_res = api_client.put(
-            get_update_user_url,
-            data=update_user_data,
-            format='multipart'
+    def test_user_view_invalid_access_token(
+        self,
+        auth_client,
+        get_update_user_url,
+    ):
+        auth_client.credentials(
+            HTTP_AUTHORIZATION=
+            f"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature"
         )
-        assert put_res.status_code == 403
-        assert get_res.data["detail"] == "Authentication credentials were not provided."
+        res = auth_client.get(get_update_user_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Invalid token."
 
     def test_user_view_successful_user_retrieval(
         self,
@@ -898,8 +1212,8 @@ class TestGetUpdateUserView:
     ):
         res = auth_client.get(get_update_user_url)
         assert res.status_code == 200
-        
-    def test_user_view_successful_user_retrieval_response_data_fields(
+
+    def test_user_retrieval_response_data_fields(
         self,
         auth_client,
         get_update_user_url
@@ -913,8 +1227,8 @@ class TestGetUpdateUserView:
         assert "email" in res.data
         assert "avatar" in res.data
         assert "bio" in res.data
-    
-    def test_user_view_successful_user_retrieval_response_data(
+
+    def test_user_retrieval_response_data(
         self,
         auth_client,
         expected_user_data,
@@ -929,34 +1243,262 @@ class TestGetUpdateUserView:
         assert res.data['avatar'] == expected_user_data['avatar']
         assert res.data['bio'] == expected_user_data['bio']
 
-    def test_user_view_matches_request_user(
+    def test_user_in_response_matches_request_user(
         self,
         auth_client,
+        access_token,
         get_update_user_url
     ):
         # Get request user
-        refresh_token = RefreshToken(auth_client.cookies.get('refresh_token').value)
-        user_id = refresh_token.payload['user_id']
+        token_payload = jwt.decode(
+            access_token, 
+            settings.SECRET_KEY, 
+            algorithms=["HS256"]
+        )
+        user_id = token_payload['user_id']
         request_user = User.objects.get(id=user_id)
 
         res = auth_client.get(get_update_user_url)
         assert res.status_code == 200
-    
+
         # Get response user
         response_user = User.objects.get(id=res.data['id'])
 
         # Ensure request and response users are the same
         assert request_user.id == response_user.id
 
-    def test_user_view_successful_user_update(
+    def test_user_update_with_valid_data(
         self,
         auth_client,
         update_user_data,
         get_update_user_url
     ):
-        res = auth_client.get(
+        res = auth_client.put(
             get_update_user_url,
             data=update_user_data,
             format='multipart'
         )
+        assert res.status_code == 200
+    
+    def test_response_user_fields_after_update(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 200
+
+        assert "id" in res.data
+        assert "username" in res.data
+        assert "first_name" in res.data
+        assert "last_name" in res.data
+        assert "email" in res.data
+        assert "avatar" in res.data
+        assert "bio" in res.data
+    
+    def test_response_user_data_after_update(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url,
+    ):
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 200
+
+        assert res.data['username'] == update_user_data['username']
+        assert res.data['first_name'] == update_user_data['first_name']
+        assert res.data['last_name'] == update_user_data['last_name']
+        assert res.data['bio'] == update_user_data['bio']
+
+    def test_username_update_fails_if_not_unique(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        second_user = User.objects.create_user(
+            username="adelux",
+            first_name="Adil",
+            last_name="El Bali",
+            email="adil.elbali@gmail.com",
+            password="adeltest123@"
+        )
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "username" in res.data
+        assert res.data["username"] == ["user with this username already exists."]
+
+    def test_email_cannot_be_updated(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data["email"] = "adil.elbali@gmail.com"
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "email" in res.data
+        assert res.data["email"] == "Email cannot be updated."
+
+    def test_put_update_user_username_is_required(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data.pop('username')
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        assert res.status_code == 400
+        assert "username" in res.data
+        assert res.data["username"] == ["This field is required."]
+    
+    def test_put_update_user_first_name_is_required(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data.pop('first_name')
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        assert res.status_code == 400
+        assert "first_name" in res.data
+        assert res.data["first_name"] == ["This field is required."]
+    
+    def test_put_update_user_last_name_is_required(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data.pop('last_name')
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        assert res.status_code == 400
+        assert "last_name" in res.data
+        assert res.data["last_name"] == ["This field is required."]
+
+    def test_user_view_accepts_partial_updates_with_patch(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url,
+        user_instance,
+    ):
+        update_user_data.pop('username')
+        res = auth_client.patch(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        assert res.status_code == 200
+        assert res.data['username'] == user_instance.username
+        assert res.data['first_name'] == update_user_data['first_name']
+        assert res.data['last_name'] == update_user_data['last_name']
+        assert res.data['bio'] == update_user_data['bio']
+
+    def test_user_update_fails_if_username_is_blank(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data["username"] = ""
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "username" in res.data
+        assert res.data["username"] == ["This field may not be blank."]
+    
+    def test_user_update_fails_if_first_name_is_blank(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data["first_name"] = ""
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "first_name" in res.data
+        assert res.data["first_name"] == ["This field may not be blank."]
+    
+    def test_user_update_fails_if_last_name_is_blank(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data["last_name"] = ""
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "last_name" in res.data
+        assert res.data["last_name"] == ["This field may not be blank."]
+    
+    def test_user_update_with_avatar_image_field(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url,
+        cleanup_files
+    ):
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
+            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
+            b'\x02\x4c\x01\x00\x3b'
+        )
+        avatar = SimpleUploadedFile('small.gif', small_gif, content_type='image/gif')
+        update_user_data["avatar"] = avatar
+
+        print(update_user_data["avatar"])
+
+        # Send the PUT request with the uploaded file
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        print(res.data)
         assert res.status_code == 200
