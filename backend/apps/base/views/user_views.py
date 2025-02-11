@@ -130,13 +130,6 @@ class GetUpdateUserView(RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-    def put(self, request, *args, **kwargs):
-        user = self.get_object()
-        if 'avatar_deleted' in request.data:
-            user.avatar = None
-            user.save()
-        return super().put(request, *args, **kwargs)
-
 
 class ChangePasswordView(APIView):
     """Handles User Password Update"""

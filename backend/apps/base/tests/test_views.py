@@ -1,6 +1,7 @@
 import pytest
 import os
 import jwt
+import shutil
 from django.conf import settings
 from django.urls import reverse
 from django.core import mail
@@ -9,7 +10,6 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock
 from apps.base.models import User
 
 
@@ -52,12 +52,23 @@ def update_user_data():
     }
 
 @pytest.fixture
-def cleanup_files():
-    yield
-    for user in User.objects.all():
-        image_path = os.path.join(settings.MEDIA_ROOT, str(user.avatar))
-        if os.path.exists(image_path):
-            os.remove(image_path)
+def setup_cleanup_avatar(user_instance):
+    small_gif = (
+        b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
+        b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
+        b'\x02\x4c\x01\x00\x3b'
+    )
+    avatar = SimpleUploadedFile('small.gif', small_gif, content_type='image/gif')
+
+    yield avatar
+
+    user_instance.refresh_from_db()
+    user_image_folder = os.path.join(
+        settings.MEDIA_ROOT,
+        f"base/images/user/{user_instance.id}"
+    )
+    if os.path.exists(user_image_folder):
+        shutil.rmtree(user_image_folder)
 
 @pytest.fixture
 def login_credentials(user_data):
@@ -1475,23 +1486,20 @@ class TestGetUpdateUserView:
         assert res.status_code == 400
         assert "last_name" in res.data
         assert res.data["last_name"] == ["This field may not be blank."]
-    
-    def test_user_update_with_avatar_image_field(
+
+    def test_user_update_with_valid_avatar(
         self,
         auth_client,
         update_user_data,
         get_update_user_url,
-        cleanup_files
+        setup_cleanup_avatar,
+        user_instance
     ):
-        small_gif = (
-            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
-            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
-            b'\x02\x4c\x01\x00\x3b'
-        )
-        avatar = SimpleUploadedFile('small.gif', small_gif, content_type='image/gif')
-        update_user_data["avatar"] = avatar
+        assert not user_instance.avatar
+        assert user_instance.avatar.name is None
 
-        print(update_user_data["avatar"])
+        avatar = setup_cleanup_avatar
+        update_user_data["avatar"] = avatar
 
         # Send the PUT request with the uploaded file
         res = auth_client.put(
@@ -1499,6 +1507,105 @@ class TestGetUpdateUserView:
             data=update_user_data,
             format='multipart'
         )
-
-        print(res.data)
         assert res.status_code == 200
+        assert "avatar" in res.data
+        assert res.data["avatar"].endswith(avatar.name)
+
+        user_instance.refresh_from_db()
+        assert user_instance.avatar
+        assert user_instance.avatar.name is not None
+
+        user_avatar_file_name = str(user_instance.avatar).split('/')[-1]
+        assert user_avatar_file_name == avatar.name
+
+    def test_user_update_with_invalid_avatar_file_type(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url
+    ):
+        update_user_data["avatar"] = SimpleUploadedFile(
+            "avatar.txt",
+            b"not an image",
+            content_type="text/plain"
+        )
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+
+        assert res.status_code == 400
+        assert "avatar" in res.data
+        assert res.data["avatar"][0].code == 'invalid_image'
+
+    def test_user_update_with_oversized_avatar(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url,
+    ):
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
+            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
+            b'\x02\x4c\x01\x00\x3b'
+        )
+
+        oversized_gif = SimpleUploadedFile(
+            "oversized.gif",
+            small_gif * (2 * 1024 * 1024 + 1),
+            content_type="image/gif"
+        )
+
+        update_user_data["avatar"] = oversized_gif
+
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 400
+        assert "avatar" in res.data
+        assert res.data["avatar"] == ["Avatar size must be less than 2MB"]
+
+    def test_remove_user_avatar(
+        self,
+        auth_client,
+        update_user_data,
+        get_update_user_url,
+        setup_cleanup_avatar,
+        user_instance
+    ):
+        # Set valid avatar for user
+        avatar = setup_cleanup_avatar
+        update_user_data["avatar"] = avatar
+
+        res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert res.status_code == 200
+        assert "avatar" in res.data
+        assert res.data["avatar"].endswith(avatar.name)
+
+        user_instance.refresh_from_db()
+        assert user_instance.avatar
+        assert user_instance.avatar.name is not None
+        assert user_instance.avatar.name != ""
+
+        # Remove user avatar
+        update_user_data["avatar"] = ""
+
+        new_res = auth_client.put(
+            get_update_user_url,
+            data=update_user_data,
+            format='multipart'
+        )
+        assert new_res.status_code == 200
+        assert "avatar" in new_res.data
+        assert new_res.data["avatar"] == None
+
+        user_instance.refresh_from_db()
+        assert not user_instance.avatar
+        assert user_instance.avatar.name == ""

@@ -31,12 +31,22 @@ class UserSerializer(serializers.ModelSerializer):
             )
         return value.lower()
 
+    def validate_avatar(self, value):
+        max_size = 2 * 1024 * 1024
+        if value and value.size > max_size:
+            raise serializers.ValidationError(
+                "Avatar size must be less than 2MB"
+            )
+        return value
+
     def validate(self, attrs):
         return handle_null_fields(attrs)
     
     def update(self, instance, validated_data):
         if "email" in self.initial_data:
-            raise serializers.ValidationError({'email': "Email cannot be updated."})
+            raise serializers.ValidationError(
+                {'email': "Email cannot be updated."}
+            )
         return super().update(instance, validated_data)
 
 

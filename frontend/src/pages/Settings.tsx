@@ -113,7 +113,7 @@ const Settings = () => {
     if (data.avatar && data.avatar?.length > 0) {
       formData.append('avatar', data.avatar[0]);
     } else if (!data.avatar && !avatar) {
-      formData.append('avatar_deleted', '');
+      formData.append('avatar', '');
     }
     try {
       const res = await api.put(`/auth/user/`, formData, {
