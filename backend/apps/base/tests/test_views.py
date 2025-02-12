@@ -52,6 +52,14 @@ def update_user_data():
     }
 
 @pytest.fixture
+def change_pwd_data():
+    return {
+        "old_password": "adeltest123@",
+        "new_password1": "adlux567@",
+        "new_password2": "adlux567@"
+    }
+
+@pytest.fixture
 def setup_cleanup_avatar(user_instance):
     small_gif = (
         b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
@@ -127,6 +135,9 @@ def logout_url():
 def get_update_user_url():
     return reverse('get_update_user')
 
+@pytest.fixture
+def change_pwd_url():
+    return reverse('change_password')
 
 @pytest.mark.django_db
 class TestLoginView:
@@ -1609,3 +1620,360 @@ class TestGetUpdateUserView:
         user_instance.refresh_from_db()
         assert not user_instance.avatar
         assert user_instance.avatar.name == ""
+
+
+@pytest.mark.django_db
+class TestChangePasswordView:
+    """Tests for the ChangePasswordView"""
+
+    def test_change_pwd_view_allowed_http_methods(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        get_res = auth_client.get(change_pwd_url)
+        assert get_res.status_code == 405
+        assert get_res.data["detail"] == 'Method \"GET\" not allowed.'
+
+        put_res = auth_client.put(change_pwd_url)
+        assert put_res.status_code == 405
+        assert put_res.data["detail"] == 'Method \"PUT\" not allowed.'
+
+        delete_res = auth_client.delete(change_pwd_url)
+        assert delete_res.status_code == 405
+        assert delete_res.data["detail"] == 'Method \"DELETE\" not allowed.'
+
+        post_res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert post_res.status_code == 200
+
+    def test_change_pwd_view_authentication_is_required(
+        self,
+        api_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        res = api_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+    
+    def test_change_pwd_view_new_old_password_is_required(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data.pop('old_password')
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "old_password" in res.data
+        assert res.data["old_password"] == ["This field is required."]
+
+    def test_change_pwd_view_new_password1_is_required(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data.pop('new_password1')
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password1" in res.data
+        assert res.data["new_password1"] == ["This field is required."]
+    
+    def test_change_pwd_view_new_password2_is_required(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data.pop('new_password2')
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password2" in res.data
+        assert res.data["new_password2"] == ["This field is required."]
+
+    def test_change_pwd_view_with_invalid_old_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["old_password"] = "invalidOldPassword"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "old_password" in res.data
+        assert res.data["old_password"] == ["Old password is incorrect."]
+    
+    def test_new_password_is_similar_to_the_old_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "adeltest123@"
+        change_pwd_data["new_password2"] = "adeltest123@"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["New password cannot be the same as the old password."]
+        )
+
+    def test_change_pwd_view_with_mismatched_new_passwords(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "adlux567@"
+        change_pwd_data["new_password2"] = "adlux57@@"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["The two new password fields do not match."]
+        )
+    
+    def test_change_pwd_view_with_invalid_new_short_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "128abc"
+        change_pwd_data["new_password2"] = "128abc"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["This password is too short. It must contain at least 8 characters."]
+        )
+
+    def test_change_pwd_view_with_invalid_numeric_new_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "14958373"
+        change_pwd_data["new_password2"] = "14958373"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["This password is entirely numeric."]
+        )
+
+    def test_change_pwd_view_with_invalid_common_new_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "abc12345"
+        change_pwd_data["new_password2"] = "abc12345"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert res.data["new_password"] == ["This password is too common."]
+
+    def test_invalid_similar_to_user_attribute_new_password(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url
+    ):
+        change_pwd_data["new_password1"] = "elbali12"
+        change_pwd_data["new_password2"] = "elbali12"
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["The password is too similar to the last name."]
+        )
+
+    def test_increment_user_token_version_after_pwd_change(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url,
+        user_instance
+    ):
+        assert user_instance.token_version == 1
+
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        
+        user_instance.refresh_from_db()
+        assert user_instance.token_version == 2
+
+    def test_access_token_in_response_after_pwd_change(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url,
+    ):
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "access_token" in res.data
+    
+    def test_valid_access_token_in_response_after_pwd_change(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url,
+    ):
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "access_token" in res.data
+
+        access_token = res.data["access_token"]
+        verify_token_url = reverse('token_verify')
+        verify_res = auth_client.post(
+            verify_token_url,
+            data={'token': access_token}
+        )
+
+        assert verify_res.status_code == 200
+
+    def test_new_access_token_in_response_after_pwd_change(
+        self,
+        auth_client,
+        access_token,
+        change_pwd_data,
+        change_pwd_url,
+    ):
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "access_token" in res.data
+
+        new_access_token = res.data["access_token"]
+        assert new_access_token != access_token
+
+    def test_new_refresh_token_is_set_in_cookies_after_pwd_change(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url,
+    ):
+        refresh_token = auth_client.cookies.get('refresh_token')
+
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+
+        new_refresh_token = res.cookies.get("refresh_token")
+        assert new_refresh_token is not None
+        assert new_refresh_token.value != refresh_token.value
+    
+    def test_new_refresh_token_version_matches_user_new_token_version(
+        self,
+        auth_client,
+        change_pwd_data,
+        change_pwd_url,
+        user_instance
+    ):
+        refresh_token = auth_client.cookies.get('refresh_token')
+        token_payload = jwt.decode(
+            refresh_token.value, 
+            settings.SECRET_KEY, 
+            algorithms=["HS256"]
+        )
+        assert token_payload["token_version"] == 1
+        assert user_instance.token_version == 1
+
+        res = auth_client.post(
+            change_pwd_url,
+            data=change_pwd_data,
+            format='json'
+        )
+        assert res.status_code == 200
+
+        new_refresh_token = res.cookies.get("refresh_token")
+        assert new_refresh_token is not None
+
+        new_token_payload = jwt.decode(
+            new_refresh_token.value, 
+            settings.SECRET_KEY, 
+            algorithms=["HS256"]
+        )
+        user_instance.refresh_from_db()
+        assert new_token_payload["token_version"] == 2
+        assert user_instance.token_version == 2
+        assert (
+            new_token_payload["token_version"] ==
+            user_instance.token_version
+        )

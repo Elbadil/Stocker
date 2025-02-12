@@ -144,12 +144,10 @@ class ChangePasswordView(APIView):
             user.save()
             new_token = get_tokens_for_user(user)
             response = Response({'access_token': new_token['access']},
-                            status=status.HTTP_200_OK)
-
+                                 status=status.HTTP_200_OK)
             set_refresh_token(response,
                               new_token['refresh'],
                               new_token['refresh_payload'])
-
             return response
         else:
             return Response(serializer.errors,

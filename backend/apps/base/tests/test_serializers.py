@@ -445,21 +445,6 @@ class TestChangePasswordSerializer:
         assert "old_password" in serializer.errors
         assert serializer.errors["old_password"] == ["Old password is incorrect."]
 
-    def test_change_pwd_incorrect_old_password(
-        self,
-        change_password_serializer_data,
-        user_instance,
-        user_serializer
-    ):
-        change_password_serializer_data["old_password"] = "incorrectOldPassword"
-        serializer = ChangePasswordSerializer(
-            user=user_instance,
-            data=change_password_serializer_data
-        )
-        assert not serializer.is_valid()
-        assert "old_password" in serializer.errors
-        assert serializer.errors["old_password"] == ["Old password is incorrect."]
-
     def test_change_pwd_new_password_similar_to_the_old_password(
         self,
         change_password_serializer_data,
