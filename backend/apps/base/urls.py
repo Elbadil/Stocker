@@ -26,7 +26,7 @@ urlpatterns = [
          name='token_verify'),
     path('auth/password-reset/request/',
          user_views.RequestPasswordReset.as_view(),
-         name='password_reset'),
+         name='request_password_reset'),
     path('auth/password-reset/<uidb64>/<token>/',
          user_views.ResetPassword.as_view(),
          name='password_reset_confirm'),

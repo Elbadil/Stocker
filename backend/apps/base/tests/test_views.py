@@ -2,6 +2,10 @@ import pytest
 import os
 import jwt
 import shutil
+from urllib.parse import urlparse
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
 from django.urls import reverse
 from django.core import mail
@@ -138,6 +142,11 @@ def get_update_user_url():
 @pytest.fixture
 def change_pwd_url():
     return reverse('change_password')
+
+@pytest.fixture
+def request_pwd_reset_url():
+    return reverse('request_password_reset')
+
 
 @pytest.mark.django_db
 class TestLoginView:
@@ -1976,4 +1985,179 @@ class TestChangePasswordView:
         assert (
             new_token_payload["token_version"] ==
             user_instance.token_version
+        )
+
+
+@pytest.mark.django_db
+class TestRequestPasswordResetView:
+    """"Tests for the RequestPasswordResetView"""
+
+    def test_req_pwd_reset_allowed_http_methods(
+        self,
+        api_client,
+        user_instance,
+        request_pwd_reset_url
+    ):
+        get_res = api_client.get(request_pwd_reset_url)
+        assert get_res.status_code == 405
+
+        post_res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": user_instance.email},
+            format="json"
+        )
+        assert post_res.status_code == 200
+
+        put_res = api_client.put(request_pwd_reset_url)
+        assert put_res.status_code == 405
+
+        delete_res = api_client.delete(request_pwd_reset_url)
+        assert delete_res.status_code == 405
+
+    def test_req_pwd_reset_email_is_required(
+        self,
+        api_client,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(request_pwd_reset_url)
+
+        assert res.status_code == 400
+        assert "email" in res.data
+        assert res.data["email"] == "Email is required."
+    
+    def test_req_pwd_reset_with_valid_email(
+        self,
+        api_client,
+        user_instance,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": user_instance.email},
+            format="json"
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert (
+            res.data["message"] == 
+            "If the email is associated with an account, a reset link has been sent."
+        )
+
+    def test_req_pwd_reset_with_invalid_email(
+        self,
+        api_client,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": "adel.com"},
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "email" in res.data
+        assert res.data["email"] == "Enter a valid email address."
+
+    def test_req_pwd_reset_with_invalid_inexistent_email(
+        self,
+        api_client,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": "adelu@gmail.com"},
+            format="json"
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert (
+            res.data["message"] == 
+            "If the email is associated with an account, a reset link has been sent."
+        )
+
+    def test_email_received_after_reset_pwd_req(
+        self,
+        api_client,
+        user_instance,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": user_instance.email},
+            format="json"
+        )
+        assert res.status_code == 200
+        assert len(mail.outbox) == 1
+
+        email = mail.outbox[0]
+        assert email.from_email == "elbadil.testing@gmail.com"
+        assert email.to == ['adxel.elb@gmail.com']
+        assert email.subject == "Stocker Password Reset"
+        assert email.body.startswith("You can reset your password here:")
+
+    def test_no_email_is_sent_if_the_provided_email_does_not_exist(
+        self,
+        api_client,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": "adelu@gmail.com"},
+            format="json"
+        )
+
+        assert res.status_code == 200
+        assert len(mail.outbox) == 0
+
+    def test_user_id_is_encoded_in_b64_in_reset_url(
+        self,
+        api_client,
+        user_instance,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": user_instance.email},
+            format="json"
+        )
+        assert res.status_code == 200
+        assert len(mail.outbox) == 1
+
+        email = mail.outbox[0]
+        reset_url = email.body.split(': ')[1]
+        parsed_reset_url = urlparse(reset_url)
+        assert parsed_reset_url.path.startswith("/auth/password-reset/")
+
+        path_segments = parsed_reset_url.path.split('/')
+        assert len(path_segments) > 3
+
+        user_uidb64 = path_segments[3]
+        user_uidb64_decoded = force_str(urlsafe_base64_decode(user_uidb64))
+        assert user_instance.id == user_uidb64_decoded
+
+    def test_valid_reset_token_for_user_in_pwd_reset_url(
+        self,
+        api_client,
+        user_instance,
+        request_pwd_reset_url
+    ):
+        res = api_client.post(
+            request_pwd_reset_url,
+            data={"email": user_instance.email},
+            format="json"
+        )
+        assert res.status_code == 200
+        assert len(mail.outbox) == 1
+
+        email = mail.outbox[0]
+        reset_url = email.body.split(': ')[1]
+        parsed_reset_url = urlparse(reset_url)
+        assert parsed_reset_url.path.startswith("/auth/password-reset/")
+
+        path_segments = parsed_reset_url.path.split('/')
+        assert len(path_segments) > 4
+
+        reset_pwd_token = path_segments[4]
+        assert (
+            PasswordResetTokenGenerator()
+            .check_token(user_instance, reset_pwd_token)
         )

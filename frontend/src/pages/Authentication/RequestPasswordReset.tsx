@@ -32,7 +32,7 @@ const RequestPasswordReset = () => {
     } catch (err: any) {
       console.log('Error during form submission:', err);
       if (err.response && err.response.status === 400) {
-        setEmailErrors(err.response.data.errors);
+        setEmailErrors(err.response.data.email);
       } else {
         setEmailErrors('Something went wrong. Please try again later.');
       }

@@ -2,6 +2,8 @@ from django.core.mail import send_mail, EmailMultiAlternatives
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -159,7 +161,12 @@ class RequestPasswordReset(APIView):
     def post(self, request):
         email = request.data.get('email')
         if not email:
-            return Response({'error': 'This field is required.'},
+            return Response({'email': 'Email is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_email(email)
+        except ValidationError:
+             return Response({'email': 'Enter a valid email address.'},
                             status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email__iexact=email).first()
         if user:
