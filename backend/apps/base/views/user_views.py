@@ -188,7 +188,7 @@ class RequestPasswordReset(APIView):
                         status=status.HTTP_200_OK)
 
 
-class ResetPassword(APIView):
+class ResetPasswordView(APIView):
     """Handles Password Reset"""
     def post(self, request, uidb64, token):
         try:
@@ -209,7 +209,8 @@ class ResetPassword(APIView):
                 return Response(serializer.errors,
                                 status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Something went wrong. Please request a new password reset."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetUserActivities(generics.ListAPIView):

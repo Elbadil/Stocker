@@ -7,6 +7,7 @@ import {
   handleInputChange,
   removeBlankFields,
   handleInputErrors,
+  resetFormErrors,
 } from '../../utils/form';
 import { FormErrors, FormValues } from '../../types/form';
 import { api } from '../../api/axios';
@@ -24,11 +25,13 @@ const ResetPassword = () => {
     new_password1: '',
     new_password2: '',
     new_password: '',
+    error: '',
   });
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    resetFormErrors(formErrors, setFormErrors);
     const cleanedValues: FormValues = removeBlankFields(formValues);
     try {
       const res = await api.post(`/auth/password-reset/${uidb64}/${token}/`, {
@@ -308,6 +311,11 @@ const ResetPassword = () => {
                   {formErrors.new_password && (
                     <p className="text-red-500 font-medium text-sm italic mt-2">
                       {formErrors.new_password}
+                    </p>
+                  )}
+                  {formErrors.error && (
+                    <p className="text-red-500 font-medium text-sm italic mt-2">
+                      {formErrors.error}
                     </p>
                   )}
                 </div>

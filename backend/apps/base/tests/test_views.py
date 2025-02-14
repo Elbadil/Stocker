@@ -56,11 +56,18 @@ def update_user_data():
     }
 
 @pytest.fixture
-def change_pwd_data():
+def change_password_data():
     return {
         "old_password": "adeltest123@",
         "new_password1": "adlux567@",
         "new_password2": "adlux567@"
+    }
+
+@pytest.fixture
+def reset_password_data(change_password_data):
+    return {
+        "new_password1": change_password_data["new_password1"],
+        "new_password2": change_password_data["new_password2"]
     }
 
 @pytest.fixture
@@ -140,12 +147,24 @@ def get_update_user_url():
     return reverse('get_update_user')
 
 @pytest.fixture
-def change_pwd_url():
+def change_password_url():
     return reverse('change_password')
 
 @pytest.fixture
 def request_pwd_reset_url():
     return reverse('request_password_reset')
+
+@pytest.fixture
+def valid_reset_password_url(user_instance):
+    uidb64 = urlsafe_base64_encode(force_bytes(user_instance.id))
+    token = PasswordResetTokenGenerator().make_token(user_instance)
+    return reverse(
+        'password_reset',
+        kwargs={
+            'uidb64': uidb64,
+            'token': token
+        }
+    )
 
 
 @pytest.mark.django_db
@@ -1638,24 +1657,24 @@ class TestChangePasswordView:
     def test_change_pwd_view_allowed_http_methods(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        get_res = auth_client.get(change_pwd_url)
+        get_res = auth_client.get(change_password_url)
         assert get_res.status_code == 405
         assert get_res.data["detail"] == 'Method \"GET\" not allowed.'
 
-        put_res = auth_client.put(change_pwd_url)
+        put_res = auth_client.put(change_password_url)
         assert put_res.status_code == 405
         assert put_res.data["detail"] == 'Method \"PUT\" not allowed.'
 
-        delete_res = auth_client.delete(change_pwd_url)
+        delete_res = auth_client.delete(change_password_url)
         assert delete_res.status_code == 405
         assert delete_res.data["detail"] == 'Method \"DELETE\" not allowed.'
 
         post_res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert post_res.status_code == 200
@@ -1663,12 +1682,12 @@ class TestChangePasswordView:
     def test_change_pwd_view_authentication_is_required(
         self,
         api_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
         res = api_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 403
@@ -1677,13 +1696,13 @@ class TestChangePasswordView:
     def test_change_pwd_view_new_old_password_is_required(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data.pop('old_password')
+        change_password_data.pop('old_password')
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1693,13 +1712,13 @@ class TestChangePasswordView:
     def test_change_pwd_view_new_password1_is_required(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data.pop('new_password1')
+        change_password_data.pop('new_password1')
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1709,13 +1728,13 @@ class TestChangePasswordView:
     def test_change_pwd_view_new_password2_is_required(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data.pop('new_password2')
+        change_password_data.pop('new_password2')
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1725,13 +1744,13 @@ class TestChangePasswordView:
     def test_change_pwd_view_with_invalid_old_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["old_password"] = "invalidOldPassword"
+        change_password_data["old_password"] = "invalidOldPassword"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1741,14 +1760,14 @@ class TestChangePasswordView:
     def test_new_password_is_similar_to_the_old_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "adeltest123@"
-        change_pwd_data["new_password2"] = "adeltest123@"
+        change_password_data["new_password1"] = "adeltest123@"
+        change_password_data["new_password2"] = "adeltest123@"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1761,14 +1780,14 @@ class TestChangePasswordView:
     def test_change_pwd_view_with_mismatched_new_passwords(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "adlux567@"
-        change_pwd_data["new_password2"] = "adlux57@@"
+        change_password_data["new_password1"] = "adlux567@"
+        change_password_data["new_password2"] = "adlux57@@"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1781,14 +1800,14 @@ class TestChangePasswordView:
     def test_change_pwd_view_with_invalid_new_short_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "128abc"
-        change_pwd_data["new_password2"] = "128abc"
+        change_password_data["new_password1"] = "128abc"
+        change_password_data["new_password2"] = "128abc"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1801,14 +1820,14 @@ class TestChangePasswordView:
     def test_change_pwd_view_with_invalid_numeric_new_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "14958373"
-        change_pwd_data["new_password2"] = "14958373"
+        change_password_data["new_password1"] = "14958373"
+        change_password_data["new_password2"] = "14958373"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1821,14 +1840,14 @@ class TestChangePasswordView:
     def test_change_pwd_view_with_invalid_common_new_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "abc12345"
-        change_pwd_data["new_password2"] = "abc12345"
+        change_password_data["new_password1"] = "abc12345"
+        change_password_data["new_password2"] = "abc12345"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1838,14 +1857,14 @@ class TestChangePasswordView:
     def test_invalid_similar_to_user_attribute_new_password(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url
+        change_password_data,
+        change_password_url
     ):
-        change_pwd_data["new_password1"] = "elbali12"
-        change_pwd_data["new_password2"] = "elbali12"
+        change_password_data["new_password1"] = "elbali12"
+        change_password_data["new_password2"] = "elbali12"
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 400
@@ -1858,15 +1877,15 @@ class TestChangePasswordView:
     def test_increment_user_token_version_after_pwd_change(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
         user_instance
     ):
         assert user_instance.token_version == 1
 
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -1877,12 +1896,12 @@ class TestChangePasswordView:
     def test_access_token_in_response_after_pwd_change(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
     ):
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -1891,12 +1910,12 @@ class TestChangePasswordView:
     def test_valid_access_token_in_response_after_pwd_change(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
     ):
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -1915,12 +1934,12 @@ class TestChangePasswordView:
         self,
         auth_client,
         access_token,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
     ):
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -1932,14 +1951,14 @@ class TestChangePasswordView:
     def test_new_refresh_token_is_set_in_cookies_after_pwd_change(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
     ):
         refresh_token = auth_client.cookies.get('refresh_token')
 
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -1951,8 +1970,8 @@ class TestChangePasswordView:
     def test_new_refresh_token_version_matches_user_new_token_version(
         self,
         auth_client,
-        change_pwd_data,
-        change_pwd_url,
+        change_password_data,
+        change_password_url,
         user_instance
     ):
         refresh_token = auth_client.cookies.get('refresh_token')
@@ -1965,8 +1984,8 @@ class TestChangePasswordView:
         assert user_instance.token_version == 1
 
         res = auth_client.post(
-            change_pwd_url,
-            data=change_pwd_data,
+            change_password_url,
+            data=change_password_data,
             format='json'
         )
         assert res.status_code == 200
@@ -2160,4 +2179,282 @@ class TestRequestPasswordResetView:
         assert (
             PasswordResetTokenGenerator()
             .check_token(user_instance, reset_pwd_token)
+        )
+
+
+@pytest.mark.django_db
+class TestResetPasswordView:
+    """Tests for the ResetPasswordView"""
+
+    def test_reset_password_allowed_http_methods(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        get_res = api_client.get(valid_reset_password_url)
+        assert get_res.status_code == 405
+
+        put_res = api_client.put(valid_reset_password_url)
+        assert put_res.status_code == 405
+
+        delete_res = api_client.delete(valid_reset_password_url)
+        assert delete_res.status_code == 405
+
+        post_res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert post_res.status_code == 200
+
+    def test_reset_password_with_valid_data(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 200
+        assert res.data["message"] == "User password has been successfully reset."
+
+    def test_new_password_after_password_reset(
+        self,
+        api_client,
+        user_instance,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 200
+        assert res.data["message"] == "User password has been successfully reset."
+
+        user_instance.refresh_from_db()
+        assert user_instance.check_password(reset_password_data["new_password1"])
+
+    def test_uidb64_in_reset_url_is_users_id_encoded_in_b64(
+        self,
+        user_instance,
+        valid_reset_password_url,
+    ):
+        url_paths = valid_reset_password_url.split('/')
+        assert len(url_paths) > 4
+
+        uidb64 = url_paths[4]
+        uidb64_decoded = force_str(urlsafe_base64_decode(uidb64))
+        assert user_instance.id == uidb64_decoded
+
+    def test_invalid_uidb64_for_user_in_reset_url(
+        self,
+        api_client,
+        user_instance,
+        reset_password_data,
+    ):
+        uidb64 = 'InvalidUidb64'
+        token = PasswordResetTokenGenerator().make_token(user_instance)
+        url = reverse(
+            'password_reset',
+            kwargs={
+                "uidb64": uidb64,
+                "token": token
+            }
+        )
+        res = api_client.post(
+            url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "Something went wrong. Please request a new password reset."
+
+    def test_valid_reset_token_for_user_in_reset_url(
+        self,
+        user_instance,
+        valid_reset_password_url,
+    ):
+        url_paths = valid_reset_password_url.split('/')
+        assert len(url_paths) > 5
+
+        token = url_paths[5]
+        assert PasswordResetTokenGenerator().check_token(user_instance, token)
+    
+    def test_invalid_reset_token_for_user_in_reset_url(
+        self,
+        api_client,
+        user_instance,
+        reset_password_data,
+    ):
+        uidb64 = urlsafe_base64_encode(force_bytes(user_instance.id))
+        token = 'InvalidResetToken'
+        url = reverse(
+            'password_reset',
+            kwargs={
+                "uidb64": uidb64,
+                "token": token
+            }
+        )
+        res = api_client.post(
+            url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "Something went wrong. Please request a new password reset."
+
+    def test_increment_user_token_version_after_password_reset(
+        self,
+        api_client,
+        user_instance,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        assert user_instance.token_version == 1
+
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 200
+
+        user_instance.refresh_from_db()
+        assert user_instance.token_version == 2
+
+    def test_reset_password_new_password1_is_required(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data.pop('new_password1')
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password1" in res.data
+        assert res.data["new_password1"] == ["This field is required."]
+
+    def test_reset_password_new_password2_is_required(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data.pop('new_password2')
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password2" in res.data
+        assert res.data["new_password2"] == ["This field is required."]
+
+    def test_reset_password_mismatched_new_passwords(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data["new_password1"] = "adlux567@"
+        reset_password_data["new_password2"] = "adlux57@@"
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["The two new password fields do not match."]
+        )
+
+    def test_reset_password_invalid_short_password(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data["new_password1"] = "128abc"
+        reset_password_data["new_password2"] = "128abc"
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["This password is too short. It must contain at least 8 characters."]
+        )
+    
+    def test_reset_password_invalid_numeric_new_password(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data["new_password1"] = "14958373"
+        reset_password_data["new_password2"] = "14958373"
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["This password is entirely numeric."]
+        )
+
+    def test_reset_password_invalid_common_new_password(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data["new_password1"] = "abc12345"
+        reset_password_data["new_password2"] = "abc12345"
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert res.data["new_password"] == ["This password is too common."]
+    
+    def test_invalid_similar_to_user_attribute_new_password(
+        self,
+        api_client,
+        reset_password_data,
+        valid_reset_password_url
+    ):
+        reset_password_data["new_password1"] = "elbali12"
+        reset_password_data["new_password2"] = "elbali12"
+        res = api_client.post(
+            valid_reset_password_url,
+            data=reset_password_data,
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "new_password" in res.data
+        assert (
+            res.data["new_password"] ==
+            ["The password is too similar to the last name."]
         )
