@@ -15,6 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from datetime import datetime, timezone, timedelta
 from apps.base.models import User
+from apps.base.factories import ActivityFactory
 
 
 @pytest.fixture
@@ -165,6 +166,10 @@ def valid_reset_password_url(user_instance):
             'token': token
         }
     )
+
+@pytest.fixture
+def user_activities_url():
+    return reverse('get_user_activities')
 
 
 @pytest.mark.django_db
@@ -2458,3 +2463,288 @@ class TestResetPasswordView:
             res.data["new_password"] ==
             ["The password is too similar to the last name."]
         )
+
+
+@pytest.mark.django_db
+class TestGetUserActivitiesView:
+    """Test for GetUserActivities View"""
+
+    def test_get_user_activities_allowed_http_methods(
+        self,
+        auth_client,
+        user_activities_url,
+    ):
+        get_res = auth_client.get(user_activities_url)
+        assert get_res.status_code == 200
+
+        put_res = auth_client.put(user_activities_url)
+        assert put_res.status_code == 405
+
+        delete_res = auth_client.delete(user_activities_url)
+        assert delete_res.status_code == 405
+
+        post_res = auth_client.post(user_activities_url)
+        assert post_res.status_code == 405
+
+    def test_get_user_activities_authentication_is_required(
+        self,
+        api_client,
+        user_activities_url,
+    ):
+        res = api_client.get(user_activities_url)
+
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_user_activities_with_valid_auth_credentials(
+        self,
+        auth_client,
+        user_activities_url,
+    ):
+        get_res = auth_client.get(user_activities_url)
+        assert get_res.status_code == 200
+
+    def test_get_user_activities_response_fields(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url,
+    ):
+        ActivityFactory.create_batch(4, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "next" in res.data
+        assert "previous" in res.data
+        assert "results" in res.data
+        assert isinstance(res.data["results"], list)
+
+    def test_user_activities_are_in_the_results_field_of_the_response(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url,
+    ):
+        activities = ActivityFactory.create_batch(4, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert len(activities) == len(res.data["results"])
+
+    def test_user_activities_fields_in_results(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url,
+    ):
+        activities = ActivityFactory.create_batch(4, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert isinstance(res.data["results"], list)
+        assert len(activities) == len(res.data["results"])
+
+        first_activity = res.data["results"][0]
+        assert type(first_activity) == dict
+        assert "id" in first_activity
+
+        assert "user" in first_activity
+        user = first_activity["user"]
+        assert "username" in user
+        assert "avatar" in user
+
+        assert "action" in first_activity
+        assert "model_name" in first_activity
+        assert "object_ref" in first_activity
+        assert "created_at" in first_activity
+
+    def test_user_activities_field_types_in_results(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url,
+    ):
+        activities = ActivityFactory.create_batch(4, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert isinstance(res.data["results"], list)
+        assert len(activities) == len(res.data["results"])
+
+        first_activity = res.data["results"][0]
+        assert type(first_activity) == dict
+        assert type(first_activity["id"]) == str
+
+        assert type(first_activity["user"]) == dict
+        user = first_activity["user"]
+        assert type(user["username"]) == str
+        assert isinstance(user["avatar"], (str, type(None)))
+
+        assert type(first_activity["action"]) == str
+        assert type(first_activity["model_name"]) == str
+        assert type(first_activity["object_ref"]) == list
+        assert type(first_activity["created_at"]) == str
+
+    def test_get_user_activities_returns_request_user_activities(
+        self,
+        api_client,
+        user_instance,
+        access_token,
+        user_activities_url,
+    ):
+        ActivityFactory.create_batch(4, user=user_instance)
+        token_payload = jwt.decode(
+            access_token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"]
+        )
+        user_id = token_payload["user_id"]
+        req_user = User.objects.get(id=user_id)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        res = api_client.get(user_activities_url)
+        assert res.status_code == 200
+        assert "results" in res.data
+
+        first_activity = res.data["results"][0]
+        assert "user" in first_activity
+        user = first_activity["user"]
+        assert "username" in user
+
+        res_user = User.objects.get(username=user["username"])
+        assert res_user.id == req_user.id
+
+    def test_get_user_activities_with_zero_activities(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url
+    ):
+        ActivityFactory.create_batch(0, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert isinstance(res.data["results"], list)
+        assert len(res.data["results"]) == 0
+
+    def test_maximum_ten_activities_per_request(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url
+    ):
+        activities = ActivityFactory.create_batch(20, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "next" in res.data
+        assert res.data["next"] is not None
+
+        assert "previous" in res.data
+        assert res.data["previous"] is None
+
+        assert "results" in res.data
+        assert len(activities) != len(res.data["results"])
+        assert len(res.data["results"]) == 10
+    
+    def test_get_user_activities_uses_cursor_method_for_pagination(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url
+    ):
+        ActivityFactory.create_batch(20, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+
+        assert "next" in res.data
+        assert res.data["next"] is not None
+        next_page_url = res.data["next"]
+
+        assert "cursor" in next_page_url
+
+    def test_get_next_page_of_activities_if_more_than_ten(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url
+    ):
+        # Create 20 activity entries
+        ActivityFactory.create_batch(20, user=user_instance)
+
+        # Get first 10 activities
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "previous" in res.data
+        assert res.data["previous"] is None
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+
+        assert "next" in res.data
+        assert res.data["next"] is not None
+        next_page_url = res.data["next"]
+
+        # Get second 10 activities using next page url
+        next_page_res = auth_client.get(next_page_url)
+
+        assert next_page_res.status_code == 200
+        assert "previous" in next_page_res.data
+        assert next_page_res.data["previous"] is not None
+
+        assert "results" in next_page_res.data
+        assert len(next_page_res.data["results"]) == 10
+
+    def test_get_previous_activities_page(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url
+    ):
+        # Create 20 activity entries
+        ActivityFactory.create_batch(20, user=user_instance)
+
+        # Get first 10 activities
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "previous" in res.data
+        assert res.data["previous"] is None
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+
+        assert "next" in res.data
+        assert res.data["next"] is not None
+        next_page_url = res.data["next"]
+
+        # Get second 10 activities using next page url
+        next_res = auth_client.get(next_page_url)
+
+        assert next_res.status_code == 200
+        assert "results" in next_res.data
+        assert len(next_res.data["results"]) == 10
+
+        assert "previous" in next_res.data
+        assert next_res.data["previous"] is not None
+        prev_page_url = next_res.data["previous"]
+
+        # Get first 10 activities again using previous page url
+        prev_res = auth_client.get(prev_page_url)
+
+        assert prev_res.status_code == 200
+        assert "results" in prev_res.data
+        assert len(prev_res.data["results"]) == 10

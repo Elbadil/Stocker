@@ -377,8 +377,10 @@ class SaleSerializer(serializers.ModelSerializer):
 
         # Add shipping address if any
         if shipping_address:
-            sale.shipping_address = get_or_create_location(user,
-                                                           shipping_address)
+            sale.shipping_address = get_or_create_location(
+                user,
+                shipping_address
+            )
 
         # Add source of acquisition if any
         if source:
