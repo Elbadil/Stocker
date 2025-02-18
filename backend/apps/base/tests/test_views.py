@@ -2,7 +2,8 @@ import pytest
 import os
 import jwt
 import shutil
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
+from dateutil import parser
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -14,7 +15,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from datetime import datetime, timezone, timedelta
-from apps.base.models import User
+from apps.base.models import User, Activity
 from apps.base.factories import ActivityFactory
 
 
@@ -2674,8 +2675,48 @@ class TestGetUserActivitiesView:
         assert "next" in res.data
         assert res.data["next"] is not None
         next_page_url = res.data["next"]
-
         assert "cursor" in next_page_url
+
+        query_params = parse_qs(urlparse(next_page_url).query)
+        assert "cursor" in query_params
+
+    def test_next_field_in_response_data(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url    
+    ):
+        ActivityFactory.create_batch(20, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+
+        assert "next" in res.data
+        next_page = res.data["next"]
+        assert next_page is not None
+
+        # Validate next is a URL
+        assert next_page.startswith("http")
+
+        # Ensure it contains query parameters for pagination
+        query_params = parse_qs(urlparse(next_page).query)
+        assert query_params
+
+        # Validate that 'cursor' is in the query params
+        assert "cursor" in query_params
+
+        # Ensure it belongs to the same endpoint
+        assert user_activities_url in next_page
+
+        # Send request to get next page
+        next_res = auth_client.get(next_page)
+
+        assert next_res.status_code == 200
+        assert "results" in next_res.data
+        assert len(next_res.data["results"]) == 10
 
     def test_get_next_page_of_activities_if_more_than_ten(
         self,
@@ -2708,6 +2749,58 @@ class TestGetUserActivitiesView:
 
         assert "results" in next_page_res.data
         assert len(next_page_res.data["results"]) == 10
+
+    def test_previous_field_in_response_data(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url    
+    ):
+        ActivityFactory.create_batch(20, user=user_instance)
+
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+
+        assert "previous" in res.data
+        assert res.data["previous"] is None
+
+        assert "next" in res.data
+        next_page = res.data["next"]
+        assert next_page is not None
+
+        # Send request to get next page
+        next_res = auth_client.get(next_page)
+
+        assert next_res.status_code == 200
+        assert "results" in next_res.data
+        assert len(next_res.data["results"]) == 10
+
+        assert "previous" in next_res.data
+        assert next_res.data["previous"] is not None
+        previous_page = next_res.data["previous"]
+
+        # Validate previous is a URL
+        assert previous_page.startswith("http")
+
+        # Ensure it contains query parameters for pagination
+        query_params = parse_qs(urlparse(previous_page).query)
+        assert query_params
+
+        # Validate that 'cursor' is in the query params
+        assert "cursor" in query_params
+
+        # Ensure it belongs to the same endpoint
+        assert user_activities_url in previous_page
+
+        # Send request to get previous page
+        previous_res = auth_client.get(next_page)
+
+        assert previous_res.status_code == 200
+        assert "results" in previous_res.data
+        assert len(previous_res.data["results"]) == 10
 
     def test_get_previous_activities_page(
         self,
@@ -2748,3 +2841,58 @@ class TestGetUserActivitiesView:
         assert prev_res.status_code == 200
         assert "results" in prev_res.data
         assert len(prev_res.data["results"]) == 10
+
+    def test_activities_sorted_desc_by_created_at(
+        self,
+        auth_client,
+        user_instance,
+        user_activities_url   
+    ):
+        # Create 20 activity entries
+        activities = ActivityFactory.create_batch(20, user=user_instance)
+
+        # Assign unique timestamps manually
+        now = datetime.now()
+        for i, activity in enumerate(activities):
+            activity.created_at = now + timedelta(seconds=i)
+
+        # Perform bulk update to save changes
+        Activity.objects.bulk_update(activities, ['created_at'])
+
+        # Get first 10 activities
+        res = auth_client.get(user_activities_url)
+
+        assert res.status_code == 200
+        assert "results" in res.data
+        assert len(res.data["results"]) == 10
+        first_page_activities = res.data["results"]
+
+        first_page_activities_sorted = sorted(
+            first_page_activities,
+            key=lambda x: parser.parse(x['created_at']), reverse=True
+        )
+
+        assert first_page_activities == first_page_activities_sorted
+
+        assert "previous" in res.data
+        assert res.data["previous"] is None
+
+        assert "next" in res.data
+        next_page = res.data["next"]
+        assert next_page is not None
+
+        # Get second 10 activities using next page url
+        next_res = auth_client.get(next_page)
+
+        assert next_res.status_code == 200
+        assert "previous" in next_res.data
+        assert next_res.data["previous"] is not None
+
+        assert "results" in next_res.data
+        assert len(next_res.data["results"]) == 10
+
+        second_page_activities = next_res.data["results"]
+        assert (
+            parser.parse(first_page_activities[-1]['created_at']) > 
+            parser.parse(second_page_activities[0]['created_at'])
+        )

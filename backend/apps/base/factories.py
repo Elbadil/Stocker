@@ -1,5 +1,6 @@
 import factory
 from faker import Faker
+from datetime import datetime
 from .models import Activity
 
 
