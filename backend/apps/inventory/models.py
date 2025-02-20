@@ -1,8 +1,8 @@
 from django.db import models
 from apps.base.models import User
 from utils.models import BaseModel
-from ..client_orders.models import ClientOrderedItem
-from ..supplier_orders.models import Supplier, SupplierOrderedItem
+from apps.client_orders.models import ClientOrderedItem
+from apps.supplier_orders.models import Supplier, SupplierOrderedItem
 
 
 class Category(BaseModel):
