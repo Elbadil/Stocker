@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 from apps.base.models import User
 from utils.models import BaseModel
 from apps.client_orders.models import ClientOrderedItem
@@ -36,14 +37,25 @@ def item_picture_path(item, filename):
 class Item(BaseModel):
     """Item Model"""
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(
+        Category,
+        related_name="items",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,
                                  related_name='items')
     name = models.CharField(max_length=300, blank=False)
-    quantity = models.IntegerField(blank=False)
-    price = models.DecimalField(max_digits=6, decimal_places=2, blank=False)
+    quantity = models.IntegerField(validators=[MinValueValidator(0)], blank=False)
+    price = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(0.0)],
+        blank=False
+    )
     picture = models.ImageField(null=True, upload_to=item_picture_path, blank=True)
-    variants = models.ManyToManyField(Variant, related_name='variants', blank=True)
+    variants = models.ManyToManyField(Variant, related_name='items', blank=True)
     in_inventory = models.BooleanField(default=False)
     updated = models.BooleanField(default=False)
 
@@ -65,7 +77,7 @@ class Item(BaseModel):
 
     def __str__(self) -> str:
         if self.created_by:
-            return f'{self.name} by - {self.created_by.username} -'
+            return f'{self.name} by -{self.created_by.username}-'
         return self.name
 
 
@@ -79,4 +91,8 @@ class VariantOption(BaseModel):
         db_table = 'inventory_variant_option'
 
     def __str__(self) -> str:
-        return f'{self.item.name} added by - {self.item.created_by.username} - is available on {self.variant.name}: {self.body}'
+        return (
+            f'{self.item.name} added by -'
+            f'{self.item.created_by.username}- is available on '
+            f'{self.variant.name}: {self.body}'
+        )

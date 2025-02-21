@@ -2852,7 +2852,7 @@ class TestGetUserActivitiesView:
         activities = ActivityFactory.create_batch(20, user=user_instance)
 
         # Assign unique timestamps manually
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         for i, activity in enumerate(activities):
             activity.created_at = now + timedelta(seconds=i)
 
