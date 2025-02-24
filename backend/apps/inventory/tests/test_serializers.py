@@ -60,6 +60,13 @@ def variant_option_data(db, item, variant):
         "body": "red"
     }
 
+@pytest.fixture
+def variant_data(db, user):
+    return {
+        "created_by": user.id,
+        "name": "Color"
+    }
+
 
 @pytest.mark.django_db
 class TestCategorySerializer:
@@ -256,3 +263,82 @@ class TestVariantOptionSerializer:
         assert variant_option_data["item"] == item.id
         assert variant_option_data["variant"] == variant.id
         assert variant_option_data["body"] == "red"
+
+
+@pytest.mark.django_db
+class TestVariantSerializer:
+    """Tests for the VariantSerializer"""
+
+    def test_variant_creation_with_valid_data(self, variant_data):
+        serializer = VariantSerializer(data=variant_data)
+        assert serializer.is_valid()
+
+        variant = serializer.save()
+        assert variant.name == "Color"
+        assert variant.created_by is not None
+        assert variant.created_by.username == "adel"
+
+    def test_variant_creation_with_inexistent_created_by_id(
+        self,
+        random_uuid,
+        variant_data
+    ):
+        variant_data["created_by"] = random_uuid
+        serializer = VariantSerializer(data=variant_data)
+
+        assert not serializer.is_valid()
+        assert "created_by" in serializer.errors
+        assert (
+            serializer.errors["created_by"] ==
+            [f'Invalid pk "{random_uuid}" - object does not exist.']
+        )
+
+    def test_variant_creation_without_name(self, variant_data):
+        variant_data.pop('name')
+        serializer = VariantSerializer(data=variant_data)
+
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        assert serializer.errors["name"] == ["This field is required."]
+
+    def test_variant_creation_created_by_field_is_optional(
+        self,
+        variant_data
+    ):
+        variant_data.pop('created_by')
+        serializer = VariantSerializer(data=variant_data)
+        assert serializer.is_valid()
+
+        variant = serializer.save()
+        assert variant.created_by is None
+        assert variant.name == "Color"
+    
+    def test_variant_serializer_data_fields(self, variant):
+        serializer = VariantSerializer(variant)
+
+        assert "id" in serializer.data
+        assert "created_by" in serializer.data
+        assert "name" in serializer.data
+        assert "created_at" in serializer.data
+        assert "updated_at" in serializer.data
+
+    def test_variant_serializer_data_fields_types(self, variant):
+        serializer = VariantSerializer(variant)
+        variant_data = serializer.data
+
+        assert type(variant_data["id"]) == str
+        assert type(variant_data["created_by"]) == str
+        assert type(variant_data["name"]) == str
+        assert type(variant_data["created_at"]) == str
+        assert type(variant_data["updated_at"]) == str
+
+    def test_variant_serializer_data(
+        self,
+        user,
+        variant,
+    ):
+        serializer = VariantSerializer(variant)
+        variant_data = serializer.data
+
+        assert variant_data["created_by"] == user.id
+        assert variant_data["name"] == "Color"

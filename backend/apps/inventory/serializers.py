@@ -25,34 +25,9 @@ class VariantOptionSerializer(serializers.ModelSerializer):
 
 class VariantSerializer(serializers.ModelSerializer):
     """Variant Serializer"""
-    created_by_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        source='created_by',
-        required=False
-    )
-    name = serializers.CharField()
-    options = serializers.ListField(child=serializers.CharField(), required=False)
-
     class Meta:
         model = Variant
         fields = "__all__"
-
-    def create(self, validated_data):
-        variant_options = validated_data.pop('options', [])
-        variant, created = Variant.objects.get_or_create(
-            name__iexact=validated_data['name'],
-            **validated_data
-        )
-        item = self.context.get('item')
-        unique_options = set([option.lower() for option in variant_options])
-        for option in variant_options:
-            if option.lower() in unique_options:
-                unique_options.remove(option.lower())
-                VariantOption.objects.create(
-                    item=item,
-                    variant=variant,
-                    body=option)
-        return variant
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -113,7 +88,7 @@ class ItemSerializer(serializers.ModelSerializer):
     ) -> None:
         for variant_data in variants:
             variant_name = variant_data.get('name')
-            options = variant_data.get('options', [])
+            variant_options = variant_data.get('options', [])
 
             # Getting or creating variant
             variant, created = Variant.objects.get_or_create(
@@ -126,12 +101,16 @@ class ItemSerializer(serializers.ModelSerializer):
             item.variants.add(variant)
 
             # Creating variant options
-            for option in options:
-                VariantOption.objects.create(
-                    item=item,
-                    variant=variant,
-                    body=option
-                )
+            unique_options = set()
+            for option in variant_options:
+                lower_option = option.lower()
+                if lower_option not in unique_options:
+                    VariantOption.objects.create(
+                        item=item,
+                        variant=variant,
+                        body=option
+                    )
+                    unique_options.add(lower_option)
 
     def validate_name(self, value):
         user = self.context.get('request').user
@@ -180,9 +159,9 @@ class ItemSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError("Each variant must have a 'name'.")
                     if 'options' not in variant or not isinstance(variant['options'], list):
                         raise serializers.ValidationError("Each variant must have an 'options' list.")
-                    if variant['name'] in unique_variants:
+                    if variant['name'].lower() in unique_variants:
                         raise serializers.ValidationError("Each variant name should be unique.")
-                    unique_variants.append(variant['name'])
+                    unique_variants.append(variant['name'].lower())
 
                 return variants
             except json.JSONDecodeError:
