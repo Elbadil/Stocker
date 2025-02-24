@@ -1,11 +1,13 @@
 import pytest
 from apps.base.models import User, Activity
-from apps.base.serializers import (UserSerializer,
-                                   UserRegisterSerializer,
-                                   UserLoginSerializer,
-                                   ChangePasswordSerializer,
-                                   ResetPasswordSerializer,
-                                   ActivitySerializer)
+from apps.base.serializers import (
+    UserSerializer,
+    UserRegisterSerializer,
+    UserLoginSerializer,
+    ChangePasswordSerializer,
+    ResetPasswordSerializer,
+    ActivitySerializer
+)
 
 
 @pytest.fixture
