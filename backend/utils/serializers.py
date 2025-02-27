@@ -65,6 +65,11 @@ def get_location(instance_attribute: Location) -> Union[dict, None]:
         }
     return None
 
+def get_user(context: dict):
+    """Returns the user from the context"""
+    request = context.get('request', None)
+    return request.user if request else context.get('user')
+
 def update_item_quantity(
     item: Item,
     old_ordered_quantity: int,

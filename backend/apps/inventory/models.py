@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from decimal import Decimal
 from apps.base.models import User
 from utils.models import BaseModel
 from apps.client_orders.models import ClientOrderedItem
@@ -51,7 +52,7 @@ class Item(BaseModel):
     price = models.DecimalField(
         max_digits=6,
         decimal_places=2,
-        validators=[MinValueValidator(0.0)],
+        validators=[MinValueValidator(Decimal('0.0'))],
         blank=False
     )
     picture = models.ImageField(null=True, upload_to=item_picture_path, blank=True)
@@ -83,8 +84,18 @@ class Item(BaseModel):
 
 class VariantOption(BaseModel):
     """Item's Variant Description"""
-    item = models.ForeignKey(Item, on_delete=models.CASCADE, null=True)
-    variant = models.ForeignKey(Variant, on_delete=models.CASCADE, null=True)
+    item = models.ForeignKey(
+        Item,
+        related_name="variant_options",
+        on_delete=models.CASCADE,
+        null=True
+    )
+    variant = models.ForeignKey(
+        Variant,
+        related_name="options",
+        on_delete=models.CASCADE,
+        null=True
+    )
     body = models.CharField(max_length=300)
 
     class Meta:

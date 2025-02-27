@@ -1582,6 +1582,13 @@ class TestGetUpdateUserView:
 
         assert res.status_code == 400
         assert "avatar" in res.data
+        assert res.data["avatar"] == [
+            (
+                "Upload a valid image. "
+                "The file you uploaded was either "
+                "not an image or a corrupted image."
+            )
+        ]
         assert res.data["avatar"][0].code == 'invalid_image'
 
     def test_user_update_with_oversized_avatar(

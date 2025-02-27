@@ -2,7 +2,12 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import ValidationError
 import json
-from utils.serializers import handle_null_fields, update_field, date_repr_format
+from utils.serializers import (
+    get_user,
+    handle_null_fields,
+    update_field,
+    date_repr_format
+)
 from utils.activity import register_activity
 from ..base.models import User
 from .models import Item, Category, Variant, VariantOption
@@ -34,7 +39,6 @@ class ItemSerializer(serializers.ModelSerializer):
     """Item Serializer"""
     category = serializers.CharField(allow_blank=True, required=False)
     supplier = serializers.CharField(allow_blank=True, required=False)
-    price = serializers.FloatField()
     variants = serializers.CharField(write_only=True, required=False)
     in_inventory = serializers.CharField(allow_blank=True, required=False)
 
@@ -113,7 +117,7 @@ class ItemSerializer(serializers.ModelSerializer):
                     unique_options.add(lower_option)
 
     def validate_name(self, value):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         if Item.objects.filter(
             created_by=user,
             name__iexact=value).exclude(pk=self.instance.id
@@ -126,7 +130,7 @@ class ItemSerializer(serializers.ModelSerializer):
         if value:
             if value == 'null':
                 return value
-            user = self.context.get('request').user
+            user = get_user(self.context)
             supplier = Supplier.objects.filter(created_by=user,
                                                name__iexact=value).first()
             if not supplier:
@@ -168,12 +172,20 @@ class ItemSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Invalid JSON format for variants.")
         return None
 
+    def validate_picture(self, value):
+        max_size = 2 * 1024 * 1024
+        if value and value.size > max_size:
+            raise serializers.ValidationError(
+                "Picture size must be less than 2MB."
+            )
+        return value
+
     def validate(self, attrs):
         return handle_null_fields(attrs)
 
     @transaction.atomic
     def create(self, validated_data):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         variants = validated_data.pop('variants', None)
         category_name = validated_data.pop('category', None)
         supplier = validated_data.pop('supplier', None)
@@ -212,15 +224,17 @@ class ItemSerializer(serializers.ModelSerializer):
 
         # Updating Item's main fields
         item = super().update(instance, validated_data)
-        user = self.context.get('request').user
+        user = get_user(self.context)
 
         # Updating Item's category
-        update_field(self,
-                     item,
-                     'category',
-                      category_name,
-                      self._get_or_create_category,
-                      user)
+        update_field(
+            self,
+            item,
+            'category',
+            category_name,
+            self._get_or_create_category,
+            user
+        )
 
         # Updating Item's supplier
         update_field(self, item, 'supplier', supplier)
@@ -239,11 +253,14 @@ class ItemSerializer(serializers.ModelSerializer):
         return item
 
     def to_representation(self, instance: Item):
-        representation = super().to_representation(instance)
-        representation['created_by'] = instance.created_by.username
-        representation['category'] = instance.category.name if instance.category else None
-        representation['supplier'] = instance.supplier.name if instance.supplier else None
-        representation['variants'] = self.get_variants(instance)
-        representation['created_at'] = date_repr_format(instance.created_at)
-        representation['updated_at'] = date_repr_format(instance.updated_at)
-        return representation
+        item_repr = super().to_representation(instance)
+        item_repr['created_by'] = instance.created_by.username
+        item_repr['category'] = instance.category.name if instance.category else None
+        item_repr['price'] = float(instance.price)
+        item_repr['total_price'] = float(instance.total_price) 
+        item_repr['supplier'] = instance.supplier.name if instance.supplier else None
+        item_repr['variants'] = self.get_variants(instance)
+        item_repr['in_inventory'] = instance.in_inventory
+        item_repr['created_at'] = date_repr_format(instance.created_at)
+        item_repr['updated_at'] = date_repr_format(instance.updated_at)
+        return item_repr
