@@ -11,6 +11,7 @@ from apps.inventory.serializers import (
     VariantOptionSerializer,
     ItemSerializer
 )
+from apps.base.models import Activity
 from apps.base.factories import UserFactory
 from apps.supplier_orders.factories import SupplierFactory
 from apps.inventory.factories import (
@@ -19,7 +20,7 @@ from apps.inventory.factories import (
     VariantFactory,
     VariantOptionFactory
 )
-from apps.inventory.models import Category, Variant, Item, VariantOption
+from apps.inventory.models import Category
 import json
 
 
@@ -1091,6 +1092,21 @@ class TestItemSerializer:
 
         assert serializer_data["in_inventory"] == True
         assert serializer_data["updated"] == False
+    
+    def test_item_creation_registers_a_new_activity(self, user, item_data):
+        serializer = ItemSerializer(data=item_data, context={'user': user})
+        assert serializer.is_valid()
+
+        item = serializer.save()
+        item_creation_activity = (
+            Activity.objects.filter(
+                action="created",
+                model_name="item",
+                object_ref__contains=[item.name]
+            ).first()
+        )
+
+        assert item_creation_activity is not None
 
     def test_item_serializer_update(self, user, item_data):
         item = ItemFactory.create(
@@ -1153,3 +1169,20 @@ class TestItemSerializer:
         item_update = serializer.save()
         assert item_update.updated
         assert item.supplier is None
+    
+    def test_item_update_registers_a_new_activity(self, user, item_data):
+        item = ItemFactory.create(created_by=user)
+        serializer = ItemSerializer(item, data=item_data, context={'user': user})
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+
+        item_creation_activity = (
+            Activity.objects.filter(
+                action="updated",
+                model_name="item",
+                object_ref__contains=[item_update.name]
+            ).first()
+        )
+
+        assert item_creation_activity is not None
