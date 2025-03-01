@@ -41,13 +41,6 @@ class GetUpdateDeleteItems(CreatedByUserMixin,
     parser_classes = (FormParser, MultiPartParser)
     lookup_field = 'id'
 
-    def put(self, request, *args, **kwargs):
-        item = self.get_object()
-        if 'empty_picture' in request.data:
-            item.picture = None
-            item.save()
-        return super().put(request, *args, **kwargs)
-
     def delete(self, request, *args, **kwargs):
         item = self.get_object()
         if item.total_client_orders > 0 or item.total_supplier_orders > 0 :

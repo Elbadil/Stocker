@@ -1091,3 +1091,65 @@ class TestItemSerializer:
 
         assert serializer_data["in_inventory"] == True
         assert serializer_data["updated"] == False
+
+    def test_item_serializer_update(self, user, item_data):
+        item = ItemFactory.create(
+            created_by=user,
+            name="Pack",
+            quantity=4,
+            price=299.50
+        )
+
+        item_initial_data = {
+            "name": item.name,
+            "quantity": item.quantity,
+            "price": item.price
+        }
+
+        serializer = ItemSerializer(item, data=item_data, context={'user': user})
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+        assert item_update.updated
+
+        assert item_update.name == "Projector"
+        assert item_update.name != item_initial_data["name"]
+
+        assert item_update.quantity == 2
+        assert item_update.quantity != item_initial_data["quantity"]
+
+        assert item_update.price == Decimal('199.99')
+        assert item_update.price != item_initial_data["price"]
+    
+    def test_item_serializer_partial_update(self, user):
+        item = ItemFactory.create(created_by=user, name="Pack")
+        item_initial_name = item.name
+        serializer = ItemSerializer(
+            item,
+            data={"name": "Projector"},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+        assert item_update.updated
+
+        assert item_update.name == "Projector"
+        assert item_update.name != item_initial_name
+
+    def test_item_update_removes_optional_field_if_set_to_none(self, user, supplier):
+        item = ItemFactory.create(created_by=user, supplier=supplier)
+        assert item.supplier is not None
+
+        serializer = ItemSerializer(
+            item,
+            data={"supplier": None},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+        assert item_update.updated
+        assert item.supplier is None

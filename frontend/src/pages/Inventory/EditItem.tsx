@@ -208,7 +208,7 @@ const EditItem = ({
       formData.append('picture', data.picture[0]);
     }
     if (!data.picture && !itemPicture) {
-      formData.append('empty_picture', '');
+      formData.append('picture', '');
     }
     try {
       const res = await api.put(`/inventory/items/${item.id}/`, formData, {

@@ -37,9 +37,9 @@ class VariantSerializer(serializers.ModelSerializer):
 
 class ItemSerializer(serializers.ModelSerializer):
     """Item Serializer"""
-    category = serializers.CharField(allow_blank=True, required=False)
-    supplier = serializers.CharField(allow_blank=True, required=False)
-    variants = serializers.CharField(write_only=True, required=False)
+    category = serializers.CharField(allow_blank=True, required=False, allow_null=True)
+    supplier = serializers.CharField(allow_blank=True, required=False, allow_null=True)
+    variants = serializers.CharField(write_only=True, required=False, allow_null=True)
     in_inventory = serializers.CharField(allow_blank=True, required=False)
 
     class Meta:
