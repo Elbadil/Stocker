@@ -1,5 +1,6 @@
 import factory
 from faker import Faker
+from django.contrib.auth.hashers import make_password
 from .models import User, Activity
 
 
@@ -20,8 +21,8 @@ class UserFactory(factory.django.DjangoModelFactory):
     # and it requires a function to be executed
     email = factory.LazyAttribute(lambda obj: f"{obj.username}@example.com")
     # Search for user's set_password and execute it with the passed arg "pw"
-    password = factory.PostGenerationMethodCall("set_password", "pw")
-    bio = factory.Faker("sentence", nb_words=10) 
+    password = factory.LazyFunction(lambda: make_password("pw"))
+    bio = factory.Faker("sentence", nb_words=10)
 
 
 class ActivityFactory(factory.django.DjangoModelFactory):
