@@ -977,7 +977,7 @@ class TestItemSerializer:
 
         assert serializer_data["variants"] == variants
 
-    def test_item_serializer_data_for_timestamps_fields(self, user, item_data):
+    def test_item_serializer_data_for_date_fields(self, user, item_data):
         create_serializer = ItemSerializer(data=item_data, context={'user': user})
         assert create_serializer.is_valid()
 
