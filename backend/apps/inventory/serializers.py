@@ -68,8 +68,10 @@ class ItemSerializer(serializers.ModelSerializer):
         for variant in item.variants.all():
             variant_options = VariantOption.objects.filter(variant=variant, item=item)
             variants.append(
-                {'name': variant.name,
-                'options': [option.body for option in variant_options]}
+                {
+                    'name': variant.name,
+                    'options': [option.body for option in variant_options]
+                }
             )
         return variants if len(variants) > 0 else None
 

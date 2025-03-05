@@ -1016,15 +1016,18 @@ class TestItemSerializer:
 
         assert item_creation_activity is not None
 
-    def test_item_serializer_update(self, user, item_data):
+    def test_item_serializer_update(self, user, category, item_data):
         item = ItemFactory.create(
             created_by=user,
+            category=category,
             name="Pack",
             quantity=4,
-            price=299.50
+            price=299.50,
         )
 
         item_initial_data = {
+            "created_by": item.created_by,
+            "category": item.category,
             "name": item.name,
             "quantity": item.quantity,
             "price": item.price
@@ -1036,18 +1039,25 @@ class TestItemSerializer:
         item_update = serializer.save()
         assert item_update.updated
 
+        # Verify that specified fields data has changed
         assert item_update.name == "Projector"
         assert item_update.name != item_initial_data["name"]
-
         assert item_update.quantity == 2
         assert item_update.quantity != item_initial_data["quantity"]
-
         assert item_update.price == Decimal('199.99')
         assert item_update.price != item_initial_data["price"]
-    
+
+        # Verify that other item fields remained unchanged
+        assert item_update.created_by == item_initial_data["created_by"]
+        assert item_update.category == item_initial_data["category"]
+
     def test_item_serializer_partial_update(self, user):
         item = ItemFactory.create(created_by=user, name="Pack")
-        item_initial_name = item.name
+        item_initial_data = {
+            "name": item.name,
+            "quantity": item.quantity,
+            "price": item.price
+        }
         serializer = ItemSerializer(
             item,
             data={"name": "Projector"},
@@ -1060,7 +1070,13 @@ class TestItemSerializer:
         assert item_update.updated
 
         assert item_update.name == "Projector"
-        assert item_update.name != item_initial_name
+
+        # Verify that item's name has changed
+        assert item_update.name != item_initial_data["name"]
+
+        # Verify that other item fields remained unchanged
+        assert item_update.quantity == item_initial_data["quantity"]
+        assert item_update.price == item_initial_data["price"]
 
     def test_item_update_removes_optional_field_if_set_to_none(self, user, supplier):
         item = ItemFactory.create(created_by=user, supplier=supplier)

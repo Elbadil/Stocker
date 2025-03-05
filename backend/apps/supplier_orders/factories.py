@@ -9,7 +9,7 @@ class SupplierFactory(factory.django.DjangoModelFactory):
         model = Supplier
 
     created_by = factory.SubFactory(UserFactory)
-    name = factory.Faker("name")
+    name = factory.Sequence(lambda n: f"supplier_{n}")
     phone_number = factory.Faker("phone_number")
     email = factory.LazyAttribute(
         lambda obj: f"{obj.name.replace(' ', '.').lower()}@example.com"

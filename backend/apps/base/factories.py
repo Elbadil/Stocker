@@ -14,7 +14,7 @@ class UserFactory(factory.django.DjangoModelFactory):
         skip_postgeneration_save = True
 
     # Increments every time we call the Factory
-    username = factory.Faker("user_name")
+    username = factory.Sequence(lambda n: f"user_{n}")
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
     # LazyAttribute has access to the obj and its attributes

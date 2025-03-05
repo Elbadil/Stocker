@@ -1,6 +1,7 @@
 import pytest
 import json
-from dateutil import parser
+from django.db.models import CharField
+from django.db.models.functions import Cast
 from datetime import datetime, timezone, timedelta
 from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
@@ -19,6 +20,12 @@ from apps.inventory.factories import (
 @pytest.fixture
 def create_list_item_url():
     return reverse('create_list_items')
+
+def item_url(item):
+    """
+    Generates the URL for retrieving, updating, or deleting an item.
+    """
+    return reverse('get_update_delete_items', kwargs={'id': item.id})
 
 
 @pytest.mark.django_db
@@ -345,16 +352,16 @@ class TestCreateListItemsView:
         create_list_item_url,
         item_data,
     ):
-        variants = [
-            {
-                "name": "Color",
-                "options": ["red", "blue"]
-            },
-            {
-                "name": "Size",
-                "options": ["160kg", "90kg"]
-            },
-        ]
+        color_variant = {
+            "name": "Color",
+            "options": ["red", "blue"]
+        }
+        size_variant = {
+            "name": "Size",
+            "options": ["160kg", "90kg"]
+        }
+
+        variants = [color_variant, size_variant]
         item_data["variants"] = json.dumps(variants)
 
         res = auth_client.post(
@@ -364,7 +371,12 @@ class TestCreateListItemsView:
         )
         assert res.status_code == 201
         assert "variants" in res.data
-        assert res.data["variants"] == variants
+        assert isinstance(res.data["variants"], list)
+        res_variants = res.data["variants"]
+        assert len(res_variants) == 2
+
+        assert color_variant in res_variants
+        assert size_variant in res_variants
 
     def test_item_response_data_for_date_fields(
         self,
@@ -463,6 +475,26 @@ class TestCreateListItemsView:
         assert "updated" in item_1
         assert "created_at" in item_1
         assert "updated_at" in item_1
+    
+    def test_list_items_to_authenticated_user(
+        self, 
+        api_client,
+        access_token,
+        user,
+        create_list_item_url
+    ):
+        ItemFactory.create_batch(10, created_by=user)
+
+        token_payload = AccessToken(access_token)
+        token_payload["user_id"] == user.id
+
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        res = api_client.get(create_list_item_url)
+        assert res.status_code == 200
+        assert len(res.data) == 10
+
+        assert all(item["created_by"] == user.username for item in res.data)
 
     def test_items_sorted_desc_by_created_at(
         self,
@@ -476,23 +508,23 @@ class TestCreateListItemsView:
         # Assign unique dates manually
         now = datetime.now(timezone.utc)
         for i, item in enumerate(items):
-            item.created_at = now + timedelta(days=i)
+            item.created_at = now + timedelta(seconds=i)
 
         # Perform bulk update to save changes
         Item.objects.bulk_update(items, ['created_at'])
+        sorted_items_ids = (
+            Item.objects.order_by('-created_at')
+            .annotate(id_str=Cast('id', CharField()))
+            .values_list('id_str', flat=True)
+        )
 
         res = auth_client.get(create_list_item_url)
 
         assert res.status_code == 200
         assert len(res.data) == 10
-        res_items = res.data
+        response_items_ids = [item['id'] for item in res.data]
 
-        sorted_items = sorted(
-            res_items,
-            key=lambda x: parser.parse(x['created_at']), reverse=True
-        )
-
-        assert res_items == sorted_items
+        assert response_items_ids == list(sorted_items_ids)
 
     def test_list_items_with_in_inventory_query_set_to_true(
         self,
@@ -562,3 +594,219 @@ class TestCreateListItemsView:
         res = auth_client.get(create_list_item_url)
         assert res.status_code == 200
         assert len(res.data) == 10
+
+
+@pytest.mark.django_db
+class TestGetUpdateDeleteItemsView:
+    """Tests for the GetUpdateDeleteItems View"""
+
+    def test_get_update_delete_item_view_requires_authentication(
+        self,
+        api_client,
+        item
+    ):
+        url = item_url(item)
+
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_update_delete_item_view_allowed_http_methods(
+        self,
+        auth_client,
+        item,
+        item_data
+    ):
+        url = item_url(item)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+        
+        post_res = auth_client.post(
+            url,
+            data=item_data,
+            format='multipart'
+        )
+        assert post_res.status_code == 405
+        assert post_res.data["detail"] == 'Method \"POST\" not allowed.'
+
+        put_res = auth_client.put(
+            url,
+            data=item_data,
+            format='multipart'
+        )
+        assert put_res.status_code == 200
+    
+        patch_res = auth_client.patch(
+            url,
+            data=item_data,
+            format='multipart'
+        )
+        assert patch_res.status_code == 200
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 204
+
+    def test_get_item_with_valid_item(self, auth_client, user, item_data):
+        item = ItemFactory.create(created_by=user, **item_data)
+        url = item_url(item)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "id" in res.data
+        assert "created_by" in res.data
+        assert "supplier" in res.data
+        assert "category" in res.data
+        assert "name" in res.data
+        assert "quantity" in res.data
+        assert "price" in res.data
+        assert "total_price" in res.data
+        assert "picture" in res.data
+        assert "variants" in res.data
+        assert "total_client_orders" in res.data
+        assert 'total_supplier_orders' in res.data
+        assert "in_inventory" in res.data
+        assert "updated" in res.data
+        assert "created_at" in res.data
+        assert "updated_at" in res.data
+    
+    def test_get_item_with_inexistent_item_id(self, auth_client, random_uuid):
+        url = reverse('get_update_delete_items', kwargs={'id': random_uuid})
+
+        res = auth_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == "No Item matches the given query."
+
+    def test_get_item_not_linked_to_authenticated_user(self, auth_client, item_data):
+        item = ItemFactory.create(**item_data)
+        url = item_url(item)
+
+        res = auth_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == "No Item matches the given query."
+
+    def test_update_item_with_valid_data(self, auth_client, user, category, item_data):
+        item_data["created_by"] = user
+        item_data["category"] = category
+        item = ItemFactory.create(**item_data)
+        
+        new_item_data = {
+            "name": "Pack",
+            "quantity": 4,
+            "price": 299.50
+        }
+
+        url = item_url(item)
+
+        res = auth_client.put(
+            url,
+            data=new_item_data,
+            format='multipart'
+        )
+        assert res.status_code == 200
+
+        item_update = res.data
+
+        # Verify that specified fields in request data have changed
+        assert (
+            item_update["name"] == new_item_data["name"]
+            and item_update["name"] != item.name
+        )
+        assert (
+            item_update["quantity"] == new_item_data["quantity"]
+            and item_update["quantity"] != item.quantity
+        )
+        assert (
+            item_update["price"] == new_item_data["price"]
+            and item_update["price"] != item.price
+        )
+        # Verify that other item fields remained unchanged
+        assert item_update["created_by"] == item.created_by.username
+        assert item_update["category"] == item.category.name
+
+    def test_partial_update_item(self, auth_client, user, item_data):
+        item = ItemFactory.create(created_by=user, **item_data)
+
+        url = item_url(item)
+
+        res = auth_client.patch(
+            url,
+            data={"name": "Pack"},
+            format='multipart'
+        )
+        assert res.status_code == 200
+
+        item_update = res.data
+
+        # Verify that item's name has changed
+        assert (
+            item_update["name"] == "Pack"
+            and item_update["name"] != item.name
+        )
+        # Verify that other item fields remained unchanged
+        assert item_update["quantity"] == item.quantity
+        assert item_update["price"] == item.price
+
+    def test_item_update_removes_optional_field_if_set_to_null(
+        self,
+        auth_client,
+        user,
+        supplier
+    ):
+        item = ItemFactory.create(created_by=user, supplier=supplier)
+        assert item.supplier is not None
+
+        url = item_url(item)
+
+        res = auth_client.patch(
+            url,
+            data={"supplier": "null"},
+            format='multipart'
+        )
+        assert res.status_code == 200
+
+        item_update = res.data
+        assert item_update["supplier"] == None
+
+    def test_update_item_with_inexistent_item_id(
+        self,
+        auth_client,
+        random_uuid,
+        item_data,
+    ):
+        url = reverse('get_update_delete_items', kwargs={'id': random_uuid})
+
+        res = auth_client.put(
+            url,
+            data=item_data,
+            format='multipart'
+        )
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == "No Item matches the given query."
+
+    def test_update_item_not_linked_to_authenticated_user(
+        self,
+        auth_client,
+        item_data,
+    ):
+        item = ItemFactory.create(**item_data)
+        url = item_url(item)
+
+        new_item_data = {
+            "name": "Pack",
+            "quantity": 4,
+            "price": 299.50
+        }
+
+        res = auth_client.put(
+            url,
+            data=new_item_data,
+            format='multipart'
+        )
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == "No Item matches the given query."
