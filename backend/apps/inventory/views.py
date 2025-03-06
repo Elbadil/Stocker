@@ -91,8 +91,10 @@ class BulkDeleteItems(CreatedByUserMixin,
         if missing_ids:
             return Response(
                 {
-                    'error': 'Some or all items could not be found.',
-                    'missing_ids': list(missing_ids)
+                    'error': {
+                        'message': 'Some or all items could not be found.',
+                        'missing_ids': list(missing_ids)
+                    }
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )

@@ -45,8 +45,13 @@ class Item(BaseModel):
         null=True,
         blank=True
     )
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,
-                                 related_name='items')
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='items'
+    )
     name = models.CharField(max_length=300, blank=False)
     quantity = models.IntegerField(validators=[MinValueValidator(0)], blank=False)
     price = models.DecimalField(

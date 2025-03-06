@@ -1,14 +1,14 @@
 import pytest
 import json
+import uuid
 from django.db.models import CharField
 from django.db.models.functions import Cast
 from datetime import datetime, timezone, timedelta
 from django.urls import reverse
 from rest_framework_simplejwt.tokens import AccessToken
-from apps.base.models import User
-from apps.inventory.models import Item
-from apps.base.factories import UserFactory
-from apps.supplier_orders.factories import SupplierFactory
+from apps.base.models import User, Activity
+from apps.inventory.models import Item, VariantOption
+from apps.inventory.serializers import ItemSerializer
 from apps.inventory.factories import (
     CategoryFactory,
     VariantFactory,
@@ -20,6 +20,10 @@ from apps.inventory.factories import (
 @pytest.fixture
 def create_list_item_url():
     return reverse('create_list_items')
+
+@pytest.fixture
+def bulk_delete_items_url():
+    return reverse('bulk_delete_items')
 
 def item_url(item):
     """
@@ -542,9 +546,6 @@ class TestCreateListItemsView:
             in_inventory=False
         )
 
-        items = Item.objects.all()
-        assert len(items) == 10
-
         res = auth_client.get(f'{create_list_item_url}?in_inventory=true')
         assert res.status_code == 200
         assert len(res.data) == 9
@@ -565,9 +566,6 @@ class TestCreateListItemsView:
             in_inventory=False
         )
 
-        items = Item.objects.all()
-        assert len(items) == 10
-
         res = auth_client.get(f'{create_list_item_url}?in_inventory=false')
         assert res.status_code == 200
         assert len(res.data) == 10
@@ -587,9 +585,6 @@ class TestCreateListItemsView:
             created_by=user,
             in_inventory=False
         )
-
-        items = Item.objects.all()
-        assert len(items) == 10
 
         res = auth_client.get(create_list_item_url)
         assert res.status_code == 200
@@ -679,8 +674,17 @@ class TestGetUpdateDeleteItemsView:
         assert "detail" in res.data
         assert res.data["detail"] == "No Item matches the given query."
 
-    def test_get_item_not_linked_to_authenticated_user(self, auth_client, item_data):
+    def test_get_item_not_linked_to_authenticated_user(
+        self,
+        auth_client,
+        access_token,
+        item_data
+    ):
         item = ItemFactory.create(**item_data)
+
+        token_payload = AccessToken(access_token)
+        assert item.created_by.id != token_payload["user_id"]
+
         url = item_url(item)
 
         res = auth_client.get(url)
@@ -791,9 +795,14 @@ class TestGetUpdateDeleteItemsView:
     def test_update_item_not_linked_to_authenticated_user(
         self,
         auth_client,
+        access_token,
         item_data,
     ):
         item = ItemFactory.create(**item_data)
+
+        token_payload = AccessToken(access_token)
+        assert item.created_by.id != token_payload["user_id"]
+
         url = item_url(item)
 
         new_item_data = {
@@ -810,3 +819,250 @@ class TestGetUpdateDeleteItemsView:
         assert res.status_code == 404
         assert "detail" in res.data
         assert res.data["detail"] == "No Item matches the given query."
+    
+    def test_delete_item_with_valid_item_id(self, auth_client, user):
+        item = ItemFactory.create(created_by=user)
+        assert Item.objects.filter(id=item.id).exists()
+
+        url = item_url(item)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+        assert not Item.objects.filter(id=item.id).exists()
+
+    def test_delete_item_with_inexistent_id(self, auth_client, random_uuid):
+        url = reverse('get_update_delete_items', kwargs={'id': random_uuid})
+
+        res = auth_client.delete(url)
+        assert res.status_code == 404
+        assert res.data["detail"] == "No Item matches the given query."
+
+    def test_delete_item_not_linked_to_authenticated_user(
+        self,
+        auth_client,
+        access_token
+    ):
+        item = ItemFactory.create()
+
+        token_payload = AccessToken(access_token)
+        assert item.created_by.id != token_payload["user_id"]
+
+        url = item_url(item)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 404
+        assert res.data["detail"] == "No Item matches the given query."
+    
+    def test_item_deletion_deletes_linked_variant_option_instances(
+        self,
+        auth_client,
+        item_data,
+        user
+    ):
+        variants = [
+            {
+                "name": "Color",
+                "options": ["red", "blue"]
+            },
+            {
+                "name": "Size",
+                "options": ["160kg", "90kg"]
+            },
+        ]
+        item_data["variants"] = json.dumps(variants)
+        serializer = ItemSerializer(data=item_data, context={'user': user})
+        assert serializer.is_valid()
+
+        item = serializer.save()
+        assert VariantOption.objects.filter(item=item).exists()
+
+        url = item_url(item)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+        assert not Item.objects.filter(id=item.id).exists()
+        assert not VariantOption.objects.filter(item=item).exists()
+
+    def test_delete_item_registers_a_new_activity(self, auth_client, user, item_data):
+        item = ItemFactory.create(created_by=user, **item_data)
+        assert Item.objects.filter(id=item.id).exists()
+
+        url = item_url(item)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+        assert not Item.objects.filter(id=item.id).exists()
+
+        assert (
+            Activity.objects.filter(
+                action="deleted",
+                model_name="item",
+                object_ref__contains=[item_data["name"]]
+            ).exists()
+        )
+
+
+@pytest.mark.django_db
+class TestBulkDeleteItemsView:
+    """Tests for the BulkDeleteItems View"""
+
+    def test_bulk_delete_items_requires_authentication(
+        self,
+        api_client,
+        bulk_delete_items_url
+    ):
+        res = api_client.delete(bulk_delete_items_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_items_allowed_http_methods(
+        self,
+        auth_client,
+        user,
+        bulk_delete_items_url
+    ):
+        items = ItemFactory.create_batch(3, created_by=user)
+        item_ids = [item.id for item in items]
+
+        get_res = auth_client.get(bulk_delete_items_url, data={"ids": item_ids})
+        assert get_res.status_code == 405
+        assert get_res.data["detail"] == 'Method \"GET\" not allowed.'
+        
+        post_res = auth_client.post(bulk_delete_items_url, data={"ids": item_ids})
+        assert post_res.status_code == 405
+        assert post_res.data["detail"] == 'Method \"POST\" not allowed.'
+    
+        put_res = auth_client.put(bulk_delete_items_url)
+        assert put_res.status_code == 405
+        assert put_res.data["detail"] == 'Method \"PUT\" not allowed.'
+
+        delete_res = auth_client.delete(
+            bulk_delete_items_url,
+            data={"ids": item_ids},
+            format='json'
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_items_with_valid_item_ids(
+        self,
+        auth_client,
+        bulk_delete_items_url,
+        user
+    ):
+        items = ItemFactory.create_batch(3, created_by=user)
+        item_ids = [item.id for item in items]
+
+        res = auth_client.delete(
+            bulk_delete_items_url,
+            data={"ids": item_ids},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert not Item.objects.filter(id__in=item_ids).exists()
+
+        assert "message" in res.data
+        assert res.data["message"] == "3 items successfully deleted."
+
+    def test_bulk_delete_items_without_ids_in_request_data(
+        self,
+        auth_client,
+        bulk_delete_items_url
+    ):
+        res = auth_client.delete(bulk_delete_items_url)
+
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+    
+    def test_bulk_delete_items_fails_with_invalid_uuids(
+        self,
+        auth_client,
+        bulk_delete_items_url,
+        user
+    ):
+        item = ItemFactory.create(created_by=user)
+        invalid_uuid_1 = "invalid-uuid-1"
+        invalid_uuid_2 = "invalid-uuid-2"
+        ids = [item.id, invalid_uuid_1, invalid_uuid_2]
+
+        res = auth_client.delete(
+            bulk_delete_items_url,
+            data={"ids": ids},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert (
+            res_error["message"] ==
+            "Some or all provided IDs are not valid UUIDs."
+        )
+
+        assert "invalid_ids" in res_error
+        invalid_ids = res_error["invalid_ids"]
+        assert len(invalid_ids) == 2
+        assert invalid_uuid_1 in invalid_ids
+        assert invalid_uuid_2 in invalid_ids
+    
+    def test_bulk_delete_items_fails_with_inexistent_item_ids(
+        self,
+        auth_client,
+        bulk_delete_items_url,
+        user
+    ):
+        item = ItemFactory.create(created_by=user)
+        random_id_1 = str(uuid.uuid4())
+        random_id_2 = str(uuid.uuid4())
+        ids = [item.id, random_id_1, random_id_2]
+
+        res = auth_client.delete(
+            bulk_delete_items_url,
+            data={"ids": ids},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert (
+            res_error["message"] ==
+            "Some or all items could not be found."
+        )
+
+        assert "missing_ids" in res_error
+        missing_ids = res_error["missing_ids"]
+        assert len(missing_ids) == 2
+        assert random_id_1 in missing_ids
+        assert random_id_2 in missing_ids
+
+    def test_bulk_delete_fails_with_unauthorized_items(
+        self,
+        auth_client,
+        user,
+        bulk_delete_items_url
+    ):
+        user_items = ItemFactory.create_batch(2, created_by=user)
+        other_items = ItemFactory.create_batch(3)
+
+        item_ids = [item.id for item in user_items + other_items]
+
+        res = auth_client.delete(
+            bulk_delete_items_url,
+            data={"ids": item_ids},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert (
+            res_error["message"] ==
+            "Some or all items could not be found."
+        )
+        assert "missing_ids" in res_error
+        missing_ids = res_error["missing_ids"]
+        assert len(missing_ids) == len(other_items)
