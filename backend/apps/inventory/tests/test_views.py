@@ -1,6 +1,7 @@
 import pytest
 import json
 import uuid
+from decimal import Decimal
 from django.db.models import CharField
 from django.db.models.functions import Cast
 from datetime import datetime, timezone, timedelta
@@ -15,6 +16,8 @@ from apps.inventory.factories import (
     VariantOptionFactory,
     ItemFactory
 )
+from apps.supplier_orders.factories import SupplierFactory
+from apps.base.factories import UserFactory
 
 
 @pytest.fixture
@@ -24,6 +27,10 @@ def create_list_item_url():
 @pytest.fixture
 def bulk_delete_items_url():
     return reverse('bulk_delete_items')
+
+@pytest.fixture
+def get_inventory_data_url():
+    return reverse('get_inventory_data')
 
 def item_url(item):
     """
@@ -529,6 +536,17 @@ class TestCreateListItemsView:
         response_items_ids = [item['id'] for item in res.data]
 
         assert response_items_ids == list(sorted_items_ids)
+    
+    def test_list_items_with_zero_registered_items(
+        self,
+        auth_client,
+        create_list_item_url
+    ):
+        res = auth_client.get(create_list_item_url)
+
+        assert res.status_code == 200
+        assert isinstance(res.data, list)
+        assert len(res.data) == 0
 
     def test_list_items_with_in_inventory_query_set_to_true(
         self,
@@ -536,12 +554,15 @@ class TestCreateListItemsView:
         user,
         create_list_item_url
     ):
-        in_inventory_items = ItemFactory.create_batch(
+        # Create 9 items in inventory
+        ItemFactory.create_batch(
             9,
             created_by=user,
             in_inventory=True
         )
-        item_not_in_inventory = ItemFactory.create(
+
+        # Create 1 item with in_inventory attribute set to False
+        ItemFactory.create(
             created_by=user,
             in_inventory=False
         )
@@ -549,19 +570,22 @@ class TestCreateListItemsView:
         res = auth_client.get(f'{create_list_item_url}?in_inventory=true')
         assert res.status_code == 200
         assert len(res.data) == 9
-    
+
     def test_list_items_with_in_inventory_query_set_to_false(
         self,
         auth_client,
         user,
         create_list_item_url
     ):
-        in_inventory_items = ItemFactory.create_batch(
+        # Create 9 items in inventory
+        ItemFactory.create_batch(
             9,
             created_by=user,
             in_inventory=True
         )
-        item_not_in_inventory = ItemFactory.create(
+
+        # Create 1 item with in_inventory attribute set to False
+        ItemFactory.create(
             created_by=user,
             in_inventory=False
         )
@@ -570,18 +594,21 @@ class TestCreateListItemsView:
         assert res.status_code == 200
         assert len(res.data) == 10
     
-    def test_list_items_without_in_inventory_query_param(
+    def test_list_all_items_by_default(
         self,
         auth_client,
         user,
         create_list_item_url
     ):
-        in_inventory_items = ItemFactory.create_batch(
+        # Create 9 items in inventory
+        ItemFactory.create_batch(
             9,
             created_by=user,
             in_inventory=True
         )
-        item_not_in_inventory = ItemFactory.create(
+
+        # Create 1 item with in_inventory attribute set to False
+        ItemFactory.create(
             created_by=user,
             in_inventory=False
         )
@@ -883,7 +910,7 @@ class TestGetUpdateDeleteItemsView:
         assert not Item.objects.filter(id=item.id).exists()
         assert not VariantOption.objects.filter(item=item).exists()
 
-    def test_delete_item_registers_a_new_activity(self, auth_client, user, item_data):
+    def test_item_deletion_registers_a_new_activity(self, auth_client, user, item_data):
         item = ItemFactory.create(created_by=user, **item_data)
         assert Item.objects.filter(id=item.id).exists()
 
@@ -1066,3 +1093,382 @@ class TestBulkDeleteItemsView:
         assert "missing_ids" in res_error
         missing_ids = res_error["missing_ids"]
         assert len(missing_ids) == len(other_items)
+
+
+@pytest.mark.django_db
+class TestGetInventoryDataView:
+    """Tests for GetInventoryData View"""
+
+    def test_inventory_data_view_requires_authentication(
+        self,
+        api_client,
+        get_inventory_data_url
+    ):
+        res = api_client.get(get_inventory_data_url)
+
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_inventory_data_view_allowed_http_methods(
+        self,
+        auth_client,
+        get_inventory_data_url
+    ):
+        get_res = auth_client.get(get_inventory_data_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(get_inventory_data_url)
+        assert post_res.status_code == 405
+        assert post_res.data["detail"] == 'Method \"POST\" not allowed.'
+
+        put_res = auth_client.put(get_inventory_data_url)
+        assert put_res.status_code == 405
+        assert put_res.data["detail"] == 'Method \"PUT\" not allowed.'
+    
+        delete_res = auth_client.delete(get_inventory_data_url)
+        assert delete_res.status_code == 405
+        assert delete_res.data["detail"] == 'Method \"DELETE\" not allowed.'
+
+    def test_inventory_data_response_fields(
+        self,
+        auth_client,
+        get_inventory_data_url
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        expected_fields = {
+            "items",
+            "total_items",
+            "total_value",
+            "total_quantity",
+            "categories",
+            "suppliers",
+            "variants"
+        }
+
+        assert expected_fields.issubset(res.data.keys())
+
+    def test_inventory_data_response_fields_types(
+        self,
+        auth_client,
+        get_inventory_data_url
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert isinstance(res.data["items"], list)
+        assert type(res.data["total_items"]) == int
+        assert type(res.data["total_value"]) == int
+        assert type(res.data["total_quantity"]) == int
+        assert type(res.data["categories"]) == dict
+        assert type(res.data["suppliers"]) == dict
+        assert isinstance(res.data["variants"], list)
+
+    def test_inventory_data_items_field(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user,
+    ):
+        item_data = {
+            "created_by": user,
+            "in_inventory": True
+        }
+
+        item_1 = ItemFactory.create(name="Projector", quantity=3, **item_data)
+        item_2 = ItemFactory.create(name="Pack", quantity=5, **item_data)
+
+        item_1_data = {
+            "name": item_1.name,
+            "quantity": item_1.quantity
+        }
+
+        item_2_data = {
+            "name": item_2.name,
+            "quantity": item_2.quantity
+        }
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "items" in res.data
+        res_items = res.data["items"]
+        assert isinstance(res_items, list)
+        assert len(res_items) == 2
+
+        # Items objects structure
+        res_item_1 = res_items[0]
+        assert type(res_item_1) == dict
+        assert "name" in res_item_1
+        assert "quantity" in res_item_1
+
+        # Ensure created items in response's items list
+        assert item_1_data in res_items
+        assert item_2_data in res_items
+
+    def test_inventory_data_total_fields(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user,
+    ):
+        item_data = {
+            "created_by": user,
+            "in_inventory": True
+        }
+
+        item_1 = ItemFactory.create(quantity=3, price=299, **item_data)
+        item_2 = ItemFactory.create(quantity=5, price=150, **item_data)
+        item_3 = ItemFactory.create(quantity=1, price=79, **item_data)
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "total_items" in res.data
+        assert type(res.data["total_items"]) == int
+        assert res.data["total_items"] == 3
+
+        assert "total_quantity" in res.data
+        assert type(res.data["total_quantity"]) == int
+        assert res.data["total_quantity"] == sum([
+            item_1.quantity,
+            item_2.quantity,
+            item_3.quantity
+        ])
+
+        assert "total_value" in res.data
+        assert type(res.data["total_value"]) == Decimal
+        assert res.data["total_value"] == sum([
+            item_1.total_price,
+            item_2.total_price,
+            item_3.total_price
+        ])
+    
+    def test_inventory_data_filters_items_in_inventory(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user,
+    ):
+        # Create 4 items in inventory
+        ItemFactory.create_batch(
+            4,
+            created_by=user,
+            in_inventory=True
+        )
+
+        # Create 1 item with in_inventory attribute set to False
+        ItemFactory.create(
+            created_by=user,
+            in_inventory=False
+        )
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "items" in res.data
+        res_items = res.data["items"]
+        assert isinstance(res_items, list)
+        assert len(res_items) == 4
+
+    def test_inventory_data_with_no_registered_items(
+        self,
+        auth_client,
+        get_inventory_data_url,
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "items" in res.data
+        res_items = res.data["items"]
+        assert isinstance(res_items, list)
+        assert len(res_items) == 0
+
+        assert "total_items" in res.data
+        assert res.data["total_items"] == 0
+
+        assert "total_quantity" in res.data
+        assert res.data["total_quantity"] == 0
+
+        assert "total_value" in res.data
+        assert res.data["total_value"] == 0
+
+    def test_inventory_data_categories_field(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user
+    ):
+        categories = CategoryFactory.create_batch(3, created_by=user)
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "categories" in res.data
+        res_categories = res.data["categories"]
+        assert type(res_categories) == dict
+
+        assert "count" in res_categories
+        assert type(res_categories["count"]) == int
+        assert res_categories["count"] == len(categories)
+
+        assert "names" in res_categories
+        assert isinstance(res_categories["names"], list)
+        assert all(
+            category.name in res_categories["names"]
+            for category in categories
+        )
+
+    def test_inventory_data_with_no_registered_category(
+        self,
+        auth_client,
+        get_inventory_data_url,
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "categories" in res.data
+        res_categories = res.data["categories"]
+        assert type(res_categories) == dict
+
+        assert "count" in res_categories
+        assert type(res_categories["count"]) == int
+        assert res_categories["count"] == 0
+
+        assert "names" in res_categories
+        assert isinstance(res_categories["names"], list)
+        assert len(res_categories["names"]) == 0
+
+    def test_inventory_data_suppliers_field(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user
+    ):
+        suppliers = SupplierFactory.create_batch(4, created_by=user)
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "suppliers" in res.data
+        res_suppliers = res.data["suppliers"]
+        assert type(res_suppliers) == dict
+
+        assert "count" in res_suppliers
+        assert type(res_suppliers["count"]) == int
+        assert res_suppliers["count"] == len(suppliers)
+
+        assert "names" in res_suppliers
+        assert isinstance(res_suppliers["names"], list)
+        assert all(
+            supplier.name in res_suppliers["names"]
+            for supplier in suppliers
+        )
+
+    def test_inventory_data_with_no_registered_supplier(
+        self,
+        auth_client,
+        get_inventory_data_url,
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "suppliers" in res.data
+        res_suppliers = res.data["suppliers"]
+        assert type(res_suppliers) == dict
+
+        assert "count" in res_suppliers
+        assert type(res_suppliers["count"]) == int
+        assert res_suppliers["count"] == 0
+
+        assert "names" in res_suppliers
+        assert isinstance(res_suppliers["names"], list)
+        assert len(res_suppliers["names"]) == 0
+
+    def test_inventory_data_variants_field(
+        self,
+        auth_client,
+        get_inventory_data_url,
+        user,
+    ):
+        variants = VariantFactory.create_batch(5, created_by=user)
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "variants" in res.data
+        res_variants = res.data["variants"]
+        assert isinstance(res_variants, list)
+        assert len(res_variants) == len(variants)
+
+        assert all(variant.name in res_variants for variant in variants)
+
+    def test_inventory_data_with_no_registered_variant(
+        self,
+        auth_client,
+        get_inventory_data_url,
+    ):
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        assert "variants" in res.data
+        res_variants = res.data["variants"]
+        assert isinstance(res_variants, list)
+        assert len(res_variants) == 0
+
+    def test_inventory_data_for_authenticated_user(
+        self,
+        auth_client,
+        user,
+        get_inventory_data_url
+    ):
+        # Create data for the authenticated user
+        item = ItemFactory.create(created_by=user, in_inventory=True)
+        supplier = SupplierFactory.create(created_by=user)
+        category = CategoryFactory.create(created_by=user)
+        variant = VariantFactory.create(created_by=user)
+
+        # Create data for another user
+        another_user = UserFactory.create()
+        ItemFactory.create(created_by=another_user)
+        SupplierFactory.create(created_by=another_user)
+        CategoryFactory.create(created_by=another_user)
+        VariantFactory.create(created_by=another_user)
+
+        res = auth_client.get(get_inventory_data_url)
+
+        assert res.status_code == 200
+
+        # Verify that only the authenticated user's data is returned
+        assert len(res.data["items"]) == 1
+        assert res.data["items"][0] == {
+            "name": item.name,
+            "quantity": item.quantity
+        }
+
+        assert res.data["total_items"] == 1
+        assert res.data["total_value"] == item.quantity * item.price
+        assert res.data["total_quantity"] == item.quantity
+
+        assert res.data["categories"]["count"] == 1
+        assert category.name in res.data["categories"]["names"]
+
+        assert res.data["suppliers"]["count"] == 1
+        assert supplier.name in res.data["suppliers"]["names"]
+
+        assert len(res.data["variants"]) == 1
+        assert variant.name in res.data["variants"]

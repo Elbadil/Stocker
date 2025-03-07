@@ -27,7 +27,7 @@ const initialState: inventoryState = {
   totalItems: 0,
   categories: { count: 0, names: [] },
   suppliers: { count: 0, names: [] },
-  variants: ['Color', 'Size', 'Weight'],
+  variants: [],
   loading: true,
   error: null,
 };

@@ -166,25 +166,37 @@ class GetInventoryData(generics.GenericAPIView):
         # Categories
         categories = {
             'count': Category.objects.filter(created_by=user).count(),
-            'names': list(Category.objects.filter(created_by=user).values_list('name', flat=True))
+            'names': list(
+                Category.objects
+                .filter(created_by=user)
+                .values_list('name', flat=True)
+            )
         }
 
         suppliers = {
             'count': Supplier.objects.filter(created_by=user).count(),
-            'names': list(Supplier.objects.filter(created_by=user).values_list('name', flat=True))
+            'names': list(
+                Supplier.objects
+                .filter(created_by=user)
+                .values_list('name', flat=True)
+            )
         }
-        
+
         # Variants
-        variants = list(Variant.objects.filter(created_by=user).values_list('name', flat=True))
-        
+        variants = list(
+            Variant.objects
+            .filter(Q(created_by=user) | Q(created_by__isnull=True))
+            .values_list('name', flat=True)
+        )
+
         # Items
         user_items = Item.objects.filter(created_by=user, in_inventory=True)
-        items = user_items.values('name', 'quantity')
-        
+        items = list(user_items.values('name', 'quantity'))
+
         # Total Value & Total Quantity
         total_value = sum([item.total_price for item in user_items])
         total_quantity = sum(list(user_items.values_list('quantity', flat=True)))
-        
+
         return Response({'items': items,
                          'total_items': user_items.count(),
                          'total_value': total_value,

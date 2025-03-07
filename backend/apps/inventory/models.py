@@ -20,7 +20,12 @@ class Category(BaseModel):
 
 class Variant(BaseModel):
     """Item's Variants"""
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     name = models.CharField(max_length=200)
 
     class Meta:
