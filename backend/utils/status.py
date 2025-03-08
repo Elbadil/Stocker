@@ -1,3 +1,14 @@
+ORDER_STATUS = [
+    'Pending',
+    'Shipped',
+    'Delivered',
+    'Returned',
+    'Canceled',
+    'Failed',
+    'Paid',
+    'Refunded'
+]
+
 DELIVERY_STATUS_OPTIONS = [
     'Pending',
     'Shipped',
