@@ -75,7 +75,7 @@ class TestCityModel:
 
     def test_city_creation_fails_without_name(self):
         with pytest.raises(IntegrityError):
-            CityFactory.create(name=None)
+            City.objects.create(name=None)
 
     def test_city_creation_fails_without_country(self):
         with pytest.raises(IntegrityError):
@@ -141,7 +141,7 @@ class TestAcquisitionSourceModel:
 
     def test_acq_source_creation_fails_without_name(self):
         with pytest.raises(IntegrityError):
-            AcquisitionSourceFactory.create(name=None)
+            AcquisitionSource.objects.create(name=None)
     
     def test_acq_source_validation_fails_with_blank_name(self):
         acq_source = AcquisitionSource(name="")
@@ -168,3 +168,132 @@ class TestAcquisitionSourceModel:
         # Test str representation with added_by attribute
         acq_source = AcquisitionSourceFactory.create(name="FB ADS", added_by=user)
         assert str(acq_source) == "FB ADS added by: adel"
+
+
+@pytest.mark.django_db
+class TestClientModel:
+    """Tests for the Client Model"""
+
+    def test_client_creation_fails_without_name(self):
+        with pytest.raises(IntegrityError):
+            Client.objects.create(name=None)
+
+    def test_client_creation_fails_with_existing_name(self):
+        ClientFactory.create(name="adel")
+        with pytest.raises(IntegrityError):
+            ClientFactory.create(name="adel")
+
+    def test_client_validation_fails_with_blank_name(self):
+        client = Client(name="")
+        with pytest.raises(ValidationError):
+            client.full_clean()
+
+    def test_client_creation_with_related_objects(self, user, location, source):
+        client = ClientFactory.create(
+            created_by=user,
+            location=location,
+            source=source
+        )
+
+        assert client.created_by == user
+        assert client.location == location
+        assert client.source == source
+
+    def test_client_str_representation(self):
+        client = ClientFactory.create(name="Haitam")
+        assert str(client) == "Haitam"
+
+
+@pytest.mark.django_db
+class TestOrderStatusModel:
+    """Tests for the Order Status Model"""
+
+    def test_order_status_creation_fails_without_name(self):
+        with pytest.raises(IntegrityError):
+            OrderStatus.objects.create(name=None)
+
+    def test_order_status_validation_fails_with_blank_name(self):
+        order_status = OrderStatus(name="")
+        with pytest.raises(ValidationError):
+            order_status.full_clean()
+
+    def test_order_status_creation_fails_with_existing_name(self):
+        OrderStatusFactory.create(name="Pending")
+        with pytest.raises(IntegrityError):
+            OrderStatusFactory.create(name="Pending")
+
+    def test_order_status_str_representation(self):
+        status = OrderStatusFactory.create(name="Pending")
+        assert str(status) == "Pending"
+
+
+@pytest.mark.django_db
+class TestClientOrderModel:
+    """Tests for the Client Order Model"""
+
+    def test_client_order_creation_with_related_objects(
+        self,
+        user,
+        location,
+        source,
+        client,
+        order_status,
+    ):
+        client_order = ClientOrderFactory.create(
+            created_by=user,
+            client=client,
+            shipping_address=location,
+            source=source,
+            delivery_status=order_status,
+            payment_status=order_status,
+        )
+
+        assert client_order.created_by == user
+        assert client_order.client == client
+        assert client_order.shipping_address == location
+        assert client_order.source == source
+        assert client_order.delivery_status == order_status
+        assert client_order.payment_status == order_status
+
+    def test_client_order_str_representation(self):
+        client_order = ClientOrderFactory.create()
+
+        assert hasattr(client_order, 'reference_id')
+        assert client_order.reference_id is not None
+        assert str(client_order) == client_order.reference_id
+
+
+@pytest.mark.django_db
+class TestClientOrderedItemModel:
+    """Tests for the Client Ordered Item Model"""
+
+    def test_client_ordered_item_creation_with_related_objects(
+        self,
+        user,
+        client_order,
+        item
+    ):
+        ordered_item = ClientOrderedItemFactory.create(
+            created_by=user,
+            order=client_order,
+            item=item
+        )
+
+        assert ordered_item.created_by == user
+        assert ordered_item.order == client_order
+        assert ordered_item.item == item
+
+    def test_client_ordered_item_str_representation(
+        self,                                            
+        user,
+        client_order,
+        item
+    ):
+        ordered_item = ClientOrderedItemFactory.create(
+            created_by=user,
+            order=client_order,
+            item=item,
+            ordered_quantity=4
+        )
+
+        assert str(ordered_item) == "Haitam ordered 4 of Projector"

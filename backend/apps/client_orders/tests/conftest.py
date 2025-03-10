@@ -1,7 +1,16 @@
 import pytest
 import uuid
 from apps.base.factories import UserFactory
-from apps.client_orders.factories import CountryFactory, CityFactory
+from apps.inventory.factories import ItemFactory
+from apps.client_orders.factories import (
+    CountryFactory,
+    CityFactory,
+    LocationFactory,
+    AcquisitionSourceFactory,
+    ClientFactory,
+    OrderStatusFactory,
+    ClientOrderFactory
+)
 
 
 @pytest.fixture
@@ -19,3 +28,44 @@ def country(db):
 @pytest.fixture
 def city(db, country):
     return CityFactory.create(country=country, name="Tetouan")
+
+@pytest.fixture
+def location(db, user, country, city):
+    return LocationFactory.create(
+        added_by=user,
+        country=country,
+        city=city,
+        street_address="5th Avenue"
+    )
+
+@pytest.fixture
+def source(db, user):
+    return AcquisitionSourceFactory.create(name="ADS", added_by=user)
+
+@pytest.fixture
+def client(db, user, location, source):
+    return ClientFactory.create(
+        name="Haitam",
+        created_by=user,
+        location=location,
+        source=source
+    )
+
+@pytest.fixture
+def order_status(db):
+    return OrderStatusFactory.create(name="Pending")
+
+@pytest.fixture
+def item(db, user):
+    return ItemFactory.create(created_by=user, name="Projector")
+
+@pytest.fixture
+def client_order(db, user, client, location, source, order_status):
+    return ClientOrderFactory.create(
+        created_by=user,
+        client=client,
+        shipping_address=location,
+        source=source,
+        delivery_status=order_status,
+        payment_status=order_status,
+    )

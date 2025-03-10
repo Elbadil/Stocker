@@ -20,7 +20,7 @@ class CountryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Country
 
-    name = factory.Faker("country")
+    name = factory.Sequence(lambda n: f"country_{n}")
 
 
 class CityFactory(factory.django.DjangoModelFactory):
@@ -29,7 +29,7 @@ class CityFactory(factory.django.DjangoModelFactory):
         model = City
 
     country = factory.SubFactory(CountryFactory)
-    name = factory.Faker("city")
+    name = factory.Sequence(lambda n: f"city_{n}")
 
 
 class LocationFactory(factory.django.DjangoModelFactory):
@@ -82,7 +82,7 @@ class ClientOrderFactory(factory.django.DjangoModelFactory):
         model = ClientOrder
     
     created_by = factory.SubFactory(UserFactory)
-    client = factory.SubFactory(Client)
+    client = factory.SubFactory(ClientFactory)
     delivery_status = factory.SubFactory(OrderStatusFactory)
     payment_status = factory.SubFactory(OrderStatusFactory)
     tracking_number = factory.Faker('ean')
@@ -103,7 +103,7 @@ class ClientOrderedItemFactory(factory.django.DjangoModelFactory):
         model = ClientOrderedItem
 
     created_by = factory.SubFactory(UserFactory)
-    order = factory.SubFactory(ClientFactory)
+    order = factory.SubFactory(ClientOrderFactory)
     item = factory.SubFactory(ItemFactory)
     ordered_quantity = factory.Faker("pyint", min_value=1, max_value=20)
     ordered_price = factory.Faker(
