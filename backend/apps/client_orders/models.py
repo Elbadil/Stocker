@@ -71,26 +71,35 @@ class AcquisitionSource(BaseModel):
 
 class Client(BaseModel):
     """Client Model"""
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE,
-                                   related_name='created_clients',
-                                   help_text="The user who initially registered this client",
-                                   null=True,
-                                   blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='created_clients',
+        help_text="The user who initially registered this client",
+        null=True,
+        blank=True
+    )
     name = models.CharField(max_length=100, unique=True)
     age = models.IntegerField(null=True, blank=True)
     phone_number = models.CharField(max_length=100, null=True, blank=True)
     email = models.EmailField(max_length=100, null=True, blank=True)
     sex = models.CharField(max_length=10, null=True, blank=True,
                            choices=[('Male', 'Male'),
-                                     ('Female', 'Female')])
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL,
-                                 null=True, blank=True)
-    source = models.ForeignKey(AcquisitionSource,
-                               on_delete=models.SET_NULL,
-                               related_name='acquired_clients',
-                               help_text="The source through which this client was acquired",
-                               null=True,
-                               blank=True)
+                                    ('Female', 'Female')])
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        related_name="clients",
+        null=True,
+        blank=True
+    )
+    source = models.ForeignKey(
+        AcquisitionSource,
+        on_delete=models.SET_NULL,
+        related_name='acquired_clients',
+        help_text="The source through which this client was acquired",
+        null=True,
+        blank=True
+    )
     updated = models.BooleanField(default=False)
 
     @property

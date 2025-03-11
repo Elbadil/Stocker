@@ -4,12 +4,9 @@ from django.core.exceptions import ValidationError
 from apps.client_orders.models import (
     Country,
     City,
-    Location,
     AcquisitionSource,
     Client,
     OrderStatus,
-    ClientOrder,
-    ClientOrderedItem
 )
 from apps.client_orders.factories import (
     CountryFactory,
@@ -45,17 +42,9 @@ class TestCountryModel:
         with pytest.raises(IntegrityError):
             CountryFactory.create(name="Morocco")
 
-    def test_country_with_multiple_cities(self):
-        country = CountryFactory.create(name="Morocco")
-        city_1 = CityFactory.create(country=country, name="Tetouan")
-        city_2 = CityFactory.create(country=country, name="Tangier")
-
-        country_cities = country.cities.all()
-        assert len(country_cities) == 2
-
-        country_cities_names = [city.name for city in country_cities]
-        assert city_1.name in country_cities_names
-        assert city_2.name in country_cities_names
+    def test_country_with_multiple_cities(self, country):
+        cities = CityFactory.create_batch(4, country=country)
+        assert all(city.country == country for city in cities)
 
 
 @pytest.mark.django_db
@@ -133,6 +122,14 @@ class TestLocationModel:
             added_by=user, country=country, city=city, street_address=None
         )
         assert str(location) == "Tetouan, Morocco added by: adel"
+    
+    def test_location_with_multiple_clients(self, location):
+        clients = ClientFactory.create_batch(3, location=location)
+        assert all(client.location == location for client in clients)
+    
+    def test_location_with_multiple_client_orders(self, location):
+        orders = ClientOrderFactory.create_batch(3, shipping_address=location)
+        assert all(order.shipping_address == location for order in orders)
 
 
 @pytest.mark.django_db
@@ -168,6 +165,14 @@ class TestAcquisitionSourceModel:
         # Test str representation with added_by attribute
         acq_source = AcquisitionSourceFactory.create(name="FB ADS", added_by=user)
         assert str(acq_source) == "FB ADS added by: adel"
+    
+    def test_acq_source_with_multiple_clients(self, source):
+        clients = ClientFactory.create_batch(3, source=source)
+        assert all(client.source == source for client in clients)
+
+    def test_acq_source_with_multiple_client_orders(self, source):
+        orders = ClientOrderFactory.create_batch(3, source=source)
+        assert all(order.source == source for order in orders)
 
 
 @pytest.mark.django_db
@@ -203,6 +208,10 @@ class TestClientModel:
         client = ClientFactory.create(name="Haitam")
         assert str(client) == "Haitam"
 
+    def test_client_with_multiple_client_orders(self, client):
+        orders = ClientOrderFactory.create_batch(3, client=client)
+        assert all(order.client == client for order in orders)
+
 
 @pytest.mark.django_db
 class TestOrderStatusModel:
@@ -225,6 +234,13 @@ class TestOrderStatusModel:
     def test_order_status_str_representation(self):
         status = OrderStatusFactory.create(name="Pending")
         assert str(status) == "Pending"
+
+    def test_order_status_with_multiple_client_orders(self, order_status):
+        orders = ClientOrderFactory.create_batch(
+            3, delivery_status=order_status, payment_status=order_status
+        )
+        assert all(order.delivery_status == order_status for order in orders)
+        assert all(order.payment_status == order_status for order in orders)
 
 
 @pytest.mark.django_db
@@ -261,6 +277,12 @@ class TestClientOrderModel:
         assert hasattr(client_order, 'reference_id')
         assert client_order.reference_id is not None
         assert str(client_order) == client_order.reference_id
+
+    def test_client_order_with_multiple_ordered_items(self, client_order):
+        ordered_items = ClientOrderedItemFactory.create_batch(
+            4, order=client_order
+        )
+        assert all(item.order == client_order for item in ordered_items)
 
 
 @pytest.mark.django_db

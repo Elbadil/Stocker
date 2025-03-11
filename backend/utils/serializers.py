@@ -23,6 +23,10 @@ def datetime_repr_format(datetime) -> str:
     """Returns the suitable format for datetime data representation"""
     return datetime.strftime('%d/%m/%Y, %H:%M:%S')
 
+def default_datetime_str_format(datetime) -> str:
+    """Returns the default format for serializers' datetime representation"""
+    return datetime.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+
 def get_or_create_source(
     user: User,
     value: str

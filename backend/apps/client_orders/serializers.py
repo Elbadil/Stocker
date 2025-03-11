@@ -108,6 +108,13 @@ class AcquisitionSourceSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class OrderStatusSerializer(serializers.ModelSerializer):
+    """Order Status Serializer"""
+    class Meta:
+        model = OrderStatus
+        fields = '__all__'
+
+
 class ClientSerializer(serializers.ModelSerializer):
     """Client Serializer"""
     location = LocationSerializer(many=False, required=False, allow_null=True)
