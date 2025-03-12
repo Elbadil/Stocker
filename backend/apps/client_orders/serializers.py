@@ -42,38 +42,46 @@ class CitySerializer(serializers.ModelSerializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     """Location Serializer"""
-    country = serializers.CharField(error_messages={'null': 'Country is required to add a location'})
-    city = serializers.CharField(error_messages={'null': 'City is required to add a location'})
+    country = serializers.CharField(required=True, allow_null=True, allow_blank=True)
+    city = serializers.CharField(required=True, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Location
         fields = '__all__'
 
     def validate_country(self, value):
-        if value:
+        if value in [None, ""]:
+            raise serializers.ValidationError("Country is required to add a location.")
+        else:
             country = Country.objects.filter(name__iexact=value).exists()
             if not country:
                 raise serializers.ValidationError("Invalid country.")
             return value
-        return None
-    
+
     def validate_city(self, value):
-        if value:
+        if value in [None, ""]:
+            raise serializers.ValidationError("City is required to add a location.")
+        else:
             city = City.objects.filter(name__iexact=value).exists()
             if not city:
                 raise serializers.ValidationError("Invalid city.")
             return value
-        return None
 
     def validate(self, attrs):
         country_name = attrs.get('country', None)
         city_name = attrs.get('city', None)
         if country_name and city_name:
-            city = City.objects.filter(name__iexact=city_name,
-                                       country__name__iexact=country_name).first()
+            city = (
+                City.objects
+                .filter(
+                    name__iexact=city_name,
+                    country__name__iexact=country_name
+                ).first()
+            )
             if not city:
                 raise serializers.ValidationError(
-                    {'city': 'City does not belong to the country provided.'})
+                    {'city': 'City does not belong to the country provided.'}
+                )
         return attrs
 
     def create(self, validated_data):
@@ -99,6 +107,14 @@ class LocationSerializer(serializers.ModelSerializer):
         location, created = Location.objects.get_or_create(**validated_data)
 
         return location
+
+    def to_representation(self, instance):
+        location_repr = super().to_representation(instance)
+        location_repr["added_by"] = instance.added_by.username if instance.added_by else None
+        location_repr["country"] = instance.country.name if instance.country else None
+        location_repr["city"] = instance.city.name if instance.city else None
+
+        return location_repr
 
 
 class AcquisitionSourceSerializer(serializers.ModelSerializer):
@@ -149,6 +165,7 @@ class ClientSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        print(validated_data)
         # Extract the user from the context request
         user = self.context.get('request').user
 

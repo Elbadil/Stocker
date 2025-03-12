@@ -58,8 +58,8 @@ const AddSupplier = ({ open, setOpen, setRowData }: AddSupplier) => {
     resolver: zodResolver(schema),
     defaultValues: {
       location: {
-        country: '',
-        city: '',
+        country: null,
+        city: null,
       },
     },
   });

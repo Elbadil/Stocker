@@ -93,8 +93,8 @@ const AddSale = ({ open, setOpen, setRowData }: AddSale) => {
       delivery_status: 'Pending',
       payment_status: 'Pending',
       shipping_address: {
-        country: '',
-        city: '',
+        country: null,
+        city: null,
       },
       source: '',
     },

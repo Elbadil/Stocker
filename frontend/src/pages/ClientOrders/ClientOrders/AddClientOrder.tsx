@@ -104,8 +104,8 @@ const AddClientOrder = ({ open, setOpen, setRowData }: AddOrderProps) => {
       delivery_status: 'Pending',
       payment_status: 'Pending',
       shipping_address: {
-        country: '',
-        city: '',
+        country: null,
+        city: null,
       },
       source: '',
       tracking_number: '',

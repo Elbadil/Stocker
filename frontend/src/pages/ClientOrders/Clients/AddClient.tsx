@@ -63,8 +63,8 @@ const AddClient = ({ open, setOpen, setRowData }: AddClientProps) => {
     resolver: zodResolver(schema),
     defaultValues: {
       location: {
-        country: '',
-        city: '',
+        country: null,
+        city: null,
       },
       source: '',
     },
