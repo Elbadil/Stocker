@@ -2,26 +2,33 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import Q
 from typing import List, Union
-from utils.serializers import (date_repr_format,
-                               get_location,
-                               get_or_create_location,
-                               get_or_create_source,
-                               update_item_quantity,
-                               update_field,
-                               check_item_existence,
-                               validate_restricted_fields,
-                               validate_changes_for_delivered_parent_instance)
-from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
-                          PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.serializers import (
+    date_repr_format,
+    get_location,
+    get_or_create_location,
+    get_or_create_source,
+    get_user,
+    update_item_quantity,
+    update_field,
+    check_item_existence,
+    validate_restricted_fields,
+    validate_changes_for_delivered_parent_instance
+)
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS_LOWER,
+    PAYMENT_STATUS_OPTIONS_LOWER
+)
 from utils.activity import register_activity
-from .models import (Client,
-                     Country,
-                     City,
-                     Location,
-                     AcquisitionSource,
-                     ClientOrderedItem,
-                     OrderStatus,
-                     ClientOrder)
+from .models import (
+    Client,
+    Country,
+    City,
+    Location,
+    AcquisitionSource,
+    ClientOrderedItem,
+    OrderStatus,
+    ClientOrder
+)
 from ..inventory.models import Item
 from ..base.models import User
 
@@ -155,7 +162,7 @@ class ClientSerializer(serializers.ModelSerializer):
         ]
 
     def validate_name(self, value):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         if Client.objects.filter(
             created_by=user,
             name__iexact=value).exclude(
@@ -165,9 +172,8 @@ class ClientSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        print(validated_data)
         # Extract the user from the context request
-        user = self.context.get('request').user
+        user = get_user(self.context)
 
         # Exclude special fields from validated_data
         location = validated_data.pop('location', None)
@@ -190,7 +196,7 @@ class ClientSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance: Client, validated_data):
         # Extract the user from the context request
-        user = self.context.get('request').user
+        user = get_user(self.context)
 
         # Exclude special fields from validated_data
         location = validated_data.pop('location', None)

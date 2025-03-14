@@ -373,6 +373,21 @@ class TestVariantSerializer:
 class TestItemSerializer:
     """Tests for the ItemSerializer"""
 
+    def test_item_serializer_sets_created_by_from_context(
+        self,
+        user,
+        item_data
+    ):
+        serializer = ItemSerializer(
+            data=item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        item = serializer.save()
+        assert item.created_by is not None
+        assert str(item.created_by.id) == str(user.id)
+
     def test_item_creation_with_valid_data(self, user, item_data):
         serializer = ItemSerializer(data=item_data, context={'user': user})
         assert serializer.is_valid()

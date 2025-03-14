@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models import Q
 from typing import Any, Union, Optional, Callable, List
 from deepdiff import DeepDiff
 from apps.base.models import User
@@ -33,12 +34,15 @@ def get_or_create_source(
 ) -> Union[AcquisitionSource, None]:
     """Handles source of acquisition creation"""
     if value:
-        acq_source, created = AcquisitionSource.objects.get_or_create(
-            added_by__isnull=True,
-            name__iexact=value,
-            defaults={'added_by': user,
-                      'name': value}
-        )
+        acq_source = AcquisitionSource.objects.filter(
+            Q(added_by__isnull=True) | Q(added_by=user),
+            name__iexact=value
+        ).first()
+        if not acq_source:
+            acq_source = AcquisitionSource.objects.create(
+                added_by=user,
+                name=value
+            )
         return acq_source
     return None
 

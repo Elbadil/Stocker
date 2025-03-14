@@ -1,11 +1,18 @@
 import pytest
+from unittest.mock import patch
 from utils.serializers import default_datetime_str_format
-from apps.client_orders.models import Country, City, Location
+from apps.base.models import Activity
+from apps.client_orders.models import (
+    Country,
+    City,
+    Location,
+    AcquisitionSource
+)
 from apps.client_orders.serializers import (
     CountrySerializer,
     CitySerializer,
     LocationSerializer,
-    AcquisitionSource,
+    AcquisitionSourceSerializer,
     OrderStatusSerializer,
     ClientSerializer,
     ClientOrderSerializer,
@@ -41,8 +48,8 @@ class TestCountrySerializer:
         serializer = CountrySerializer(data=data)
         assert serializer.is_valid()
 
-        category = serializer.save()
-        assert category.name == "Morocco"
+        country = serializer.save()
+        assert country.name == "Morocco"
     
     def test_country_creation_fails_without_name(self):
         serializer = CountrySerializer(data={})
@@ -231,7 +238,7 @@ class TestCitySerializer:
 class TestLocationSerializer:
     """Tests for the Location Serializer"""
 
-    def test_location_creation_retrieves_country_and_city_by_name(
+    def test_location_serializer_retrieves_country_and_city_by_name(
         self,
         country,
         city
@@ -252,6 +259,21 @@ class TestLocationSerializer:
         assert isinstance(location.city, City)
         assert str(location.city.id) == str(city.id)
 
+    def test_location_serializer_sets_added_by_from_context(
+        self,
+        user,
+        location_data
+    ):
+        serializer = LocationSerializer(
+            data=location_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        location = serializer.save()
+        assert location.added_by is not None
+        assert str(location.added_by.id) == str(user.id)
+
     def test_location_creation_with_valid_data(self, country, city, user):
         location_data = {
             "country": country.name,
@@ -266,6 +288,7 @@ class TestLocationSerializer:
         assert serializer.is_valid()
 
         location = serializer.save()
+        assert str(location.added_by.id) == str(user.id)
         assert str(location.country.id) == str(country.id)
         assert str(location.city.id) == str(city.id)
         assert location.street_address == location_data["street_address"]
@@ -392,7 +415,8 @@ class TestLocationSerializer:
         assert location.street_address is None
 
     def test_location_added_by_field_is_optional(self, location_data):
-        # Create a location without a user in the serializer's context
+        # Create a location without passing a user
+        # in the serializer's context
         serializer = LocationSerializer(data=location_data)
         assert serializer.is_valid()
 
@@ -413,6 +437,9 @@ class TestLocationSerializer:
             street_address="5th avenue"
         )
 
+        initial_location_count = Location.objects.count()
+
+        # Verify location_data has the same attributes as the existing location 
         assert location_1.country.name == location_data["country"]
         assert location_1.city.name == location_data["city"]
         assert location_1.street_address == location_data["street_address"]
@@ -423,14 +450,9 @@ class TestLocationSerializer:
 
         location_2 = serializer.save()
 
-        # Ensure no additional location with the same attributes
-        # has been created
+        # Verify no additional location has been created
         assert str(location_1.id) == str(location_2.id)
-        assert Location.objects.filter(
-            country=country,
-            city=city,
-            street_address="5th avenue"
-        ).count() == 1
+        assert Location.objects.count() == initial_location_count
 
     def test_location_serializer_data_fields(self, location):
         serializer = LocationSerializer(location)
@@ -472,3 +494,478 @@ class TestLocationSerializer:
             location_data["updated_at"] ==
             default_datetime_str_format(location.updated_at)
         )
+
+
+@pytest.mark.django_db
+class TestAcquisitionSourceSerializer:
+    """Tests for the Acquisition Source Serializer"""
+
+    def test_acq_source_creation_with_valid_data(self, user):
+        data = {
+            "added_by": user.id,
+            "name": "ADS"
+        }
+        serializer = AcquisitionSourceSerializer(data=data)
+        assert serializer.is_valid()
+
+        source = serializer.save()
+        assert source.name == "ADS"
+        assert str(source.added_by.id) == str(user.id)
+
+    def test_acq_source_creation_fails_without_name(self):
+        serializer = AcquisitionSourceSerializer(data={})
+
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        assert serializer.errors["name"] == ["This field is required."]
+
+    def test_acq_source_creation_fails_with_existing_name(self):
+        # Create a source with the name ADS
+        AcquisitionSourceFactory.create(name="ADS")
+
+        # Create another source with the same name
+        serializer = AcquisitionSourceSerializer(data={"name": "ADS"})
+
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        assert (
+            serializer.errors["name"] ==
+            ["acquisition source with this name already exists."]
+        )
+
+    def test_acq_source_creation_added_by_field_is_optional(self):
+        serializer = AcquisitionSourceSerializer(data={"name": "ADS"})
+        assert serializer.is_valid()
+
+        source = serializer.save()
+        assert source.added_by is None
+
+    def test_acq_source_serializer_data_fields(self, source):
+        serializer = AcquisitionSourceSerializer(source)
+
+        assert "id" in serializer.data
+        assert "name" in serializer.data
+        assert "created_at" in serializer.data
+        assert "updated_at" in serializer.data
+
+    def test_acq_source_serializer_data_fields_types(self, source):
+        serializer = AcquisitionSourceSerializer(source)
+        source_data = serializer.data
+
+        assert type(source_data["id"]) == str
+        assert type(source_data["name"]) == str
+        assert type(source_data["created_at"]) == str
+        assert type(source_data["updated_at"]) == str
+
+    def test_acq_source_serializer_data(self, source):
+        serializer = AcquisitionSourceSerializer(source)
+        source_data = serializer.data
+
+        assert source_data["id"] == source.id
+        assert source_data["name"] == "ADS"
+        assert (
+            source_data["created_at"] ==
+            default_datetime_str_format(source.created_at)
+        )
+        assert (
+            source_data["updated_at"] ==
+            default_datetime_str_format(source.updated_at)
+        )
+
+    def test_acq_source_update(self, source):
+        source_name = source.name
+
+        serializer = AcquisitionSourceSerializer(
+            source,
+            data={"name": "Direct"}
+        )
+        assert serializer.is_valid()
+
+        source_update = serializer.save()
+        assert source_update.name == "Direct"
+        assert source_update.name != source_name
+
+
+@pytest.mark.django_db
+class TestOrderStatusSerializer:
+    """Tests for the Order Status Serializer"""
+
+    def test_order_status_creation_with_valid_data(self):
+        data = {"name": "Pending"}
+        serializer = OrderStatusSerializer(data=data)
+        assert serializer.is_valid()
+
+        status = serializer.save()
+        assert status.name == "Pending"
+    
+    def test_order_status_creation_fails_without_name(self):
+        serializer = OrderStatusSerializer(data={})
+
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        assert serializer.errors["name"] == ["This field is required."]
+    
+    def test_order_status_creation_fails_with_existing_name(self):
+        # Create a order with the name Pending
+        OrderStatusFactory.create(name="Pending")
+
+        # Create another order_status with the same name
+        serializer = OrderStatusSerializer(data={"name": "Pending"})
+
+        assert not serializer.is_valid()
+        assert "name" in serializer.errors
+        assert (
+            serializer.errors["name"] ==
+            ["order status with this name already exists."]
+        )
+
+    def test_order_status_serializer_data_fields(self, order_status):
+        serializer = OrderStatusSerializer(order_status)
+
+        assert "id" in serializer.data
+        assert "name" in serializer.data
+        assert "created_at" in serializer.data
+        assert "updated_at" in serializer.data
+
+    def test_order_status_serializer_data_fields_types(self, order_status):
+        serializer = OrderStatusSerializer(order_status)
+        order_status_data = serializer.data
+
+        assert type(order_status_data["id"]) == str
+        assert type(order_status_data["name"]) == str
+        assert type(order_status_data["created_at"]) == str
+        assert type(order_status_data["updated_at"]) == str
+
+    def test_order_status_serializer_data(self, order_status):
+        serializer = OrderStatusSerializer(order_status)
+        order_status_data = serializer.data
+    
+        assert order_status_data["id"] == order_status.id
+        assert order_status_data["name"] == "Pending"
+        assert (
+            order_status_data["created_at"] ==
+            default_datetime_str_format(order_status.created_at)
+        )
+        assert (
+            order_status_data["updated_at"] ==
+            default_datetime_str_format(order_status.updated_at)
+        )
+
+    def test_order_status_update(self, order_status):
+        order_status_name = order_status.name
+
+        serializer = OrderStatusSerializer(order_status, data={"name": "Failed"})
+        assert serializer.is_valid()
+
+        order_status_update = serializer.save()
+        assert order_status_update.name == "Failed"
+        assert order_status_update.name != order_status_name
+
+
+@pytest.mark.django_db
+class TestClientSerializer:
+    """Tests for the Client Serializer"""
+
+    def test_client_serializer_sets_created_by_from_context(
+        self,
+        user,
+    ):
+        serializer = ClientSerializer(
+            data={"name": "Haitam"},
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.created_by is not None
+        assert str(client.created_by.id) == str(user.id)
+
+    def test_client_creation_with_valid_data(self, user):
+        client_data = {
+            "name": "Haitam",
+            "age": 23,
+            "phone_number": "0628273523",
+            "email": "haitam@gmail.com",
+            "sex": "Male"
+        }
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert str(client.created_by.id) == str(user.id)
+        assert client.name == client_data["name"]
+        assert client.age == client_data["age"]
+        assert client.phone_number == client_data["phone_number"]
+        assert client.email == client_data["email"]
+        assert client.sex == client_data["sex"]
+
+    def test_client_creation_fails_without_name(self, user):
+        serializer = ClientSerializer(data={}, context={'user': user})
+        assert not serializer.is_valid()
+
+        assert "name" in serializer.errors
+        assert serializer.errors["name"] == ["This field is required."]
+
+    def test_client_creation_fails_with_existing_name(self, user):
+        # Create a client with the name Haitam
+        ClientFactory.create(name="Haitam")
+
+        # Create another client using ClientSerializer with the same name
+        serializer = ClientSerializer(
+            data={"name": "Haitam"},
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "name" in serializer.errors
+        assert (
+            serializer.errors["name"] ==
+            ["client with this name already exists."]
+        )
+    
+    def test_client_creation_creates_the_provided_location(
+        self,
+        user,
+        location_data
+    ):
+        # Verify location does not exist before client creation
+        assert not Location.objects.filter(
+            country__name__iexact=location_data["country"],
+            city__name__iexact=location_data["city"],
+            street_address__iexact=location_data["street_address"]
+        ).exists()
+
+        client_data = {
+            "name": "Haitam",
+            "location": location_data
+        }
+
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.location is not None
+
+        # Verify location has been created after client creation
+        assert Location.objects.filter(
+            country__name__iexact=location_data["country"],
+            city__name__iexact=location_data["city"],
+            street_address__iexact=location_data["street_address"]
+        ).exists()
+
+    def test_client_creation_retrieves_existing_location(
+        self,
+        user,
+        location
+    ):
+        initial_location_count = Location.objects.count()
+
+        client_data = {
+            "name": "Haitam",
+            "location": {
+                "country": location.country.name,
+                "city": location.city.name,
+                "street_address": location.street_address
+            }
+        }
+
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.location is not None
+        assert str(client.location.id) == str(location.id)
+
+        # Verify no new location was created
+        assert Location.objects.count() == initial_location_count
+
+    def test_client_creation_uses_location_serializer(self, user, location_data):
+        client_data = {
+            "name": "Haitam",
+            "location": location_data
+        }
+
+        # Mock the location serializer to verify it's called
+        location_serializer_path = "apps.client_orders.serializers.LocationSerializer"
+        with patch(location_serializer_path) as mock_location_serializer:
+            # Mock instance of the location serializer
+            mock_location_instance = mock_location_serializer.return_value
+            mock_location_instance.is_valid.return_value = True
+            mock_location_instance.save.return_value = LocationFactory.create()
+
+            # Call the client serializer
+            serializer = ClientSerializer(data=client_data, context={'user': user})
+            assert serializer.is_valid()
+
+            client = serializer.save()
+
+            assert client.name == "Haitam"
+
+            # Verify location serializer was called with the correct data
+            mock_location_serializer.assert_called_once_with(
+                data=location_data,
+                context={'user': user}
+            )
+
+            # Verify save was called on the location serializer
+            mock_location_instance.save.assert_called_once()
+
+            # Verify the created location was linked to the client
+            assert client.location == mock_location_instance.save.return_value
+
+    def test_client_creation_creates_the_provided_source(
+        self,
+        user,
+    ):
+        # Verify acq source does not exist before client creation
+        assert not AcquisitionSource.objects.filter(name__iexact="ADS").exists()
+
+        client_data = {
+            "name": "Haitam",
+            "source": "ADS"
+        }
+
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.source is not None
+
+        # Verify acq source has been created after client creation
+        assert AcquisitionSource.objects.filter(name__iexact="ADS").exists()
+
+    def test_client_creation_retrieves_existing_source(
+        self,
+        user,
+        source
+    ):
+        initial_acq_source_count = AcquisitionSource.objects.count()
+
+        client_data = {
+            "name": "Haitam",
+            "source": "ADS"
+        }
+
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.source is not None
+        assert str(client.source.id) == str(source.id)
+
+        # Verify no new location was created
+        assert AcquisitionSource.objects.count() == initial_acq_source_count
+
+    def test_client_creation_registers_new_activity(self, user):
+        serializer = ClientSerializer(
+            data={"name": "Haitam"},
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client = serializer.save()
+        assert client.name == "Haitam"
+        
+        assert Activity.objects.filter(
+            action="created",
+            model_name="client",
+            object_ref__contains="Haitam"
+        ).exists()
+
+    def test_client_update(self, user, client):
+        client_name = client.name
+
+        serializer = ClientSerializer(
+            client,
+            data={"name": "Safuan"},
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client_update = serializer.save()
+        assert client_update.name != client_name
+
+    def test_client_partial_update(self, user, location, source):
+        client = ClientFactory.create(
+            name="Haitam",
+            created_by=user,
+            location=location,
+            source=source
+        )
+        client_name = client.name
+
+        serializer = ClientSerializer(
+            client,
+            data={"name": "Safuan"},
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        client_update = serializer.save()
+        assert client_update.name != client_name
+
+    def test_client_update_removes_optional_field_if_set_to_none(
+        self,
+        user,
+        location,
+        source
+    ):
+        client = ClientFactory.create(
+            created_by=user,
+            location=location,
+            source=source
+        )
+        assert client.location is not None
+        assert client.source is not None
+
+        serializer = ClientSerializer(
+            client,
+            data={
+                "location": None,
+                "source": None,
+            },
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        client_update = serializer.save()
+        assert client_update.updated
+        assert client.location is None
+        assert client.source is None
+
+    def test_client_update_registers_new_activity(self, user, client):
+        client_age = client.age
+
+        serializer = ClientSerializer(
+            client,
+            data={"age": 27},
+            context={'user': user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        client_update = serializer.save()
+        assert client_update.age != client_age
+        assert client_update.name == "Haitam"
+
+        assert Activity.objects.filter(
+            action="updated",
+            model_name="client",
+            object_ref__contains="Haitam"
+        ).exists()
