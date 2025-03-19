@@ -12,7 +12,8 @@ from utils.serializers import (
     update_field,
     check_item_existence,
     validate_restricted_fields,
-    validate_changes_for_delivered_parent_instance
+    validate_changes_for_delivered_parent_instance,
+    decimal_to_float
 )
 from utils.status import (
     DELIVERY_STATUS_OPTIONS_LOWER,
@@ -240,6 +241,10 @@ class ClientSerializer(serializers.ModelSerializer):
 
 class ClientOrderedItemSerializer(serializers.ModelSerializer):
     """Ordered Item Serializer"""
+    order = serializers.PrimaryKeyRelatedField(
+        many=False,
+        queryset=ClientOrder.objects.all()
+    )
     item = serializers.CharField()
 
     class Meta:
@@ -251,14 +256,16 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
             'item',
             'ordered_quantity',
             'ordered_price',
+            'total_price',
             'total_profit',
+            'unit_profit',
             'created_at',
             'updated_at',
         ]
 
     def validate_item(self, value):
         # Get the request user from the context
-        user = self.context['request'].user
+        user = get_user(self.context)
         item = (
             Item.objects
             .filter(
@@ -287,18 +294,15 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
                                            instance)
         if item_exists:
             raise serializers.ValidationError(
-                {
-                    'item': (
-                        f"Item '{item_name}' already exists in the order's list of ordered items. "
-                        "Consider updating the existing item if you need to modify its details."
-                    )
-                }
+                {'item': (
+                    f"Item '{item_name}' already exists in the order's list of ordered items. "
+                    "Consider updating the existing item if you need to modify its details."
+                )}
             )
         
     def ordered_quantity_validation_error(self, item_name: str):
         raise serializers.ValidationError(
-            {
-                'sold_quantity': f"The ordered quantity for '{item_name}' "
+            {'ordered_quantity': f"The ordered quantity for '{item_name}' "
                                   "exceeds available stock."
             }
         )
@@ -306,7 +310,7 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data: dict):
         # Extract special fields
-        user = self.context.get('request').user
+        user = get_user(self.context)
         item = validated_data.pop('item', None)
         order = validated_data.get('order')
         ordered_quantity = validated_data.get('ordered_quantity')
@@ -342,7 +346,7 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
         validate_changes_for_delivered_parent_instance(order)
 
         # Case: Item instance has changed
-        if item and instance.item != item:
+        if item and str(instance.item.id) != str(item.id):
             # Validate item's uniqueness in the order's list of ordered items
             self.validate_item_uniqueness(item.name, order)
 
@@ -377,8 +381,12 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance: ClientOrderedItem):
         ordered_item_repr = super().to_representation(instance)
-        ordered_item_repr['item'] = instance.item.name
         ordered_item_repr['created_by'] = instance.created_by.username
+        ordered_item_repr['item'] = instance.item.name
+        ordered_item_repr["ordered_price"] = decimal_to_float(instance.ordered_price)
+        ordered_item_repr["total_price"] = decimal_to_float(instance.total_price)
+        ordered_item_repr["total_profit"] = decimal_to_float(instance.total_profit)
+        ordered_item_repr["unit_profit"] = decimal_to_float(instance.unit_profit)
         ordered_item_repr['created_at'] = date_repr_format(instance.created_at)
         ordered_item_repr['updated_at'] = date_repr_format(instance.updated_at)
         return ordered_item_repr

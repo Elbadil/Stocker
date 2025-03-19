@@ -319,3 +319,25 @@ class TestClientOrderedItemModel:
         )
 
         assert str(ordered_item) == "Haitam ordered 4 of Projector"
+
+    def test_ordered_item_creation_fails_without_related_item(self):
+        with pytest.raises(IntegrityError):
+            ClientOrderedItemFactory.create(item=None)
+
+    def test_ordered_item_creation_fails_without_quantity(self):
+        with pytest.raises(IntegrityError):
+            ClientOrderedItemFactory.create(ordered_quantity=None)
+    
+    def test_ordered_item_creation_fails_without_price(self):
+        with pytest.raises(IntegrityError):
+            ClientOrderedItemFactory.create(ordered_price=None)
+
+    def test_ordered_item_validation_fails_with_quantity_less_than_one(self):
+        item = ClientOrderedItemFactory.create(ordered_quantity=-1)
+        with pytest.raises(ValidationError):
+            item.full_clean()
+    
+    def test_ordered_item_validation_fails_with_negative_price(self):
+        item = ClientOrderedItemFactory.create(ordered_price=-1)
+        with pytest.raises(ValidationError):
+            item.full_clean()

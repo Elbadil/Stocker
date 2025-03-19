@@ -1,7 +1,16 @@
 import pytest
 from unittest.mock import patch
-from utils.serializers import default_datetime_str_format
+from rest_framework.exceptions import ValidationError
+from utils.serializers import (
+    default_datetime_str_format,
+    date_repr_format,
+    get_location,
+    decimal_to_float
+)
 from apps.base.models import Activity
+from apps.base.factories import UserFactory
+from apps.inventory.models import Item
+from apps.inventory.factories import ItemFactory
 from apps.client_orders.models import (
     Country,
     City,
@@ -36,6 +45,15 @@ def location_data(city, country):
         "country": country.name,
         "city": city.name,
         "street_address": "5th avenue"
+    }
+
+@pytest.fixture
+def ordered_item_data(item, client_order):
+    return {
+        "order": client_order.id,
+        "item": item.name,
+        "ordered_quantity": item.quantity - 1,
+        "ordered_price": item.price + 100
     }
 
 
@@ -954,7 +972,7 @@ class TestClientSerializer:
 
         serializer = ClientSerializer(
             client,
-            data={"age": 27},
+            data={"age": client_age + 2},
             context={'user': user},
             partial=True
         )
@@ -969,3 +987,622 @@ class TestClientSerializer:
             model_name="client",
             object_ref__contains="Haitam"
         ).exists()
+
+    def test_client_serializer_data_fields(self, client):
+        serializer = ClientSerializer(client)
+
+        expected_fields = {
+            "id",
+            "created_by",
+            "name",
+            "age",
+            "phone_number",
+            "email",
+            "sex",
+            "location",
+            "source",
+            "total_orders",
+            "updated",
+            "created_at",
+            "updated_at"
+        }
+
+        assert expected_fields.issubset(serializer.data.keys())
+
+    def test_client_serializer_data_fields_types(self, client):
+        serializer = ClientSerializer(client)
+        client_data = serializer.data
+
+        assert type(client_data["id"]) == str
+        assert type(client_data["created_by"]) == str
+        assert type(client_data["name"]) == str
+        assert type(client_data["age"]) == int
+        assert type(client_data["phone_number"]) == str
+        assert type(client_data["email"]) == str
+        assert type(client_data["sex"]) == str
+        assert type(client_data["location"]) == dict
+        assert type(client_data["source"]) == str
+        assert type(client_data["total_orders"]) == int
+        assert type(client_data["updated"]) == bool
+        assert type(client_data["created_at"]) == str
+        assert type(client_data["updated_at"]) == str
+
+    def test_client_serializer_data(self, client):
+        serializer = ClientSerializer(client)
+        client_data = serializer.data
+    
+        assert client_data["id"] == client.id
+        assert client_data["created_by"] == client.created_by.username
+        assert client_data["name"] == client.name
+        assert client_data["age"] == client.age
+        assert client_data["phone_number"] == client.phone_number
+        assert client_data["email"] == client.email
+        assert client_data["sex"] == client.sex
+        assert client_data["location"] == get_location(client.location)
+        assert client_data["source"] == client.source.name
+        assert client_data["total_orders"] == client.total_orders
+        assert client_data["updated"] == client.updated
+        assert (
+            client_data["created_at"] ==
+            date_repr_format(client.created_at)
+        )
+        assert (
+            client_data["updated_at"] ==
+            date_repr_format(client.updated_at)
+        )
+
+
+@pytest.mark.django_db
+class TestClientOrderItemSerializer:
+    """Tests for the Client Ordered Item Serializer"""
+
+    def test_ordered_item_serializer_sets_created_by_from_context(
+        self,
+        user,
+        ordered_item_data
+    ):
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        item = serializer.save()
+        assert item.created_by is not None
+        assert str(item.created_by.id) == str(user.id)
+
+    def test_ordered_item_creation_with_valid_data(
+        self,
+        user,
+        ordered_item_data
+    ):
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        item = serializer.save()
+        assert str(item.created_by.id) == str(user.id)
+        assert str(item.order.id) == str(ordered_item_data["order"])
+        assert item.ordered_quantity == ordered_item_data["ordered_quantity"]
+        assert item.ordered_price == ordered_item_data["ordered_price"]
+
+    def test_ordered_item_creation_fails_without_order(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data.pop("order")
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "order" in serializer.errors
+        assert serializer.errors["order"] == ["This field is required."]
+
+    def test_ordered_item_creation_fails_without_related_item(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data.pop("item")
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "item" in serializer.errors
+        assert serializer.errors["item"] == ["This field is required."]
+
+    def test_ordered_item_creation_fails_without_quantity(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data.pop("ordered_quantity")
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_quantity" in serializer.errors
+        assert serializer.errors["ordered_quantity"] == ["This field is required."]
+
+    def test_ordered_item_creation_fails_without_price(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data.pop("ordered_price")
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_price" in serializer.errors
+        assert serializer.errors["ordered_price"] == ["This field is required."]
+
+    def test_ordered_item_creation_fails_with_quantity_less_than_one(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data["ordered_quantity"] = 0
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_quantity" in serializer.errors
+        assert (
+            serializer.errors["ordered_quantity"] ==
+            ["Ensure this value is greater than or equal to 1."]
+        )
+
+    def test_ordered_item_creation_fails_with_negative_price(
+        self,
+        user,
+        ordered_item_data
+    ):
+        ordered_item_data["ordered_price"] = -1
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_price" in serializer.errors
+        assert (
+            serializer.errors["ordered_price"] ==
+            ["Ensure this value is greater than or equal to 0.0."]
+        )
+
+    def test_ordered_item_serializer_retrieves_related_item_by_name(
+        self,
+        user,
+        ordered_item_data
+    ):
+        related_item = ordered_item_data["item"]
+        assert related_item == "Projector"
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+        
+        ordered_item = serializer.save()
+        assert ordered_item.item is not None
+        assert isinstance(ordered_item.item, Item)
+        assert ordered_item.item.name == related_item
+
+    def test_ordered_item_creation_fails_with_inexistent_item(
+        self,
+        user,
+        ordered_item_data
+    ):
+        random_name = "RandomItemName"
+        ordered_item_data["item"] = random_name
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "item" in serializer.errors
+        assert (
+            serializer.errors["item"] ==
+            [f"Item '{random_name}' does not exist in your inventory."]
+        )
+
+    def test_ordered_item_creation_fails_with_item_not_in_inventory(
+        self,
+        user,
+        ordered_item_data
+    ):
+        item = ItemFactory.create(in_inventory=False)
+        ordered_item_data["item"] = item.name
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "item" in serializer.errors
+        assert (
+            serializer.errors["item"] ==
+            [f"Item '{item.name}' does not exist in your inventory."]
+        )
+
+    def test_ordered_item_creation_fails_for_non_owned_item(
+        self,
+        user,
+        ordered_item_data
+    ):
+        user_2 = UserFactory.create()
+        item = ItemFactory.create(created_by=user_2)
+        ordered_item_data["item"] = item.name
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "item" in serializer.errors
+        assert (
+            serializer.errors["item"] ==
+            [f"Item '{item.name}' does not exist in your inventory."]
+        )
+
+    def test_ordered_item_creation_fails_for_delivered_orders(
+        self,
+        user,
+        client_order,
+        ordered_item_data
+    ):
+        # Update order delivery status to delivered
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        client_order.delivery_status = delivered_status
+        client_order.save()
+
+        ordered_item_data["order"] = client_order.id
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "order" in errors.value.detail
+        assert errors.value.detail["order"] == (
+            "Cannot apply changes to the order "
+            f"with ID '{client_order.id}' ordered items "
+            "because it has already been marked as Delivered. "
+            "Changes to delivered orders are restricted "
+            "to maintain data integrity."
+        )
+
+    def test_ordered_item_creation_fails_with_existing_item_in_order(
+        self,
+        user,
+        item,
+        client_order,
+        ordered_item_data
+    ):
+        # Create ordered item with the same item and order that will
+        # be used to create an ordered item with ClientOrderedItemSerializer
+        ordered_item = ClientOrderedItemFactory.create(
+            item=item,
+            order=client_order
+        )
+
+        # Ensure that the created ordered item has the same name and order id
+        # of the ordered_item_data's item and order
+        assert ordered_item.item.name == ordered_item_data["item"]
+        assert str(ordered_item.order.id) == str(ordered_item_data["order"])
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "item" in errors.value.detail
+        assert errors.value.detail["item"] == (
+            f"Item '{ordered_item.item.name}' already exists in the order's "
+            "list of ordered items. Consider updating the existing item "
+            "if you need to modify its details."
+        )
+
+    def test_ordered_quantity_exceeds_item_quantity_in_inventory(
+        self,
+        user,
+        item,
+        ordered_item_data
+    ):
+        ordered_quantity = 10
+        ordered_item_data["ordered_quantity"] = ordered_quantity
+        ordered_item_data["item"] = item.name
+
+        assert ordered_quantity > item.quantity
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+        
+        assert "ordered_quantity" in errors.value.detail
+        assert errors.value.detail["ordered_quantity"] == (
+            f"The ordered quantity for '{item.name}' "
+             "exceeds available stock."
+        )
+
+    def test_item_quantity_gets_reduced_by_ordered_quantity(
+        self,
+        user,
+        item,
+        ordered_item_data
+    ):
+        ordered_quantity = 3
+        item_initial_quantity = item.quantity
+
+        ordered_item_data["ordered_quantity"] = ordered_quantity
+        ordered_item_data["item"] = item.name
+
+        serializer = ClientOrderedItemSerializer(
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+        ordered_item = serializer.save()
+
+        # Refresh the item from DB to reflect changes
+        item.refresh_from_db()
+
+        # Ensure ordered quantity was set correctly
+        assert ordered_item.ordered_quantity == ordered_quantity
+
+        # Ensure item quantity decreases by the correct amount
+        assert item.quantity < item_initial_quantity
+        assert item.quantity == item_initial_quantity - ordered_quantity
+
+    def test_ordered_item_serializer_data_fields(self, ordered_item):
+        serializer = ClientOrderedItemSerializer(ordered_item)
+
+        expected_fields = {
+            "id",
+            "created_by",
+            "order",
+            "item",
+            "ordered_quantity",
+            "ordered_price",
+            "total_price",
+            "total_profit",
+            "unit_profit",
+            "created_at",
+            "updated_at"
+        }
+
+        assert expected_fields.issubset(serializer.data.keys())
+
+    def test_ordered_item_serializer_data_fields_types(self, ordered_item):
+        serializer = ClientOrderedItemSerializer(ordered_item)
+        ordered_item_data = serializer.data
+
+        assert type(ordered_item_data["id"]) == str
+        assert type(ordered_item_data["created_by"]) == str
+        assert type(ordered_item_data["order"]) == str
+        assert type(ordered_item_data["item"]) == str
+        assert type(ordered_item_data["ordered_quantity"]) == int
+        assert type(ordered_item_data["ordered_price"]) == float
+        assert type(ordered_item_data["total_price"]) == float
+        assert type(ordered_item_data["total_profit"]) == float
+        assert type(ordered_item_data["unit_profit"]) == float
+        assert type(ordered_item_data["created_at"]) == str
+        assert type(ordered_item_data["updated_at"]) == str
+
+    def test_ordered_item_serializer_data(self, ordered_item):
+        serializer = ClientOrderedItemSerializer(ordered_item)
+        item_data = serializer.data
+    
+        assert item_data["id"] == ordered_item.id
+        assert item_data["created_by"] == ordered_item.created_by.username
+        assert str(item_data["order"]) == str(ordered_item.order.id)
+        assert item_data["item"] == ordered_item.item.name
+        assert item_data["ordered_quantity"] == ordered_item.ordered_quantity
+
+        # Decimal fields
+        assert (
+            item_data["ordered_price"] ==
+            decimal_to_float(ordered_item.ordered_price)
+        )
+        assert (
+            item_data["total_price"] ==
+            decimal_to_float(ordered_item.total_price)
+        )
+        assert (
+            item_data["total_profit"] ==
+            decimal_to_float(ordered_item.total_profit)
+        )
+        assert (
+            item_data["unit_profit"] ==
+            decimal_to_float(ordered_item.unit_profit)
+        )
+
+        # Datetime fields
+        assert (
+            item_data["created_at"] ==
+            date_repr_format(ordered_item.created_at)
+        )
+        assert (
+            item_data["updated_at"] ==
+            date_repr_format(ordered_item.updated_at)
+        )
+    
+    def test_ordered_item_update(self, user, ordered_item, ordered_item_data):
+        initial_ordered_quantity = ordered_item.ordered_quantity
+        initial_ordered_price = ordered_item.ordered_price
+
+        ordered_item_data["ordered_price"] = initial_ordered_price + 100
+        ordered_item_data["ordered_price"] = initial_ordered_quantity - 1
+
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+        assert item_update.ordered_quantity == ordered_item_data["ordered_quantity"]
+        assert item_update.ordered_quantity != initial_ordered_quantity
+
+        assert item_update.ordered_price == ordered_item_data["ordered_price"]
+        assert item_update.ordered_price != initial_ordered_price
+
+    def test_ordered_item_partial_update(
+        self,
+        user,
+        ordered_item,
+    ):
+        initial_ordered_price = ordered_item.ordered_price
+
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data={
+                "ordered_price": initial_ordered_price + 100
+            },
+            context={'user': user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        item_update = serializer.save()
+
+        assert item_update.ordered_price == initial_ordered_price + 100
+        assert item_update.ordered_price != initial_ordered_price
+
+    def test_ordered_item_update_fails_for_delivered_orders(
+        self,
+        user,
+        client_order,
+        ordered_item,
+        ordered_item_data
+    ):
+        # Update order delivery status to delivered
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        client_order.delivery_status = delivered_status
+        client_order.save()
+
+        assert str(client_order.id) == str(ordered_item_data["order"])
+
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data=ordered_item_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "order" in errors.value.detail
+        assert errors.value.detail["order"] == (
+            "Cannot apply changes to the order "
+            f"with ID '{client_order.id}' ordered items "
+            "because it has already been marked as Delivered. "
+            "Changes to delivered orders are restricted "
+            "to maintain data integrity."
+        )
+
+    def test_ordered_item_update_validates_item_uniqueness_if_changed(
+        self,
+        user,
+        ordered_item,
+        client_order,
+    ):
+        # Create an item and add it to the order's ordered items
+        item_pack = ItemFactory.create(
+            created_by=user,
+            name="Pack",
+            in_inventory=True
+        )
+        ordered_item_pack = ClientOrderedItemFactory.create(
+            created_by=user,
+            order=client_order,
+            item=item_pack
+        )
+
+        # Ensure both items belong to the same order
+        assert str(ordered_item.order.id) == str(ordered_item_pack.order.id)
+
+        # Attempt to update the ordered item's item
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data={"item": item_pack.name},
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        # Ensure validation error is raised for existing item in order's items list
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "item" in errors.value.detail
+        assert errors.value.detail["item"] == (
+            f"Item '{item_pack.name}' already exists in the order's "
+            "list of ordered items. Consider updating the existing item "
+            "if you need to modify its details."
+        )
+
+    def test_ordered_item_update_recalculates_item_quantity(
+        self,
+        user,
+        item,
+        ordered_item
+    ):
+        assert str(item.id) == str(ordered_item.item.id)
+
+        item_quantity = item.quantity
+        ordered_quantity = ordered_item.ordered_quantity
+        new_ordered_quantity = ordered_quantity - 2
+
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data={"ordered_quantity": new_ordered_quantity},
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        ordered_item_update = serializer.save()
+        assert ordered_item_update.ordered_quantity == new_ordered_quantity
+
+        # Ensure item in inventory gets back the ordered quantity difference
+        item.refresh_from_db()
+        assert item.quantity > item_quantity
+        assert item.quantity == (
+            item_quantity + (ordered_quantity - new_ordered_quantity)
+        )

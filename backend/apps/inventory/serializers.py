@@ -6,7 +6,8 @@ from utils.serializers import (
     get_user,
     handle_null_fields,
     update_field,
-    date_repr_format
+    date_repr_format,
+    decimal_to_float
 )
 from utils.activity import register_activity
 from ..base.models import User
@@ -258,8 +259,8 @@ class ItemSerializer(serializers.ModelSerializer):
         item_repr = super().to_representation(instance)
         item_repr['created_by'] = instance.created_by.username
         item_repr['category'] = instance.category.name if instance.category else None
-        item_repr['price'] = float(instance.price)
-        item_repr['total_price'] = float(instance.total_price) 
+        item_repr['price'] = decimal_to_float(instance.price)
+        item_repr['total_price'] = decimal_to_float(instance.total_price)
         item_repr['supplier'] = instance.supplier.name if instance.supplier else None
         item_repr['variants'] = self.get_variants(instance)
         item_repr['in_inventory'] = instance.in_inventory

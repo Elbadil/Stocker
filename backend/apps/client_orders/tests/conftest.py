@@ -9,7 +9,8 @@ from apps.client_orders.factories import (
     AcquisitionSourceFactory,
     ClientFactory,
     OrderStatusFactory,
-    ClientOrderFactory
+    ClientOrderFactory,
+    ClientOrderedItemFactory
 )
 
 
@@ -57,7 +58,12 @@ def order_status(db):
 
 @pytest.fixture
 def item(db, user):
-    return ItemFactory.create(created_by=user, name="Projector")
+    return ItemFactory.create(
+        created_by=user,
+        name="Projector",
+        quantity=5,
+        in_inventory=True
+    )
 
 @pytest.fixture
 def client_order(db, user, client, location, source, order_status):
@@ -68,4 +74,14 @@ def client_order(db, user, client, location, source, order_status):
         source=source,
         delivery_status=order_status,
         payment_status=order_status,
+    )
+
+@pytest.fixture
+def ordered_item(db, user, client_order, item):
+    return ClientOrderedItemFactory.create(
+        created_by=user,
+        order=client_order,
+        item=item,
+        ordered_quantity=3,
+        ordered_price=item.price + 100
     )

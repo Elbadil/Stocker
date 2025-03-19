@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db.models import Q
+from decimal import Decimal
 from typing import Any, Union, Optional, Callable, List
 from deepdiff import DeepDiff
 from apps.base.models import User
@@ -216,11 +217,17 @@ def validate_changes_for_delivered_parent_instance(
 
     if parent_instance.delivery_status.name == 'Delivered':
         raise serializers.ValidationError({
-            'error': (
+            'order': (
                 f"Cannot apply changes to the {parent_instance_name} "
-                f"with reference ID '{parent_instance.reference_id}' "
-                f"{items_name} because it has already been marked as "
-                f"Delivered. Changes to delivered {parent_instance_name}s "
+                f"with ID '{parent_instance.id}' {items_name} "
+                "because it has already been marked as Delivered. "
+                f"Changes to delivered {parent_instance_name}s "
                 "are restricted to maintain data integrity."
             )
         })
+
+def decimal_to_float(value: Decimal):
+    """
+    Converts a Decimal to a float with 2 decimal places
+    """
+    return round(float(value), 2)
