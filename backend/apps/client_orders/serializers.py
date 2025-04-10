@@ -428,14 +428,14 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
     def create_ordered_items_for_client_order(
         self,
-        request,
+        user: User,
         order: ClientOrder,
         ordered_items: List[dict],
     ) -> None:
         for item in ordered_items:
             item['order'] = order.id
             serializer = ClientOrderedItemSerializer(data=item,
-                                                     context={'request': request})
+                                                     context={'user': user})
             if serializer.is_valid():
                 serializer.save()
             else:
@@ -443,9 +443,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
     def update_ordered_items_for_client_order(
         self,
-        request,
-        order: ClientOrder,
         user: User,
+        order: ClientOrder,
         ordered_items: List[dict]
     ) -> None:
         # Filter inventory items by old and new ordered items
@@ -488,7 +487,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
                     existing_item.save()        
             # Create new ordered item
             else:
-                self.create_ordered_items_for_client_order(request,
+                self.create_ordered_items_for_client_order(user,
                                                            order,
                                                            [new_item])
 
@@ -559,7 +558,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             if item_name in unique_items:
                 ordered_item_name = ordered_item["item"]
                 raise serializers.ValidationError(
-                    {'item': f"Item '{ordered_item_name}' has been selected multiple times."})
+                    f"Item '{ordered_item_name}' has been selected multiple times."
+                )
             else:
                 unique_items.append(item_name)
         return value
@@ -579,7 +579,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         return None
 
     def validate(self, attrs):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         client_name = attrs.get('client', None)
         if client_name:
             client = Client.objects.filter(
@@ -588,12 +588,10 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             ).first()
             if not client:
                 raise serializers.ValidationError(
-                    {
-                        'client': (
-                            f"Client '{client_name}' does not exist. "
-                            "Please create a new client if this is a new entry."
-                        )
-                    }
+                    {'client': (
+                        f"Client '{client_name}' does not exist. "
+                        "Please create a new client if this is a new entry."
+                    )}
                 )
 
             attrs['client'] = client
@@ -602,8 +600,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         # Extract the user from the context request
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
 
         # Exclude special fields from validated_data
         ordered_items = validated_data.pop('ordered_items', None)
@@ -617,7 +614,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
 
         # Create and Add ordered items to the order
         self.create_ordered_items_for_client_order(
-            request,
+            user,
             order,
             ordered_items
         )
@@ -646,8 +643,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance: ClientOrder, validated_data):
         # Extract the user from the context request
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
 
         # Exclude special fields from validated_data
         client = validated_data.get('client', instance.client)
@@ -679,9 +675,8 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         # Update ordered items of the order
         if ordered_items:
             self.update_ordered_items_for_client_order(
-                request,
-                order,
                 user,
+                order,
                 ordered_items
             )
 

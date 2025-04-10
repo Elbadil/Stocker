@@ -3,7 +3,7 @@ from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 from shortuuid.django_fields import ShortUUIDField
 from decimal import Decimal
-from utils.models import BaseModel
+from utils.models import BaseModel, get_default_order_status
 
 
 User = get_user_model()
@@ -137,11 +137,11 @@ class ClientOrder(BaseModel):
     delivery_status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
                                         related_name='client_delivery_status',
                                         null=True, blank=True,
-                                        default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+                                        default=get_default_order_status)
     payment_status = models.ForeignKey(OrderStatus, on_delete=models.SET_NULL,
                                        related_name='client_payment_status',
                                        null=True, blank=True,
-                                       default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+                                       default=get_default_order_status)
     tracking_number = models.CharField(max_length=50, null=True, blank=True,
                                        help_text="Tracking number for the shipment")
     shipping_address = models.ForeignKey(Location, on_delete=models.SET_NULL,

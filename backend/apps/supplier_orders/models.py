@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 from shortuuid.django_fields import ShortUUIDField
-from utils.models import BaseModel
+from utils.models import BaseModel, get_default_order_status
 from ..client_orders.models import Location, OrderStatus
 
 
@@ -55,13 +55,13 @@ class SupplierOrder(BaseModel):
         on_delete=models.SET_NULL,
         related_name="supplier_delivery_status",
         null=True, blank=True,
-        default='8ccdc2f8-1d6e-489f-81cf-7df3c4fce245'
+        default=get_default_order_status
     )
     payment_status = models.ForeignKey(
         OrderStatus, on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name="supplier_payment_status",
-        default='8ccdc2f8-1d6e-489f-81cf-7df3c4fce245'
+        default=get_default_order_status
     )
     tracking_number = models.CharField(max_length=50,
                                        null=True,

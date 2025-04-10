@@ -11,6 +11,7 @@ from apps.base.models import Activity
 from apps.base.factories import UserFactory
 from apps.inventory.models import Item
 from apps.inventory.factories import ItemFactory
+from apps.sales.models import Sale
 from apps.client_orders.models import (
     Country,
     City,
@@ -54,6 +55,23 @@ def ordered_item_data(item, client_order):
         "item": item.name,
         "ordered_quantity": item.quantity - 1,
         "ordered_price": item.price + 100
+    }
+
+@pytest.fixture
+def order_data(
+    client,
+    ordered_item_data,
+    order_status,
+    location_data,
+    source
+):
+    return {
+        "client": client.name,
+        "ordered_items": [ordered_item_data],
+        "delivery_status": order_status.name,
+        "payment_status": order_status.name,
+        "shipping_address": location_data,
+        "source": source.name
     }
 
 
@@ -744,7 +762,7 @@ class TestClientSerializer:
             ["client with this name already exists."]
         )
     
-    def test_client_creation_creates_the_provided_location(
+    def test_client_creation_creates_new_location_if_not_exists(
         self,
         user,
         location_data
@@ -756,6 +774,7 @@ class TestClientSerializer:
             street_address__iexact=location_data["street_address"]
         ).exists()
 
+        # Define client data with the inexistent location data
         client_data = {
             "name": "Haitam",
             "location": location_data
@@ -770,12 +789,14 @@ class TestClientSerializer:
         client = serializer.save()
         assert client.location is not None
 
-        # Verify location has been created after client creation
-        assert Location.objects.filter(
+        # Verify location has been created and set to client after client creation
+        location =  Location.objects.filter(
             country__name__iexact=location_data["country"],
             city__name__iexact=location_data["city"],
             street_address__iexact=location_data["street_address"]
-        ).exists()
+        ).first()
+        assert location is not None
+        assert str(client.location.id) == str(location.id)
 
     def test_client_creation_retrieves_existing_location(
         self,
@@ -784,6 +805,7 @@ class TestClientSerializer:
     ):
         initial_location_count = Location.objects.count()
 
+        # Set for client's location the same existing location's data
         client_data = {
             "name": "Haitam",
             "location": {
@@ -801,6 +823,9 @@ class TestClientSerializer:
 
         client = serializer.save()
         assert client.location is not None
+
+        # Verify the client's location was set to the exact 
+        # existing location
         assert str(client.location.id) == str(location.id)
 
         # Verify no new location was created
@@ -840,13 +865,14 @@ class TestClientSerializer:
             # Verify the created location was linked to the client
             assert client.location == mock_location_instance.save.return_value
 
-    def test_client_creation_creates_the_provided_source(
+    def test_client_creation_creates_new_source_if_not_exists(
         self,
         user,
     ):
         # Verify acq source does not exist before client creation
         assert not AcquisitionSource.objects.filter(name__iexact="ADS").exists()
 
+        # Define client data with the inexistent source name
         client_data = {
             "name": "Haitam",
             "source": "ADS"
@@ -862,9 +888,11 @@ class TestClientSerializer:
         assert client.source is not None
 
         # Verify acq source has been created after client creation
-        assert AcquisitionSource.objects.filter(name__iexact="ADS").exists()
+        source = AcquisitionSource.objects.filter(name__iexact="ADS").first()
+        assert source is not None
+        assert str(client.source.id) == str(source.id)
 
-    def test_client_creation_retrieves_existing_source(
+    def test_client_creation_retrieves_existing_source_by_name(
         self,
         user,
         source
@@ -886,7 +914,7 @@ class TestClientSerializer:
         assert client.source is not None
         assert str(client.source.id) == str(source.id)
 
-        # Verify no new location was created
+        # Verify no new acq source was created
         assert AcquisitionSource.objects.count() == initial_acq_source_count
 
     def test_client_creation_registers_new_activity(self, user):
@@ -1606,3 +1634,523 @@ class TestClientOrderItemSerializer:
         assert item.quantity == (
             item_quantity + (ordered_quantity - new_ordered_quantity)
         )
+
+
+@pytest.mark.django_db
+class TestClientOrderSerializer:
+    """Tests for the Client Order Serializer"""
+
+    def test_order_serializer_sets_created_by_from_context(
+        self,
+        user,
+        order_data
+    ):
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.created_by is not None
+        assert str(order.created_by.id) == str(user.id)
+
+    def test_order_creation_with_valid_data(
+        self,
+        user,
+        client,
+        location,
+        source,
+        order_status,
+        order_data
+    ):
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert str(order.created_by.id) == str(user.id)
+        assert str(order.client.id) == str(client.id)
+        assert str(order.shipping_address.id) == str(location.id)
+        assert str(order.delivery_status.id) == str(order_status.id)
+        assert str(order.payment_status.id) == str(order_status.id)
+        assert str(order.source.id) == str(source.id)
+
+    def test_order_serializer_retrieves_client_by_name(self, user, client, order_data):
+        assert client.name == order_data["client"]
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.client is not None
+        assert order.client.name == order_data["client"]
+
+    def test_order_creation_fails_without_client(self, user, order_data):
+        order_data.pop("client")
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "client" in serializer.errors
+        assert serializer.errors["client"] == ["This field is required."]
+
+    def test_order_creation_fails_with_inexistent_client(self, user, order_data):
+        random_client_name = "RandomClient"
+        order_data["client"] = random_client_name
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        
+        assert "client" in serializer.errors
+        assert serializer.errors["client"] == [
+            f"Client '{random_client_name}' does not exist. "
+             "Please create a new client if this is a new entry."
+        ]
+
+    def test_order_creation_fails_with_non_owned_client(self, user, order_data):
+        user_2 = UserFactory.create()
+        user_2_client = ClientFactory.create(created_by=user_2)
+
+        order_data["client"] = user_2_client.name
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "client" in serializer.errors
+        assert serializer.errors["client"] == [
+            f"Client '{user_2_client.name}' does not exist. "
+             "Please create a new client if this is a new entry."
+        ]
+
+    def test_order_creation_fails_without_ordered_items(self, user, order_data):
+        order_data.pop("ordered_items")
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert serializer.errors["ordered_items"] == ["This field is required."]
+
+    def test_order_creation_fails_with_empty_ordered_items_list(self, user, order_data):
+        order_data["ordered_items"] = []
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert serializer.errors["ordered_items"] == ["This field is required."]
+
+    def test_order_creation_fails_with_empty_ordered_item_object(
+        self,
+        user,
+        order_data
+    ):
+        # Append empty object to the ordered_items list
+        order_data["ordered_items"].append({})
+
+        assert len(order_data["ordered_items"]) == 2
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert serializer.errors["ordered_items"] == [
+            f"Item at position 2 cannot be empty. Please provide valid details."
+        ]
+
+    def test_order_creation_fails_with_duplicate_ordered_item_object(
+        self,
+        user,
+        order_data
+    ):
+        ordered_item_1 = order_data["ordered_items"][0]
+
+        # Add ordered item with the same item name to the ordered_items list
+        ordered_item_2 = {
+            "item": ordered_item_1["item"],
+            "quantity": 2,
+            "price": 600
+        }
+        order_data["ordered_items"].append(ordered_item_2)
+
+        assert len(order_data["ordered_items"]) == 2
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert serializer.errors["ordered_items"] == [
+            f"Item '{ordered_item_1['item']}' has been selected multiple times."
+        ]
+
+    def test_order_creation_uses_client_ordered_item_serializer(
+        self,
+        user,
+        client,
+        ordered_item_data,
+    ):
+        # Add second ordered item data object 
+        item = ItemFactory.create(created_by=user, quantity=6, in_inventory=True)
+        ordered_item_2_data = {
+            "item": item.name,
+            "quantity": item.quantity - 2,
+            "price": item.price + 100
+        }
+
+        # Define order data
+        order_data = {
+            "client": client.name,
+            "ordered_items": [ordered_item_data, ordered_item_2_data]
+        }
+
+        # Mock the Client Ordered Item serializer to verify it's called
+        ordered_item_serializer_path = "apps.client_orders.serializers.ClientOrderedItemSerializer"
+        with patch(ordered_item_serializer_path) as mock_ordered_item_serializer:
+            # Mock instance of the Client Ordered Item serializer
+            mock_ordered_item_instance = mock_ordered_item_serializer.return_value
+            mock_ordered_item_instance.is_valid.return_value = True
+
+            # Call the Client Order serializer
+            serializer = ClientOrderSerializer(
+                data=order_data,
+                context={'user': user}
+            )
+            assert serializer.is_valid(), serializer.errors
+
+            order = serializer.save()
+
+            assert str(order.client.id) == str(client.id)
+
+            # Verify Client Ordered Item serializer was called twice
+            assert mock_ordered_item_serializer.call_count == 2
+
+            # Add order to the ordered items data
+            ordered_item_data["order"] = order.id
+            ordered_item_2_data["order"] = order.id
+
+            # Verify Client Ordered Item serializer was called twice
+            # with each ordered item data
+            mock_ordered_item_serializer.assert_any_call(
+                data=ordered_item_data,
+                context={"user": user}
+            )
+
+            mock_ordered_item_serializer.assert_any_call(
+                data=ordered_item_2_data,
+                context={"user": user}
+            )
+
+            # Verify save was called on the Client Ordered Item serializer
+            assert mock_ordered_item_instance.save.call_count == 2
+
+    def test_order_creation_creates_new_shipping_address_if_not_exists(
+        self,
+        user,
+        item,
+        location_data,
+        order_status
+    ):
+        # Verify location does not exist before order creation
+        assert not Location.objects.filter(
+            country__name__iexact=location_data["country"],
+            city__name__iexact=location_data["city"],
+            street_address__iexact=location_data["street_address"]
+        ).exists()
+
+        # Define order data with the inexistent location data
+        client = ClientFactory.create(created_by=user)
+        order_data = {
+            "client": client.name,
+            "ordered_items": [
+                {
+                    "item": item.name,
+                    "ordered_quantity": item.quantity - 2,
+                    "ordered_price": item.price + 100
+                }
+            ],
+            "shipping_address": location_data,
+            "delivery_status": order_status.name,
+            "payment_status": order_status.name
+        }
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.shipping_address is not None
+
+        # Verify location has been created and set to order after order creation
+        location = Location.objects.filter(
+            country__name__iexact=location_data["country"],
+            city__name__iexact=location_data["city"],
+            street_address__iexact=location_data["street_address"]
+        ).first()
+        assert location is not None
+        assert str(order.shipping_address.id) == str(location.id)
+
+    def test_order_creation_retrieves_existing_shipping_address(
+        self,
+        user,
+        location,
+        order_data
+    ):
+        initial_location_count = Location.objects.count()
+
+        # Set for order's shipping_address the same existing location's data
+        order_data["shipping_address"] = {
+            "country": location.country.name,
+            "city": location.city.name,
+            "street_address": location.street_address
+        }
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.shipping_address is not None
+
+        # Verify the order's shipping_address was set to 
+        # the exact existing location
+        assert str(order.shipping_address.id) == str(location.id)
+
+        # Verify no new location was created
+        assert Location.objects.count() == initial_location_count
+
+    def test_order_creation_uses_location_serializer(
+        self,
+        user,
+        client,
+        ordered_item_data,
+        location_data
+    ):
+        order_data = {
+            "client": client.name,
+            "ordered_items": [ordered_item_data],
+            "shipping_address": location_data
+        }
+
+        # Mock the location serializer to verify it's called
+        location_serializer_path = "apps.client_orders.serializers.LocationSerializer"
+        with patch(location_serializer_path) as mock_location_serializer:
+            # Mock instance of the location serializer
+            mock_location_instance = mock_location_serializer.return_value
+            mock_location_instance.is_valid.return_value = True
+            mock_location_instance.save.return_value = LocationFactory.create()
+
+            # Call the Client Order serializer
+            serializer = ClientOrderSerializer(
+                data=order_data,
+                context={'user': user}
+            )
+            assert serializer.is_valid()
+
+            order = serializer.save()
+
+            assert str(order.client.id) == str(client.id)
+
+            # Verify location serializer was called with the correct data
+            mock_location_serializer.assert_called_once_with(
+                data=location_data,
+                context={'user': user}
+            )
+
+            # Verify save was called on the location serializer
+            mock_location_instance.save.assert_called_once()
+
+            # Verify the created location was linked to the order
+            assert (
+                order.shipping_address ==
+                mock_location_instance.save.return_value
+            )
+
+    def test_order_creation_retrieves_existing_source_by_name(
+        self,
+        user,
+        order_data,
+        source,
+    ):
+        initial_acq_source_count = AcquisitionSource.objects.count()
+
+        order_data["source"] = source.name
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.source is not None
+        assert str(order.source.id) == str(source.id)
+
+        # Verify no new acq source was created
+        assert AcquisitionSource.objects.count() == initial_acq_source_count
+
+    def test_order_creation_creates_new_source_if_not_exists(
+        self,
+        user,
+        item,
+        order_status
+    ):
+        # Verify acq source does not exist before order creation
+        assert not AcquisitionSource.objects.filter(name__iexact="ADS").exists()
+
+        # Define order data with the inexistent source name
+        client = ClientFactory.create(created_by=user)
+        order_data = {
+            "client": client.name,
+            "ordered_items": [
+                {
+                    "item": item.name,
+                    "ordered_quantity": item.quantity - 2,
+                    "ordered_price": item.price + 100
+                }
+            ],
+            "source": "ADS",
+            "delivery_status": order_status.name,
+            "payment_status": order_status.name
+        }
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        order = serializer.save()
+        assert order.source is not None
+
+        # Verify acq source has been created and set for order after order creation
+        source = AcquisitionSource.objects.filter(name__iexact="ADS").first()
+        assert source is not None
+        assert str(order.source.id) == str(source.id)
+
+    def test_order_serializer_retrieves_delivery_and_payment_status_by_name(
+        self,
+        user,
+        order_status,
+        order_data
+    ):
+        order_data["delivery_status"] = order_status.name
+        order_data["payment_status"] = order_status.name
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert str(order.delivery_status.id) == str(order_status.id)
+        assert str(order.payment_status.id) == str(order_status.id)
+
+    def test_order_status_is_set_to_pending_by_default(self, user, order_data):
+        # Remove delivery and payment status from order_data
+        order_data.pop("delivery_status")
+        order_data.pop("payment_status")
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        # Verify delivery and payment status have been set to Pending for order
+        assert order.delivery_status is not None
+        assert order.payment_status is not None
+        assert order.delivery_status.name == "Pending"
+        assert order.payment_status.name == "Pending"
+
+    def test_delivered_order_creates_a_sale_instance_with_orders_data(
+        self,
+        user,
+        order_data
+    ):
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        order_data["delivery_status"] = delivered_status.name
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.delivery_status.name == "Delivered"
+        assert order.sale is not None
+
+        sale = order.sale
+        assert isinstance(sale, Sale)
+        assert str(sale.client.id) == str(order.client.id)
+        assert str(sale.shipping_address.id) == str(order.shipping_address.id)
+        assert str(sale.source.id) == str(order.source.id)
+        assert str(sale.delivery_status.id) == str(order.delivery_status.id)
+        assert str(sale.payment_status.id) == str(order.payment_status.id)
+        assert len(sale.sold_items.all()) == len(order.ordered_items.all())
+
+        # Verify that both sale and order items are the same
+        sale_items = [
+            {"item": sold_item.item.name,
+             "quantity": sold_item.sold_quantity,
+             "price": sold_item.sold_price}
+            for sold_item
+            in sale.sold_items.all()
+        ]
+        sale_items_set = {frozenset(item.items()) for item in sale_items}
+        order_items = [
+            {"item": ordered_item.item.name,
+             "quantity": ordered_item.ordered_quantity,
+             "price": ordered_item.ordered_price}
+            for ordered_item
+            in order.ordered_items.all()
+        ]
+        order_items_set = {frozenset(item.items()) for item in order_items}
+        assert sale_items_set == order_items_set
+
+    def test_order_creation_registers_a_new_activity(self, user, order_data):
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={'user': user}
+        )
+        assert serializer.is_valid()
+
+        order = serializer.save()
+
+        assert Activity.objects.filter(
+            action="created",
+            model_name="client order",
+            object_ref__contains=order.reference_id
+        ).exists()

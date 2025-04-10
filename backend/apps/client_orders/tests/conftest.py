@@ -36,7 +36,7 @@ def location(db, user, country, city):
         added_by=user,
         country=country,
         city=city,
-        street_address="5th Avenue"
+        street_address="5th avenue"
     )
 
 @pytest.fixture

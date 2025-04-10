@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from shortuuid.django_fields import ShortUUIDField
-from utils.models import BaseModel
+from utils.models import BaseModel, get_default_order_status
 from ..inventory.models import Item
 from ..client_orders.models import (Client,
                                     AcquisitionSource,
@@ -27,11 +27,11 @@ class Sale(BaseModel):
     delivery_status = models.ForeignKey(OrderStatus, on_delete=models.PROTECT,
                                         related_name='sale_delivery_status',
                                         blank=True,
-                                        default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+                                        default=get_default_order_status)
     payment_status = models.ForeignKey(OrderStatus, on_delete=models.PROTECT,
                                        related_name='sale_payment_status',
                                        blank=True,
-                                       default="8ccdc2f8-1d6e-489f-81cf-7df3c4fce245")
+                                       default=get_default_order_status)
     source = models.ForeignKey(AcquisitionSource, on_delete=models.SET_NULL,
                                null=True, blank=True,
                                related_name="sales",
