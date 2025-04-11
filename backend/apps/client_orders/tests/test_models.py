@@ -235,12 +235,12 @@ class TestOrderStatusModel:
         status = OrderStatusFactory.create(name="Pending")
         assert str(status) == "Pending"
 
-    def test_order_status_with_multiple_client_orders(self, order_status):
+    def test_order_status_with_multiple_client_orders(self, pending_status):
         orders = ClientOrderFactory.create_batch(
-            3, delivery_status=order_status, payment_status=order_status
+            3, delivery_status=pending_status, payment_status=pending_status
         )
-        assert all(order.delivery_status == order_status for order in orders)
-        assert all(order.payment_status == order_status for order in orders)
+        assert all(order.delivery_status == pending_status for order in orders)
+        assert all(order.payment_status == pending_status for order in orders)
 
 
 @pytest.mark.django_db
@@ -253,23 +253,23 @@ class TestClientOrderModel:
         location,
         source,
         client,
-        order_status,
+        pending_status,
     ):
         client_order = ClientOrderFactory.create(
             created_by=user,
             client=client,
             shipping_address=location,
             source=source,
-            delivery_status=order_status,
-            payment_status=order_status,
+            delivery_status=pending_status,
+            payment_status=pending_status,
         )
 
         assert client_order.created_by == user
         assert client_order.client == client
         assert client_order.shipping_address == location
         assert client_order.source == source
-        assert client_order.delivery_status == order_status
-        assert client_order.payment_status == order_status
+        assert client_order.delivery_status == pending_status
+        assert client_order.payment_status == pending_status
 
     def test_client_order_str_representation(self):
         client_order = ClientOrderFactory.create()

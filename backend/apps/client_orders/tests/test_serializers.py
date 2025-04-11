@@ -61,15 +61,15 @@ def ordered_item_data(item, client_order):
 def order_data(
     client,
     ordered_item_data,
-    order_status,
+    pending_status,
     location_data,
     source
 ):
     return {
         "client": client.name,
         "ordered_items": [ordered_item_data],
-        "delivery_status": order_status.name,
-        "payment_status": order_status.name,
+        "delivery_status": pending_status.name,
+        "payment_status": pending_status.name,
         "shipping_address": location_data,
         "source": source.name
     }
@@ -655,47 +655,47 @@ class TestOrderStatusSerializer:
             ["order status with this name already exists."]
         )
 
-    def test_order_status_serializer_data_fields(self, order_status):
-        serializer = OrderStatusSerializer(order_status)
+    def test_order_status_serializer_data_fields(self, pending_status):
+        serializer = OrderStatusSerializer(pending_status)
 
         assert "id" in serializer.data
         assert "name" in serializer.data
         assert "created_at" in serializer.data
         assert "updated_at" in serializer.data
 
-    def test_order_status_serializer_data_fields_types(self, order_status):
-        serializer = OrderStatusSerializer(order_status)
-        order_status_data = serializer.data
+    def test_order_status_serializer_data_fields_types(self, pending_status):
+        serializer = OrderStatusSerializer(pending_status)
+        pending_status_data = serializer.data
 
-        assert type(order_status_data["id"]) == str
-        assert type(order_status_data["name"]) == str
-        assert type(order_status_data["created_at"]) == str
-        assert type(order_status_data["updated_at"]) == str
+        assert type(pending_status_data["id"]) == str
+        assert type(pending_status_data["name"]) == str
+        assert type(pending_status_data["created_at"]) == str
+        assert type(pending_status_data["updated_at"]) == str
 
-    def test_order_status_serializer_data(self, order_status):
-        serializer = OrderStatusSerializer(order_status)
-        order_status_data = serializer.data
+    def test_order_status_serializer_data(self, pending_status):
+        serializer = OrderStatusSerializer(pending_status)
+        pending_status_data = serializer.data
     
-        assert order_status_data["id"] == order_status.id
-        assert order_status_data["name"] == "Pending"
+        assert pending_status_data["id"] == pending_status.id
+        assert pending_status_data["name"] == "Pending"
         assert (
-            order_status_data["created_at"] ==
-            default_datetime_str_format(order_status.created_at)
+            pending_status_data["created_at"] ==
+            default_datetime_str_format(pending_status.created_at)
         )
         assert (
-            order_status_data["updated_at"] ==
-            default_datetime_str_format(order_status.updated_at)
+            pending_status_data["updated_at"] ==
+            default_datetime_str_format(pending_status.updated_at)
         )
 
-    def test_order_status_update(self, order_status):
-        order_status_name = order_status.name
+    def test_order_status_update(self, pending_status):
+        pending_status_name = pending_status.name
 
-        serializer = OrderStatusSerializer(order_status, data={"name": "Failed"})
+        serializer = OrderStatusSerializer(pending_status, data={"name": "Failed"})
         assert serializer.is_valid()
 
         order_status_update = serializer.save()
         assert order_status_update.name == "Failed"
-        assert order_status_update.name != order_status_name
+        assert order_status_update.name != pending_status_name
 
 
 @pytest.mark.django_db
@@ -1295,10 +1295,10 @@ class TestClientOrderItemSerializer:
         self,
         user,
         client_order,
+        delivered_status,
         ordered_item_data
     ):
         # Update order delivery status to delivered
-        delivered_status = OrderStatusFactory.create(name="Delivered")
         client_order.delivery_status = delivered_status
         client_order.save()
 
@@ -1534,10 +1534,10 @@ class TestClientOrderItemSerializer:
         user,
         client_order,
         ordered_item,
-        ordered_item_data
+        ordered_item_data,
+        delivered_status
     ):
         # Update order delivery status to delivered
-        delivered_status = OrderStatusFactory.create(name="Delivered")
         client_order.delivery_status = delivered_status
         client_order.save()
 
@@ -1661,7 +1661,7 @@ class TestClientOrderSerializer:
         client,
         location,
         source,
-        order_status,
+        pending_status,
         order_data
     ):
         serializer = ClientOrderSerializer(
@@ -1674,8 +1674,8 @@ class TestClientOrderSerializer:
         assert str(order.created_by.id) == str(user.id)
         assert str(order.client.id) == str(client.id)
         assert str(order.shipping_address.id) == str(location.id)
-        assert str(order.delivery_status.id) == str(order_status.id)
-        assert str(order.payment_status.id) == str(order_status.id)
+        assert str(order.delivery_status.id) == str(pending_status.id)
+        assert str(order.payment_status.id) == str(pending_status.id)
         assert str(order.source.id) == str(source.id)
 
     def test_order_serializer_retrieves_client_by_name(self, user, client, order_data):
@@ -1875,7 +1875,7 @@ class TestClientOrderSerializer:
         user,
         item,
         location_data,
-        order_status
+        pending_status
     ):
         # Verify location does not exist before order creation
         assert not Location.objects.filter(
@@ -1896,8 +1896,8 @@ class TestClientOrderSerializer:
                 }
             ],
             "shipping_address": location_data,
-            "delivery_status": order_status.name,
-            "payment_status": order_status.name
+            "delivery_status": pending_status.name,
+            "payment_status": pending_status.name
         }
 
         serializer = ClientOrderSerializer(
@@ -2022,7 +2022,7 @@ class TestClientOrderSerializer:
         self,
         user,
         item,
-        order_status
+        pending_status
     ):
         # Verify acq source does not exist before order creation
         assert not AcquisitionSource.objects.filter(name__iexact="ADS").exists()
@@ -2039,8 +2039,8 @@ class TestClientOrderSerializer:
                 }
             ],
             "source": "ADS",
-            "delivery_status": order_status.name,
-            "payment_status": order_status.name
+            "delivery_status": pending_status.name,
+            "payment_status": pending_status.name
         }
 
         serializer = ClientOrderSerializer(
@@ -2060,11 +2060,11 @@ class TestClientOrderSerializer:
     def test_order_serializer_retrieves_delivery_and_payment_status_by_name(
         self,
         user,
-        order_status,
+        pending_status,
         order_data
     ):
-        order_data["delivery_status"] = order_status.name
-        order_data["payment_status"] = order_status.name
+        order_data["delivery_status"] = pending_status.name
+        order_data["payment_status"] = pending_status.name
 
         serializer = ClientOrderSerializer(
             data=order_data,
@@ -2073,8 +2073,8 @@ class TestClientOrderSerializer:
         assert serializer.is_valid(), serializer.errors
 
         order = serializer.save()
-        assert str(order.delivery_status.id) == str(order_status.id)
-        assert str(order.payment_status.id) == str(order_status.id)
+        assert str(order.delivery_status.id) == str(pending_status.id)
+        assert str(order.payment_status.id) == str(pending_status.id)
 
     def test_order_status_is_set_to_pending_by_default(self, user, order_data):
         # Remove delivery and payment status from order_data
@@ -2097,9 +2097,9 @@ class TestClientOrderSerializer:
     def test_delivered_order_creates_a_sale_instance_with_orders_data(
         self,
         user,
-        order_data
+        order_data,
+        delivered_status
     ):
-        delivered_status = OrderStatusFactory.create(name="Delivered")
         order_data["delivery_status"] = delivered_status.name
 
         serializer = ClientOrderSerializer(
@@ -2154,3 +2154,178 @@ class TestClientOrderSerializer:
             model_name="client order",
             object_ref__contains=order.reference_id
         ).exists()
+
+    def test_order_update(self, user, client_order, order_data):
+        order_delivery_status = client_order.delivery_status.name
+        order_tracking_number = client_order.tracking_number
+
+        shipped_status = OrderStatusFactory.create(name="Shipped")
+        order_data["delivery_status"] = shipped_status.name
+        order_data["tracking_number"] = "L268DL246"
+
+        serializer = ClientOrderSerializer(
+            client_order,
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid()
+
+        order_update = serializer.save()
+        assert order_update.delivery_status.name != order_delivery_status
+        assert order_update.tracking_number != order_tracking_number
+
+    def test_order_partial_update(self, user, client_order):
+        order_tracking_number = client_order.tracking_number
+
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"tracking_number": "L268DL246"},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        order_update = serializer.save()
+        assert order_update.tracking_number != order_tracking_number
+
+    def test_client_update_fails_for_delivered_orders(
+        self,
+        user,
+        client_order,
+        delivered_status,
+        ordered_item
+    ):
+        # Update order status to delivered
+        client_order.delivery_status = delivered_status
+        client_order.save()
+
+        # Create new client
+        client = ClientFactory.create(created_by=user, name="Safuan")
+
+        # Try to update order with a new value for the client field
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"client": client.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        # Verify a ValidationError is raised when we try to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+    
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "client" in error_data["restricted_fields"]
+
+    def test_ordered_items_update_fails_for_delivered_orders(
+        self,
+        user,
+        client_order,
+        delivered_status,
+        ordered_item
+    ):
+        # Update order status to delivered
+        client_order.delivery_status = delivered_status
+        client_order.save()
+
+        # Get order's data
+        order_data = ClientOrderSerializer(client_order).data
+
+        # Remove 'total_price' and 'total_profit' from ordered_items data
+        keys_to_remove_from_items = ['total_price', 'total_profit']
+        ordered_items = []
+        for item in order_data["ordered_items"]:
+            ordered_items.append(
+                {key: value for key,
+                 value in item.items()
+                 if key not in keys_to_remove_from_items}
+            )
+        ordered_items_set = {frozenset(item.items()) for item in ordered_items}
+
+        # Define new ordered items
+        new_ordered_items = [
+            {
+                "item": "DataShow",
+                "quantity": 4,
+                "price": 500
+            }
+        ]
+        new_ordered_items_set = {
+            frozenset(item.items())
+            for item in new_ordered_items
+        }
+
+        # Verify that new ordered items are different than order's ordered items
+        assert new_ordered_items_set != ordered_items_set
+
+        # Try to update order with new ordered items
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"ordered_items": new_ordered_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        # Verify a ValidationError is raised when we try to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+    
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "ordered_items" in error_data["restricted_fields"]
+
+    def test_delivery_status_update_fails_for_delivered_orders(
+        self,
+        user,
+        client_order,
+        pending_status,
+        delivered_status,
+        ordered_item
+    ):
+        # Update order status to delivered
+        client_order.delivery_status = delivered_status
+        client_order.save()
+
+        # Try to update order with a new value for the delivery_status field
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"delivery_status": pending_status.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        # Verify a ValidationError is raised when we try to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "delivery_status" in error_data["restricted_fields"]

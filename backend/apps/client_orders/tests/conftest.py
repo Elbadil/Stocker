@@ -53,8 +53,12 @@ def client(db, user, location, source):
     )
 
 @pytest.fixture
-def order_status(db):
+def pending_status(db):
     return OrderStatusFactory.create(name="Pending")
+
+@pytest.fixture
+def delivered_status(db):
+    return OrderStatusFactory.create(name="Delivered")
 
 @pytest.fixture
 def item(db, user):
@@ -66,14 +70,14 @@ def item(db, user):
     )
 
 @pytest.fixture
-def client_order(db, user, client, location, source, order_status):
+def client_order(db, user, client, location, source, pending_status):
     return ClientOrderFactory.create(
         created_by=user,
         client=client,
         shipping_address=location,
         source=source,
-        delivery_status=order_status,
-        payment_status=order_status,
+        delivery_status=pending_status,
+        payment_status=pending_status,
     )
 
 @pytest.fixture

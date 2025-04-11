@@ -240,7 +240,7 @@ class ClientSerializer(serializers.ModelSerializer):
 
 
 class ClientOrderedItemSerializer(serializers.ModelSerializer):
-    """Ordered Item Serializer"""
+    """Client Ordered Item Serializer"""
     order = serializers.PrimaryKeyRelatedField(
         many=False,
         queryset=ClientOrder.objects.all()
@@ -393,7 +393,7 @@ class ClientOrderedItemSerializer(serializers.ModelSerializer):
 
 
 class ClientOrderSerializer(serializers.ModelSerializer):
-    """Order Serializer"""
+    """Client Order Serializer"""
     client = serializers.CharField()
     ordered_items = serializers.ListField(child=serializers.DictField(),
                                           write_only=True,

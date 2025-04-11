@@ -179,9 +179,11 @@ def validate_restricted_fields(
     new_values = {
         party: participant.name,
         items_name: items if items else prev_items,
-        'delivery_status': (delivery_status.name
-                            if delivery_status
-                            else instance.delivery_status.name),
+        'delivery_status': (
+            delivery_status.name
+            if delivery_status
+            else instance.delivery_status.name
+        ),
     }
 
     changed_fields = restricted_fields_have_changes(prev_values, new_values)
