@@ -32,7 +32,7 @@ class ItemFactory(factory.django.DjangoModelFactory):
     category = factory.SubFactory(CategoryFactory)
     supplier = factory.SubFactory(SupplierFactory)
     name = factory.Sequence(lambda n: f"item_{n}")
-    quantity = factory.Faker("pyint", min_value=1, max_value=20)
+    quantity = factory.Faker("pyint", min_value=2, max_value=20)
     price = factory.Faker(
         "pydecimal",
         left_digits=3,

@@ -10,8 +10,9 @@ from apps.client_orders.factories import (
     ClientFactory,
     OrderStatusFactory,
     ClientOrderFactory,
-    ClientOrderedItemFactory
+    ClientOrderedItemFactory,
 )
+from apps.sales.factories import SaleFactory
 
 
 @pytest.fixture
@@ -79,6 +80,23 @@ def client_order(db, user, client, location, source, pending_status):
         delivery_status=pending_status,
         payment_status=pending_status,
     )
+
+@pytest.fixture
+def sale(db, client_order):
+    sale_data = {
+        field: getattr(client_order, field)
+        for field in [
+            "created_by",
+            "client",
+            "delivery_status",
+            "payment_status",
+            "shipping_address",
+            "shipping_cost",
+            "source",
+            "tracking_number",
+        ]
+    }
+    return SaleFactory.create(**sale_data)
 
 @pytest.fixture
 def ordered_item(db, user, client_order, item):

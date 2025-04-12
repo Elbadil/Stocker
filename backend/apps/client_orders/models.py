@@ -173,7 +173,7 @@ class ClientOrder(BaseModel):
 
     @property
     def linked_sale(self):
-        return self.sale.reference_id if self.sale else None
+        return self.sale.id if self.sale else None
 
     def __str__(self) -> str:
         return self.reference_id
