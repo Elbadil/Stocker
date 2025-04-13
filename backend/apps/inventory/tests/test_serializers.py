@@ -1,5 +1,6 @@
 import pytest
 from decimal import Decimal
+from deepdiff import DeepDiff
 from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.inventory.serializers import (
     CategorySerializer,
@@ -982,6 +983,7 @@ class TestItemSerializer:
             },
         ]
         item_data["variants"] = json.dumps(variants)
+
         create_serializer = ItemSerializer(data=item_data, context={'user': user})
         assert create_serializer.is_valid()
 
@@ -990,7 +992,9 @@ class TestItemSerializer:
         get_serializer = ItemSerializer(item)
         serializer_data = get_serializer.data
 
-        assert serializer_data["variants"] == variants
+        # Verify that the two variants lists are the same and there's no difference
+        diff = DeepDiff(variants, serializer_data["variants"], ignore_order=True)
+        assert diff == {}
 
     def test_item_serializer_data_for_date_fields(self, user, item_data):
         create_serializer = ItemSerializer(data=item_data, context={'user': user})

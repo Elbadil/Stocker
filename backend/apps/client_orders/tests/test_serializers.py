@@ -761,6 +761,20 @@ class TestClientSerializer:
             ["client with this name already exists."]
         )
     
+    def test_client_creation_with_invalid_email(self, user):
+        client_data = {
+            "name": "Haitam",
+            "email": "haitamgmail.com"
+        }
+        serializer = ClientSerializer(
+            data=client_data,
+            context={'user': user}
+        )
+        assert not serializer.is_valid()
+
+        assert "email" in serializer.errors
+        assert serializer.errors["email"] == ["Enter a valid email address."]
+    
     def test_client_creation_creates_new_location_if_not_exists(
         self,
         user,
