@@ -20,6 +20,21 @@ def user(db):
     return UserFactory.create(username="adel")
 
 @pytest.fixture
+def api_client():
+    from rest_framework.test import APIClient
+    return APIClient()
+
+@pytest.fixture
+def access_token(db, user):
+    from rest_framework_simplejwt.tokens import AccessToken
+    return AccessToken.for_user(user)
+
+@pytest.fixture
+def auth_client(api_client, user):
+    api_client.force_authenticate(user=user)
+    return api_client
+
+@pytest.fixture
 def random_uuid():
     return str(uuid.uuid4())
 

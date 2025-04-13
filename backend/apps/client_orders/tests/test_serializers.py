@@ -12,7 +12,6 @@ from apps.base.factories import UserFactory
 from apps.inventory.models import Item
 from apps.inventory.factories import ItemFactory
 from apps.sales.models import Sale
-from apps.sales.factories import SaleFactory
 from apps.client_orders.models import (
     Country,
     City,
@@ -36,7 +35,6 @@ from apps.client_orders.factories import (
     AcquisitionSourceFactory,
     ClientFactory,
     OrderStatusFactory,
-    ClientOrderFactory,
     ClientOrderedItemFactory
 )
 
