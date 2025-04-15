@@ -1,4 +1,6 @@
 import pytest
+import uuid
+from deepdiff import DeepDiff
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.base.factories import UserFactory
@@ -20,6 +22,9 @@ from utils.serializers import date_repr_format, get_location
 def create_list_clients_url():
     return reverse("create_list_clients")
 
+@pytest.fixture
+def bulk_delete_clients_url():
+    return reverse("bulk_delete_clients")
 
 def client_url(client_id: str):
     """
@@ -471,3 +476,234 @@ class TestGetUpdateDeleteClientsView:
                 object_ref__contains=[client.name]
             ).exists()
         )
+
+@pytest.mark.django_db
+class TestBulkDeleteClientsView:
+    """Test for the BulkDeleteClients view."""
+
+    def test_bulk_delete_clients_requires_authentication(
+        self,
+        api_client,
+        bulk_delete_clients_url
+    ):
+        res = api_client.delete(bulk_delete_clients_url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_clients_allowed_http_methods(
+        self,
+        auth_client,
+        client,
+        bulk_delete_clients_url
+    ):
+        get_res = auth_client.get(bulk_delete_clients_url)
+        assert get_res.status_code == 405
+
+        post_res = auth_client.post(bulk_delete_clients_url)
+        assert post_res.status_code == 405
+
+        put_res = auth_client.put(bulk_delete_clients_url)
+        assert put_res.status_code == 405
+
+        patch_res = auth_client.patch(bulk_delete_clients_url)
+        assert patch_res.status_code == 405
+    
+        delete_res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": [client.id]},
+            format='json'
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_clients_fails_without_list_of_ids(
+        self,
+        auth_client,
+        bulk_delete_clients_url
+    ):
+        res = auth_client.delete(bulk_delete_clients_url)
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+
+    def test_bulk_delete_clients_fails_with_invalid_uuids(
+        self,
+        auth_client,
+        bulk_delete_clients_url
+    ):
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": ["invalid_uuid"]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not valid UUIDs."
+        
+        assert "invalid_ids" in res_error
+        assert res_error["invalid_ids"] == ["invalid_uuid"]
+
+    def test_bulk_delete_clients_fails_with_inexistent_ids(
+        self,
+        auth_client,
+        bulk_delete_clients_url,
+        client
+    ):
+        random_id_1 = str(uuid.uuid4())
+        random_id_2 = str(uuid.uuid4())
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": [client.id, random_id_1, random_id_2]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all clients could not be found."
+
+        assert "missing_ids" in res_error
+        missing_ids = res_error["missing_ids"]
+        assert len(missing_ids) == 2
+        assert random_id_1 in missing_ids
+        assert random_id_2 in missing_ids
+
+    def test_bulk_delete_clients_fails_with_unauthorized_clients(
+        self,
+        user,
+        auth_client,
+        bulk_delete_clients_url,
+    ):
+        user_clients = ClientFactory.create_batch(2, created_by=user)
+        other_clients = ClientFactory.create_batch(3)
+
+        clients_ids = [client.id for client in user_clients + other_clients]
+
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": clients_ids},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all clients could not be found."
+
+        assert "missing_ids" in res_error
+        assert len(res_error["missing_ids"]) == len(other_clients)
+        assert all(client.id in res_error["missing_ids"] for client in other_clients)
+
+    def test_bulk_delete_clients_fails_with_all_clients_linked_to_orders(
+        self,
+        user,
+        auth_client,
+        bulk_delete_clients_url,
+        client,
+        client_order,
+    ):
+        # Create a second client and link it to another order
+        client_2 = ClientFactory.create(created_by=user)
+        client_order_2 = ClientOrderFactory.create(created_by=user, client=client_2)
+
+        # Current clients list
+        clients = [
+            {
+                "id": client.id,
+                "name": client.name
+            },
+            {
+                "id": client_2.id,
+                "name": client_2.name
+            }
+        ]
+
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": [client.id, client_2.id]},
+            format='json'
+        )
+        assert res.status_code == 400
+        res_data = res.json()
+        assert "error" in res_data
+        res_error = res_data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == (
+            "All selected clients are linked to existing orders. "
+            "Manage orders before deletion."
+        )
+        assert "linked_clients" in res_error
+        assert len(res_error["linked_clients"]) == 2
+        
+        assert clients[0] in res_error["linked_clients"]
+        assert clients[1] in res_error["linked_clients"]
+
+    def test_bulk_delete_clients_with_some_clients_linked_to_orders_and_others_not(
+        self,
+        user,
+        auth_client,
+        bulk_delete_clients_url,
+        client,
+    ):
+        # Create a second client without linking it to an order
+        client_2 = ClientFactory.create(created_by=user)
+
+        # Create a third client and link it to an order
+        client_3 = ClientFactory.create(created_by=user)
+        client_order = ClientOrderFactory.create(created_by=user, client=client_3)
+
+        client_with_order = {
+            "id": client_3.id,
+            "name": client_3.name
+        }            
+
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": [client.id, client_2.id, client_3.id]},
+            format='json'
+        )
+        assert res.status_code == 207
+        res_data = res.json()
+
+        assert "message" in res_data
+        assert res_data["message"] == (
+            "2 clients deleted successfully, but 1 client could not be deleted "
+            "because they are linked to existing orders."
+        )
+
+        assert "linked_clients" in res_data
+        assert len(res_data["linked_clients"]) == 1
+        assert client_with_order in res_data["linked_clients"]
+
+        # Verify that the two clients without order were deleted
+        assert not Client.objects.filter(id__in=[client.id, client_2.id]).exists()
+
+        # Verify that the client with order was not deleted
+        assert Client.objects.filter(id=client_3.id).exists()
+
+    def test_bulk_delete_clients_succeeds_with_all_clients_not_linked_to_orders(
+        self,
+        user,
+        auth_client,
+        bulk_delete_clients_url,
+        client,
+    ):
+        # Create a second client without linking it to an order
+        client_2 = ClientFactory.create(created_by=user)
+        res = auth_client.delete(
+            bulk_delete_clients_url,
+            data={"ids": [client.id, client_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 clients successfully deleted."
+
+        # Verify that both clients were deleted
+        assert not Client.objects.filter(id__in=[client.id, client_2.id]).exists()
