@@ -4,7 +4,7 @@ from deepdiff import DeepDiff
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.base.factories import UserFactory
-from apps.client_orders.models import Client
+from apps.client_orders.models import Client, ClientOrder
 from apps.client_orders.factories import (
     CountryFactory,
     CityFactory,
@@ -38,6 +38,11 @@ def client_data():
     return {
         "name": "Haitam",
     }
+
+@pytest.fixture
+def create_list_orders_url():
+    return reverse("create_list_client_orders")
+
 
 @pytest.mark.django_db
 class TestCreateListClientsView:
@@ -193,7 +198,10 @@ class TestCreateListClientsView:
         api_client.force_authenticate(user=user)
 
         # Create 10 clients for the authenticated user
-        ClientFactory.create_batch(10, created_by=user)
+        user_clients = ClientFactory.create_batch(10, created_by=user)
+
+        # Create 5 clients for other users
+        ClientFactory.create_batch(5)
 
         res = api_client.get(create_list_clients_url)
         assert res.status_code == 200
@@ -203,6 +211,8 @@ class TestCreateListClientsView:
 
         # Verify that all clients belong to the authenticated user
         assert all(client["created_by"] == str(user.username)
+                   for client in res.data)
+        assert all(client["id"] in [str(client.id) for client in user_clients]
                    for client in res.data)
 
 
@@ -707,3 +717,118 @@ class TestBulkDeleteClientsView:
 
         # Verify that both clients were deleted
         assert not Client.objects.filter(id__in=[client.id, client_2.id]).exists()
+
+
+@pytest.mark.django_db
+class TestCreateListClientOrdersView:
+    """Tests for CreateListClientOrdersView"""
+
+    def test_create_list_order_view_requires_auth(
+        self,
+        api_client,
+        create_list_orders_url
+    ):
+        res = api_client.get(create_list_orders_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_create_list_order_allowed_http_methods(
+        self,
+        auth_client,
+        order_data,
+        create_list_orders_url
+    ):
+        get_res = auth_client.get(create_list_orders_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert post_res.status_code == 201
+
+        put_res = auth_client.put(create_list_orders_url)
+        assert put_res.status_code == 405
+
+        patch_res = auth_client.patch(create_list_orders_url)
+        assert patch_res.status_code == 405
+
+        delete_res = auth_client.delete(create_list_orders_url)
+        assert delete_res.status_code == 405
+
+    def test_successful_order_creation(
+        self,
+        auth_client,
+        order_data,
+        create_list_orders_url
+    ):
+        res = auth_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 201
+
+        res_data = res.json()
+        assert "id" in res_data
+        
+        # Verify that the order was created
+        assert ClientOrder.objects.filter(id=res_data["id"]).exists()
+
+    def test_order_created_by_authenticated_user(
+        self,
+        user,
+        api_client,
+        order_data,
+        create_list_orders_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        res = api_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 201
+
+        res_data = res.json()
+        assert "id" in res_data
+
+        # Verify that the order was created
+        order = ClientOrder.objects.filter(id=res_data["id"]).first()
+        assert order is not None
+
+        # Verify that the order was created by the authenticated user
+        assert str(order.created_by.id) == str(user.id)
+        assert "created_by" in res_data
+        assert res_data["created_by"] == user.username
+
+    def test_list_orders_to_authenticated_user(
+        self,
+        user,
+        api_client,
+        create_list_orders_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 6 orders for the authenticated user
+        user_orders = ClientOrderFactory.create_batch(6, created_by=user)
+
+        # Create 5 orders for other users
+        ClientOrderFactory.create_batch(5)
+
+        res = api_client.get(create_list_orders_url)
+        assert res.status_code == 200
+
+        assert isinstance(res.data, list)
+        assert len(res.data) == 6
+
+        # Verify that all orders belong to the authenticated user
+        assert all(order["created_by"] == str(user.username)
+                   for order in res.data)
+        assert all(order["id"] in [str(order.id) for order in user_orders]
+                   for order in res.data)
+

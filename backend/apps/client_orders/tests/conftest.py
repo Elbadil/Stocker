@@ -85,6 +85,7 @@ def item(db, user):
         in_inventory=True
     )
 
+
 @pytest.fixture
 def client_order(db, user, client, location, source, pending_status):
     return ClientOrderFactory.create(
@@ -122,3 +123,38 @@ def ordered_item(db, user, client_order, item):
         ordered_quantity=3,
         ordered_price=item.price + 100
     )
+
+
+@pytest.fixture
+def location_data(city, country):
+    return {
+        "country": country.name,
+        "city": city.name,
+        "street_address": "5th avenue"
+    }
+
+@pytest.fixture
+def ordered_item_data(item, client_order):
+    return {
+        "order": client_order.id,
+        "item": item.name,
+        "ordered_quantity": item.quantity - 1,
+        "ordered_price": item.price + 100
+    }
+
+@pytest.fixture
+def order_data(
+    client,
+    ordered_item_data,
+    pending_status,
+    location_data,
+    source
+):
+    return {
+        "client": client.name,
+        "ordered_items": [ordered_item_data],
+        "delivery_status": pending_status.name,
+        "payment_status": pending_status.name,
+        "shipping_address": location_data,
+        "source": source.name
+    }

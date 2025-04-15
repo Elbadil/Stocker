@@ -738,7 +738,10 @@ class ClientOrderSerializer(serializers.ModelSerializer):
         order_repr['source'] = instance.source.name if instance.source else None
         order_repr['ordered_items'] = self.get_ordered_items(instance)
         order_repr['shipping_address'] = get_location(instance.shipping_address)
-        order_repr['shipping_cost'] = decimal_to_float(instance.shipping_cost)
+        order_repr['shipping_cost'] = (
+            decimal_to_float(instance.shipping_cost)
+            if instance.shipping_cost else None
+        )
         order_repr['net_profit'] = decimal_to_float(instance.net_profit)
         order_repr['created_at'] = date_repr_format(instance.created_at)
         order_repr['updated_at'] = date_repr_format(instance.updated_at)
