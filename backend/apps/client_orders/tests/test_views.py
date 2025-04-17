@@ -1,5 +1,6 @@
 import pytest
 import uuid
+from typing import Union
 from deepdiff import DeepDiff
 from django.urls import reverse
 from apps.base.models import Activity
@@ -52,6 +53,17 @@ def order_url(order_id: str):
     return reverse("get_update_delete_client_orders",
                    kwargs={"id": order_id})
 
+def ordered_item_url(order_id: str, item_id: Union[str, None]=None):
+    """
+    Returns the URL for the create_list_client_ordered_items or
+    get_update_delete_client_ordered_items view based on the provided order ID
+    and optionally item ID.
+    """
+    if item_id:
+        return reverse("get_update_delete_client_ordered_items",
+                       kwargs={"order_id": order_id, "id": item_id})
+    return reverse("create_list_client_ordered_items",
+                   kwargs={"order_id": order_id})
 
 @pytest.mark.django_db
 class TestCreateListClientsView:
@@ -868,8 +880,12 @@ class TestCreateListClientOrdersView:
         # Verify that all orders belong to the authenticated user
         assert all(order["created_by"] == str(user.username)
                    for order in res.data)
-        assert all(order["id"] in [str(order.id) for order in user_orders]
-                   for order in res.data)
+    
+        user_orders_ids = {str(order.id) for order in user_orders}
+        assert all(
+            order["id"] in user_orders_ids
+            for order in res.data
+        )
 
 
 @pytest.mark.django_db
@@ -1523,6 +1539,8 @@ class TestBulkDeleteClientOrdersView:
             format='json'
         )
         assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 client orders successfully deleted."
 
         # Verify that the two orders have been deleted
         assert not ClientOrder.objects.filter(
@@ -1569,6 +1587,8 @@ class TestBulkDeleteClientOrdersView:
             format='json'
         )
         assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 client orders successfully deleted."
 
         # Verify that the two order have been deleted
         assert not ClientOrder.objects.filter(
@@ -1605,6 +1625,8 @@ class TestBulkDeleteClientOrdersView:
             format='json'
         )
         assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 client orders successfully deleted."
 
         # Verify that the two orders have been deleted
         assert not ClientOrder.objects.filter(
@@ -1621,3 +1643,169 @@ class TestBulkDeleteClientOrdersView:
                 client_order_2.reference_id
             ]
         ).exists()
+
+
+@pytest.mark.django_db
+class TestCreateListClientOrderedItemsView:
+    """Test class for the CreateListClientOrderedItems view"""
+
+    def test_create_list_ordered_items_view_requires_auth(
+        self,
+        api_client,
+        client_order,
+        ordered_item_data
+    ):
+        url = ordered_item_url(client_order.id)
+
+        res = api_client.post(url, data=ordered_item_data, format='json')
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_create_list_ordered_items_view_allowed_http_methods(
+        self,
+        auth_client,
+        client_order,
+        ordered_item_data
+    ):
+        url = ordered_item_url(client_order.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(url, data=ordered_item_data, format='json')
+        assert post_res.status_code == 201
+
+        put_res = auth_client.put(url, data=ordered_item_data, format='json')
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(url, data=ordered_item_data, format='json')
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_create_list_ordered_items_fails_with_nonexistent_order_id(
+        self,
+        auth_client,
+        ordered_item_data,
+        random_uuid,
+    ):
+        url = ordered_item_url(random_uuid)
+
+        res = auth_client.post(url, data=ordered_item_data, format='json')
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Order with id '{random_uuid}' does not exist."
+
+    def test_create_list_ordered_items_fails_with_unauthorized_order(
+        self,
+        api_client,
+        user,
+        ordered_item_data,
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create an order with a different user
+        order = ClientOrderFactory.create()
+
+        # Verify the created order is not linked to the authenticated user
+        assert str(order.created_by.id) != str(user.id)
+
+        url = ordered_item_url(order.id)
+
+        res = api_client.post(url, data=ordered_item_data, format='json')
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Order with id '{order.id}' does not exist."
+
+    def test_create_ordered_item_with_valid_order_id_and_data(
+        self,
+        auth_client,
+        ordered_item_data,
+        client_order
+    ):
+        url = ordered_item_url(client_order.id)
+
+        res = auth_client.post(url, data=ordered_item_data, format='json')
+        assert res.status_code == 201
+
+        # Verify that the ordered item has been created
+        assert "id" in res.data
+        ordered_item = ClientOrderedItem.objects.filter(id=res.data["id"]).first()
+        assert ordered_item is not None
+
+        # Verify that the created ordered item is linked to the correct order
+        assert "order" in res.data
+        assert str(res.data["order"]) == str(client_order.id)
+        assert str(ordered_item.order.id) == (client_order.id)
+
+    def test_ordered_item_created_by_authenticated_user(
+        self,
+        api_client,
+        user,
+        ordered_item_data,
+        client_order
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        url = ordered_item_url(client_order.id)
+
+        res = api_client.post(url, data=ordered_item_data, format='json')
+        assert res.status_code == 201
+
+        # Verify that the ordered item has been created
+        assert "id" in res.data
+        ordered_item = ClientOrderedItem.objects.filter(id=res.data["id"]).first()
+        assert ordered_item is not None
+
+        # Verify that the created ordered item is linked to the correct user
+        assert "created_by" in res.data
+        assert res.data["created_by"] == user.username
+        assert str(ordered_item.created_by.id) == str(user.id)
+
+    def test_list_ordered_items_to_authenticated_user(
+        self,
+        api_client,
+        user,
+        client_order
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 5 ordered items for the order and authenticated user
+        user_items = ClientOrderedItemFactory.create_batch(
+            5, order=client_order, created_by=user
+        )
+
+        # Create 4 ordered items for other orders and users
+        ClientOrderedItemFactory.create_batch(4)
+
+        url = ordered_item_url(client_order.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        assert isinstance(res.data, list)
+        assert len(res.data) == len(user_items)
+
+        # Verify that all ordered items belong to the correct order and user
+        assert all(
+            str(item["order"]) == str(client_order.id)
+            and item["created_by"] == user.username
+            for item in res.data
+        )
+
+        user_item_ids = {str(item.id) for item in user_items}
+        assert all(
+            str(item["id"]) in user_item_ids
+            for item in res.data
+        )
