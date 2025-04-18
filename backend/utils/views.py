@@ -83,7 +83,7 @@ def validate_linked_items_for_deletion(
                 'error': (
                     f"Cannot delete items from {parent_instance_str} with reference ID "
                     f"'{parent_instance_ref_id}' as it would leave no items linked. "
-                    "Each sale must have at least one item."
+                    f"Each {parent_instance_str} must have at least one item."
                 )
             },
             status=status.HTTP_400_BAD_REQUEST

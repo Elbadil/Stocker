@@ -53,6 +53,17 @@ def order_url(order_id: str):
     return reverse("get_update_delete_client_orders",
                    kwargs={"id": order_id})
 
+@pytest.fixture
+def ordered_item_2(db, user, client_order):
+    item = ItemFactory.create(created_by=user, in_inventory=True)
+    return ClientOrderedItemFactory.create(
+        created_by=user,
+        order=client_order,
+        item=item,
+        ordered_quantity=item.quantity - 1,
+        ordered_price=item.price + 100
+    )
+
 def ordered_item_url(order_id: str, item_id: Union[str, None]=None):
     """
     Returns the URL for the create_list_client_ordered_items or
@@ -64,6 +75,11 @@ def ordered_item_url(order_id: str, item_id: Union[str, None]=None):
                        kwargs={"order_id": order_id, "id": item_id})
     return reverse("create_list_client_ordered_items",
                    kwargs={"order_id": order_id})
+
+def bulk_delete_ordered_items_url(order_id: str):
+    return reverse("bulk_delete_client_ordered_items",
+                   kwargs={"order_id": order_id})
+
 
 @pytest.mark.django_db
 class TestCreateListClientsView:
@@ -1829,17 +1845,11 @@ class TestGetUpdateDeleteClientOrderedItemsView:
 
     def test_get_update_delete_ordered_item_view_allowed_http_methods(
         self,
-        user,
         auth_client,
         ordered_item_data,
         ordered_item,
+        ordered_item_2
     ):
-        # Add another ordered item to the order to prevent deletion error
-        ClientOrderedItemFactory.create(
-            created_by=user,
-            order=ordered_item.order
-        )
-
         url = ordered_item_url(ordered_item.order.id, ordered_item.id)
 
         get_res = auth_client.get(url)
@@ -2044,7 +2054,7 @@ class TestGetUpdateDeleteClientOrderedItemsView:
         ordered_item.refresh_from_db()
         assert ordered_item.ordered_price == initial_ordered_price + 100
 
-    def test_ordered_item_deletion_fails_for_delivered_order(
+    def test_ordered_item_deletion_fails_for_delivered_orders(
         self,
         auth_client,
         ordered_item,
@@ -2088,13 +2098,12 @@ class TestGetUpdateDeleteClientOrderedItemsView:
             "Every order must have at least one item."
         )
 
-    def test_successful_ordered_item_deletion(self, auth_client, ordered_item):
-        # Create another ordered item to prevent single item deletion error
-        ClientOrderedItemFactory.create(
-            created_by=ordered_item.created_by,
-            order=ordered_item.order
-        )
-
+    def test_successful_ordered_item_deletion(
+        self,
+        auth_client,
+        ordered_item,
+        ordered_item_2
+    ):
         url = ordered_item_url(ordered_item.order.id, ordered_item.id)
 
         res = auth_client.delete(url)
@@ -2106,14 +2115,9 @@ class TestGetUpdateDeleteClientOrderedItemsView:
     def test_ordered_item_deletion_resets_item_inventory_quantity(
         self,
         auth_client,
-        ordered_item
+        ordered_item,
+        ordered_item_2
     ):
-        # Create another ordered item to prevent single item deletion error
-        ClientOrderedItemFactory.create(
-            created_by=ordered_item.created_by,
-            order=ordered_item.order
-        )
-
         url = ordered_item_url(ordered_item.order.id, ordered_item.id)
 
         inventory_item = ordered_item.item
@@ -2132,3 +2136,288 @@ class TestGetUpdateDeleteClientOrderedItemsView:
             initial_item_quantity + ordered_item.ordered_quantity
         )
 
+
+@pytest.mark.django_db
+class TestBulkDeleteClientOrderedItemsView:
+    """Tests for the DeleteClientOrderedItems view"""
+
+    def test_bulk_delete_ordered_items_view_requires_auth(
+        self,
+        api_client,
+        ordered_item
+    ):
+        url = bulk_delete_ordered_items_url(ordered_item.order.id)
+
+        res = api_client.delete(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_ordered_items_view_allowed_http_methods(
+        self,
+        auth_client,
+        ordered_item,
+        ordered_item_2
+    ):
+        url = bulk_delete_ordered_items_url(ordered_item.order.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 405
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "Method \"GET\" not allowed."
+
+        post_res = auth_client.post(url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id]},
+            format="json"
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_ordered_items_fails_with_nonexistent_order_id(
+        self,
+        auth_client,
+        random_uuid
+    ):
+        url = bulk_delete_ordered_items_url(random_uuid)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": []},
+            format="json"
+        )
+        assert res.status_code == 404
+
+        assert "detail" in res.data
+        assert res.data["detail"] == (
+            f"Order with id '{random_uuid}' does not exist."
+        )
+
+    def test_bulk_delete_ordered_items_fails_for_delivered_orders(
+        self,
+        auth_client,
+        ordered_item,
+        ordered_item_2,
+        delivered_status
+    ):
+        # Update ordered item's order status to delivered
+        ordered_item.order.delivery_status = delivered_status
+        ordered_item.order.save()
+
+        url = bulk_delete_ordered_items_url(ordered_item.order.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot perform item deletion because the order "
+            f"with reference ID '{ordered_item.order.reference_id}' has "
+            "already been marked as Delivered. Changes to delivered "
+            f"orders' ordered items are restricted to "
+            "maintain data integrity."
+        )
+
+    def test_bulk_delete_ordered_items_fails_with_invalid_uuids(
+        self,
+        auth_client,
+        client_order,
+        ordered_item,
+    ):
+        url = bulk_delete_ordered_items_url(client_order.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id, "invalid_uuid_1", "invalid_uuid_2"]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not valid uuids."
+
+        assert "invalid_uuids" in res_error
+        assert "invalid_uuid_1" in res_error["invalid_uuids"]
+        assert "invalid_uuid_2" in res_error["invalid_uuids"]
+
+    def test_bulk_delete_ordered_items_fails_for_nonexistent_uuids(
+        self,
+        auth_client,
+        client_order,
+        ordered_item,
+    ):
+        random_uuid_1 = str(uuid.uuid4())
+        random_uuid_2 = str(uuid.uuid4())
+
+        url = bulk_delete_ordered_items_url(client_order.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id, random_uuid_1, random_uuid_2]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not found."
+
+        assert "missing_ids" in res_error
+        assert random_uuid_1 in res_error["missing_ids"]
+        assert random_uuid_2 in res_error["missing_ids"]
+
+    def test_bulk_delete_ordered_items_fails_for_all_order_items(
+        self,
+        auth_client,
+        client_order,
+        ordered_item,
+        ordered_item_2,
+    ):
+        # Verify that both ordered items belong to the specified order
+        assert str(ordered_item.order.id) == str(client_order.id)
+        assert str(ordered_item_2.order.id) == str(client_order.id)
+
+        # Verify that the order only has the two ordered items
+        assert len(client_order.ordered_items.all()) == 2
+
+        url = bulk_delete_ordered_items_url(client_order.id)
+
+        # Try to delete both ordered items
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id, ordered_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot delete items from order with reference ID "
+            f"'{client_order.reference_id}' as it would leave no items linked. "
+            f"Each order must have at least one item."
+        )
+
+    def test_bulk_delete_ordered_items_succeeds(
+        self,
+        auth_client,
+        client_order,
+        ordered_item,
+        ordered_item_2,
+    ):
+        # Verify that both ordered items belong to the specified order
+        assert str(ordered_item.order.id) == str(client_order.id)
+        assert str(ordered_item_2.order.id) == str(client_order.id)
+
+        # Create a third ordered item to prevent order with no items linked error
+        ordered_item_3 = ClientOrderedItemFactory.create(
+            created_by=client_order.created_by,
+            order=client_order
+        )
+
+        # Verify that the order has three ordered items
+        assert len(client_order.ordered_items.all()) == 3
+
+        url = bulk_delete_ordered_items_url(client_order.id)
+
+        # Try to delete two ordered items
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id, ordered_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 200
+
+        assert "message" in res.data
+        assert res.data["message"] == "2 ordered items successfully deleted."
+
+        # Verify that the two ordered items have been deleted
+        assert not ClientOrderedItem.objects.filter(
+            id__in=[ordered_item.id, ordered_item_2.id]
+        ).exists()
+
+        # Verify that the order still has one linked ordered item
+        client_order.refresh_from_db()
+        assert len(client_order.ordered_items.all()) == 1
+        assert ClientOrderedItem.objects.filter(order=client_order).exists()
+        assert ClientOrderedItem.objects.filter(id=ordered_item_3.id).exists()
+
+    def test_bulk_delete_ordered_items_resets_items_inventory_quantities(
+        self,
+        auth_client,
+        client_order,
+        ordered_item,
+        ordered_item_2,
+    ):
+        # Verify that both ordered items belong to the specified order
+        assert str(ordered_item.order.id) == str(client_order.id)
+        assert str(ordered_item_2.order.id) == str(client_order.id)
+
+        # Get ordered items linked inventory items quantities
+        inventory_item_1 = ordered_item.item
+        initial_item_1_quantity = inventory_item_1.quantity
+
+        inventory_item_2 = ordered_item_2.item
+        initial_item_2_quantity = inventory_item_2.quantity
+
+        # Create a third ordered item to prevent order with no items linked error
+        ClientOrderedItemFactory.create(
+            created_by=client_order.created_by,
+            order=client_order
+        )
+
+        # Verify that the order has three ordered items
+        assert len(client_order.ordered_items.all()) == 3
+
+        url = bulk_delete_ordered_items_url(client_order.id)
+
+        # Try to delete two ordered items
+        res = auth_client.delete(
+            url,
+            data={"ids": [ordered_item.id, ordered_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 200
+
+        assert "message" in res.data
+        assert res.data["message"] == "2 ordered items successfully deleted."
+
+        #  Verify that the ordered items have been deleted
+        assert not ClientOrderedItem.objects.filter(
+            id__in=[ordered_item.id, ordered_item_2.id]
+        ).exists()
+
+        # Verify that the items inventory's quantities have been reset
+        inventory_item_1.refresh_from_db()
+        assert inventory_item_1.quantity != initial_item_1_quantity
+        assert inventory_item_1.quantity == (
+            initial_item_1_quantity + ordered_item.ordered_quantity
+        )
+
+        inventory_item_2.refresh_from_db()
+        assert inventory_item_2.quantity != initial_item_2_quantity
+        assert inventory_item_2.quantity == (
+            initial_item_2_quantity + ordered_item_2.ordered_quantity
+        )

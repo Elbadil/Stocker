@@ -338,19 +338,17 @@ class BulkDeleteClientOrderedItems(CreatedByUserMixin, generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         queryset = self.get_queryset()
-        order = queryset.first().order
 
-        # Validate ordered item order delivery status
+        # Validate ids and items for deletion and Return Response if validation failed
+        result = validate_linked_items_for_deletion(ids, queryset, ClientOrder)
+        if isinstance(result, Response):
+            return result
+
+        # Validate ordered item order delivery status and Return Response if validation failed
+        order = queryset.first().order
         status_validation = validate_deletion_for_delivered_parent_instance(order)
         if isinstance(status_validation, Response):
             return status_validation
-
-        # Validate ids and items for deletion
-        result = validate_linked_items_for_deletion(ids, queryset, ClientOrder)
-
-        # Return Response if validation failed
-        if isinstance(result, Response):
-            return result
 
         # Perform items deletion
         order, items_for_deletion = result
