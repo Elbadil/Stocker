@@ -1059,7 +1059,7 @@ class TestClientSerializer:
 
 
 @pytest.mark.django_db
-class TestClientOrderItemSerializer:
+class TestClientOrderedItemSerializer:
     """Tests for the Client Ordered Item Serializer"""
 
     def test_ordered_item_serializer_sets_created_by_from_context(

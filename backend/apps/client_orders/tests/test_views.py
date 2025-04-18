@@ -1809,3 +1809,326 @@ class TestCreateListClientOrderedItemsView:
             str(item["id"]) in user_item_ids
             for item in res.data
         )
+
+
+@pytest.mark.django_db
+class TestGetUpdateDeleteClientOrderedItemsView:
+    """Test for the GetUpdateDeleteClientOrderedItems view."""
+
+    def test_get_update_delete_ordered_item_view_requires_auth(
+        self,
+        api_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_update_delete_ordered_item_view_allowed_http_methods(
+        self,
+        user,
+        auth_client,
+        ordered_item_data,
+        ordered_item,
+    ):
+        # Add another ordered item to the order to prevent deletion error
+        ClientOrderedItemFactory.create(
+            created_by=user,
+            order=ordered_item.order
+        )
+
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+        
+        post_res = auth_client.post(url, data=ordered_item_data, format='json')
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url, data=ordered_item_data, format='json')
+        assert put_res.status_code == 200
+
+        patch_res = auth_client.patch(url, data=ordered_item_data, format='json')
+        assert patch_res.status_code == 200
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 204
+
+    def test_get_update_delete_ordered_item_fails_with_non_existent_order_id(
+        self,
+        auth_client,
+        ordered_item,
+        random_uuid
+    ):
+        url = ordered_item_url(random_uuid, ordered_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Order with id '{random_uuid}' does not exist."
+
+    def test_get_update_delete_ordered_item_fails_with_unauthorized_order(
+        self,
+        user,
+        api_client,
+        ordered_item
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create another order with a different user
+        order = ClientOrderFactory.create()
+
+        # Verify that the order's created_by is different from the authenticated user
+        assert str(order.created_by.id) != str(user.id)
+
+        url = ordered_item_url(order.id, ordered_item.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Order with id '{order.id}' does not exist."
+
+    def test_ordered_item_operations_fail_with_nonexistent_ordered_item_id(
+        self,
+        auth_client,
+        random_uuid,
+        client_order
+    ):
+        url = ordered_item_url(client_order.id, random_uuid)
+
+        # Test GET request
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 404
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == f"No ClientOrderedItem matches the given query."
+
+        # Test PUT request
+        put_res = auth_client.put(url, data={}, format='json')
+        assert put_res.status_code == 404
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == f"No ClientOrderedItem matches the given query."
+
+        # Test PATCH request
+        patch_res = auth_client.patch(url, data={}, format='json')
+        assert patch_res.status_code == 404
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == f"No ClientOrderedItem matches the given query."
+
+        # Test DELETE request
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 404
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == f"No ClientOrderedItem matches the given query."
+
+    def test_get_ordered_item_with_valid_id_and_order_id(
+        self,
+        auth_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+    def test_ordered_item_response_data_fields(
+        self,
+        auth_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        expected_fields = {
+            "id",
+            "created_by",
+            "order",
+            "item",
+            "ordered_quantity",
+            "ordered_price",
+            "total_price",
+            "total_profit",
+            "unit_profit",
+            "created_at",
+            "updated_at"
+        }
+
+        assert expected_fields.issubset(res.data.keys())
+
+    def test_ordered_item_data_fields_types(
+        self,
+        auth_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert isinstance(res_data["id"], str)
+        assert isinstance(res_data["created_by"], str)
+        assert isinstance(res_data["order"], str)
+        assert isinstance(res_data["item"], str)
+        assert isinstance(res_data["ordered_quantity"], int)
+        assert isinstance(res_data["ordered_price"], float)
+        assert isinstance(res_data["total_price"], float)
+        assert isinstance(res_data["total_profit"], float)
+        assert isinstance(res_data["unit_profit"], float)
+        assert isinstance(res_data["created_at"], str)
+        assert isinstance(res_data["updated_at"], str)
+
+    def test_ordered_item_data_fields_values(
+        self,
+        auth_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert res_data["id"] == str(ordered_item.id)
+        assert res_data["created_by"] ==  ordered_item.created_by.username
+        assert res_data["order"] == str(ordered_item.order.id)
+        assert res_data["item"] == ordered_item.item.name
+        assert res_data["ordered_quantity"] == ordered_item.ordered_quantity
+        assert res_data["ordered_price"] == float(ordered_item.ordered_price)
+        assert res_data["total_price"] == float(ordered_item.total_price)
+        assert res_data["total_profit"] == float(ordered_item.total_profit)
+        assert res_data["unit_profit"] == float(ordered_item.unit_profit)
+        assert res_data["created_at"] == date_repr_format(ordered_item.created_at)
+        assert res_data["updated_at"] == date_repr_format(ordered_item.updated_at)
+
+    def test_ordered_item_put_update(self, auth_client, ordered_item, ordered_item_data):
+        ordered_item_data["ordered_price"] = ordered_item.ordered_price + 100
+
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.put(url, data=ordered_item_data, format='json')
+        assert res.status_code == 200
+        res_data = res.json()
+        
+        # Verify that ordered item has been updated
+        assert "ordered_price" in res_data
+        assert res_data["ordered_price"] == float(ordered_item_data["ordered_price"])
+
+        ordered_item.refresh_from_db()
+        assert ordered_item.ordered_price == ordered_item_data["ordered_price"]
+
+    def test_ordered_item_patch_update(self,auth_client, ordered_item):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+        initial_ordered_price = ordered_item.ordered_price
+
+        res = auth_client.patch(
+            url,
+            data={"ordered_price": initial_ordered_price + 100},
+            format='json'
+        )
+
+        assert res.status_code == 200
+        res_data = res.json()
+        
+        # Verify that ordered item has been updated
+        assert "ordered_price" in res_data
+        assert res_data["ordered_price"] == float(ordered_item.ordered_price + 100)
+
+        ordered_item.refresh_from_db()
+        assert ordered_item.ordered_price == initial_ordered_price + 100
+
+    def test_ordered_item_deletion_fails_for_delivered_order(
+        self,
+        auth_client,
+        ordered_item,
+        delivered_status,
+    ):
+        # Update ordered item's order status to delivered
+        ordered_item.order.delivery_status = delivered_status
+        ordered_item.order.save()
+
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot perform item deletion because the order "
+            f"with reference ID '{ordered_item.order.reference_id}' has "
+            "already been marked as Delivered. Changes to delivered "
+            f"orders' ordered items are restricted to "
+            "maintain data integrity."
+        )
+
+    def test_ordered_item_deletion_fails_for_single_ordered_item_in_an_order(
+        self,
+        auth_client,
+        ordered_item,
+    ):
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        # Verify that the linked order has only one ordered item
+        assert ClientOrderedItem.objects.filter(order=ordered_item.order).count() == 1
+
+        res = auth_client.delete(url)
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            "This item cannot be deleted because it is the only item in the "
+            f"order with reference ID '{ordered_item.order.reference_id}'. "
+            "Every order must have at least one item."
+        )
+
+    def test_successful_ordered_item_deletion(self, auth_client, ordered_item):
+        # Create another ordered item to prevent single item deletion error
+        ClientOrderedItemFactory.create(
+            created_by=ordered_item.created_by,
+            order=ordered_item.order
+        )
+
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that the ordered item has been deleted
+        assert not ClientOrderedItem.objects.filter(id=ordered_item.id).exists()
+
+    def test_ordered_item_deletion_resets_item_inventory_quantity(
+        self,
+        auth_client,
+        ordered_item
+    ):
+        # Create another ordered item to prevent single item deletion error
+        ClientOrderedItemFactory.create(
+            created_by=ordered_item.created_by,
+            order=ordered_item.order
+        )
+
+        url = ordered_item_url(ordered_item.order.id, ordered_item.id)
+
+        inventory_item = ordered_item.item
+        initial_item_quantity = inventory_item.quantity
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        #  Verify that the ordered item has been deleted
+        assert not ClientOrderedItem.objects.filter(id=ordered_item.id).exists()
+
+        # Verify that the item inventory's quantity has been reset
+        inventory_item.refresh_from_db()
+        assert inventory_item.quantity != initial_item_quantity
+        assert inventory_item.quantity == (
+            initial_item_quantity + ordered_item.ordered_quantity
+        )
+

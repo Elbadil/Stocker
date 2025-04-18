@@ -275,8 +275,7 @@ class CreateListClientOrderedItems(CreatedByUserMixin,
         serializer.save(order=order)
 
 
-class GetUpdateDeleteClientOrderedItems(CreatedByUserMixin,
-                                       generics.RetrieveUpdateDestroyAPIView):
+class GetUpdateDeleteClientOrderedItems(generics.RetrieveUpdateDestroyAPIView):
     """Handles Client Ordered Item Retrieval Update and Deletion"""
     authentication_classes = (TokenVersionAuthentication,)
     permission_classes = (IsAuthenticated,)
