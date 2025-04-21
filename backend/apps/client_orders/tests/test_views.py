@@ -1,7 +1,6 @@
 import pytest
 import uuid
 from typing import Union
-from deepdiff import DeepDiff
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.base.factories import UserFactory
@@ -17,7 +16,11 @@ from apps.client_orders.factories import (
     ClientOrderFactory,
     ClientOrderedItemFactory,
 )
-from utils.serializers import date_repr_format, get_location
+from utils.serializers import (
+    date_repr_format,
+    default_datetime_str_format,
+    get_location
+)
 
 
 @pytest.fixture
@@ -79,6 +82,11 @@ def ordered_item_url(order_id: str, item_id: Union[str, None]=None):
 def bulk_delete_ordered_items_url(order_id: str):
     return reverse("bulk_delete_client_ordered_items",
                    kwargs={"order_id": order_id})
+
+
+@pytest.fixture
+def bulk_create_list_cities_url():
+    return reverse("bulk_create_list_cities")
 
 
 @pytest.mark.django_db
@@ -2421,3 +2429,249 @@ class TestBulkDeleteClientOrderedItemsView:
         assert inventory_item_2.quantity == (
             initial_item_2_quantity + ordered_item_2.ordered_quantity
         )
+
+
+@pytest.mark.django_db
+class TestBulkCreateListCitiesView:
+    """Tests for the BulkCreateCities View"""
+
+    def test_bulk_create_list_cities_view_requires_auth(
+        self,
+        api_client,
+        bulk_create_list_cities_url
+    ):
+        res = api_client.post(bulk_create_list_cities_url, data={}, format='json')
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_create_list_cities_view_allowed_http_methods(
+        self,
+        auth_client,
+        bulk_create_list_cities_url,
+        country
+    ):
+        data = [
+            {
+                "name": "Casablanca",
+                "country": country.id
+            },
+            {
+                "name": "Fez",
+                "country": country.id
+            }
+        ]
+        get_res = auth_client.get(bulk_create_list_cities_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(
+            bulk_create_list_cities_url,
+            data=data,
+            format='json'
+        )
+        assert post_res.status_code == 201
+
+        put_res = auth_client.put(
+            bulk_create_list_cities_url,
+            data=data,
+            format='json'
+        )
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(
+            bulk_create_list_cities_url,
+            data=data,
+            format='json'
+        )
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(bulk_create_list_cities_url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_bulk_create_cities_fails_without_country_id(
+        self,
+        auth_client,
+        bulk_create_list_cities_url
+    ):
+        cities_data = [
+            {
+                "name": "Casablanca"
+            },
+            {
+                "name": "Fez"
+            }
+        ]
+        res = auth_client.post(
+            bulk_create_list_cities_url,
+            data=cities_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert isinstance(res.data, list)
+        assert len(res.data) == len(cities_data)
+        assert res.data[0]["country"][0] == "This field is required."
+        assert res.data[1]["country"][0] == "This field is required."
+
+    def test_bulk_create_cities_fails_with_existing_city_country_relationship(
+        self,
+        auth_client,
+        bulk_create_list_cities_url,
+        country
+    ):
+        # Create two cities with the same country instance
+        CityFactory.create(name="Tetouan", country=country)
+        CityFactory.create(name="Fez", country=country)
+
+        # Attempt to create the same cities again with the same country
+        cities_data = [
+            {
+                "name": "Tetouan",
+                "country": country.id
+            },
+            {
+                "name": "Fez",
+                "country": country.id
+            }
+        ]
+        res = auth_client.post(
+            bulk_create_list_cities_url,
+            data=cities_data,
+            format='json'
+        )
+        assert res.status_code == 400
+        assert isinstance(res.data, list)
+        assert len(res.data) == len(cities_data)
+        assert "non_field_errors" in res.data[0]
+        assert (
+            res.data[0]["non_field_errors"] ==
+            ["The fields name, country must make a unique set."]
+        )
+        assert "non_field_errors" in res.data[1]
+        assert (
+            res.data[1]["non_field_errors"] ==
+            ["The fields name, country must make a unique set."]
+        )
+
+    def test_bulk_create_cities_succeeds(
+        self,
+        auth_client,
+        bulk_create_list_cities_url,
+        country
+    ):
+        cities_data = [
+            {
+                "name": "Casablanca",
+                "country": country.id
+            },
+            {
+                "name": "Fez",
+                "country": country.id
+            }
+        ]
+        res = auth_client.post(
+            bulk_create_list_cities_url,
+            data=cities_data,
+            format='json'
+        )
+        assert res.status_code == 201
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == len(cities_data)
+
+        assert res_data[0]["name"] == "Casablanca"
+        assert res_data[0]["country"] == str(country.id)
+
+        assert res_data[1]["name"] == "Fez"
+        assert res_data[1]["country"] == str(country.id)
+
+    def test_cities_response_data_fields(
+        self,
+        auth_client,
+        country,
+        bulk_create_list_cities_url
+    ):
+        cities = CityFactory.create_batch(3, country=country)
+        res = auth_client.get(bulk_create_list_cities_url)
+
+        assert res.status_code == 200
+        assert isinstance(res.data, list)
+        assert len(res.data) == len(cities)
+
+        for city in res.data:
+            assert "id" in city
+            assert "name" in city
+            assert "country" in city
+            assert "created_at" in city
+            assert "updated_at" in city
+
+    def test_cities_response_data_fields_types(
+        self,
+        auth_client,
+        country,
+        bulk_create_list_cities_url
+    ):
+        cities = CityFactory.create_batch(3, country=country)
+        res = auth_client.get(bulk_create_list_cities_url)
+
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == len(cities)
+
+        for city in res_data:
+            assert type(city["id"]) == str
+            assert type(city["name"]) == str
+            assert type(city["country"]) == str
+            assert type(city["created_at"]) == str
+            assert type(city["updated_at"]) == str
+    
+    def test_cities_response_data_fields_values(
+        self,
+        auth_client,
+        country,
+        bulk_create_list_cities_url
+    ):
+        city_1 = CityFactory.create(name="Fez", country=country)
+        city_2 = CityFactory.create(name="Casa", country=country)
+
+        res = auth_client.get(bulk_create_list_cities_url)
+
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 2
+
+        for city in res_data:
+            if city["id"] == str(city_1.id):
+                assert city["id"] == city_1.id
+                assert city["name"] == city_1.name
+                assert city["country"] == str(city_1.country.id)
+                assert (
+                    city["created_at"] ==
+                    default_datetime_str_format(city_1.created_at)
+                )
+                assert (
+                    city["updated_at"] ==
+                    default_datetime_str_format(city_1.updated_at)
+                )
+            elif city["id"] == str(city_2.id):
+                assert city["id"] == city_2.id
+                assert city["name"] == city_2.name
+                assert city["country"] == str(city_2.country.id)
+                assert (
+                    city["created_at"] ==
+                    default_datetime_str_format(city_2.created_at)
+                )
+                assert (
+                    city["updated_at"] ==
+                    default_datetime_str_format(city_2.updated_at)
+                )

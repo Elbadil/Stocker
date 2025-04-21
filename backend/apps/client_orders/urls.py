@@ -38,7 +38,7 @@ urlpatterns =[
     # Cities
     path('cities/',
          views.BulkCreateListCities.as_view(),
-         name="bulk_create_cities"),
+         name="bulk_create_list_cities"),
 
     # Client Orders Data
     path('data/',
