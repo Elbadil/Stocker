@@ -1,6 +1,5 @@
 import factory
 from apps.base.factories import UserFactory
-from apps.supplier_orders.factories import SupplierFactory
 from .models import Category, Variant, Item, VariantOption
 
 
@@ -30,7 +29,7 @@ class ItemFactory(factory.django.DjangoModelFactory):
 
     created_by = factory.SubFactory(UserFactory)
     category = factory.SubFactory(CategoryFactory)
-    supplier = factory.SubFactory(SupplierFactory)
+    supplier = factory.SubFactory("apps.supplier_orders.factories.SupplierFactory")
     name = factory.Sequence(lambda n: f"item_{n}")
     quantity = factory.Faker("pyint", min_value=2, max_value=20)
     price = factory.Faker(

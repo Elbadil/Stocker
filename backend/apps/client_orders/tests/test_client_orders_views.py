@@ -10,7 +10,6 @@ from apps.client_orders.models import Client, ClientOrder, ClientOrderedItem
 from apps.client_orders.factories import (
     CountryFactory,
     CityFactory,
-    LocationFactory,
     AcquisitionSourceFactory,
     ClientFactory,
     OrderStatusFactory,

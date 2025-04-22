@@ -1,7 +1,6 @@
 import factory
 import random
 from apps.base.factories import UserFactory
-from apps.inventory.factories import ItemFactory
 from utils.status import ORDER_STATUS
 from .models import (
     Country,
@@ -104,7 +103,7 @@ class ClientOrderedItemFactory(factory.django.DjangoModelFactory):
 
     created_by = factory.SubFactory(UserFactory)
     order = factory.SubFactory(ClientOrderFactory)
-    item = factory.SubFactory(ItemFactory)
+    item = factory.SubFactory("apps.inventory.factories.ItemFactory")
     ordered_quantity = factory.Faker("pyint", min_value=1, max_value=20)
     ordered_price = factory.Faker(
         "pydecimal",
