@@ -1,5 +1,6 @@
 import pytest
 import uuid
+import random
 from typing import Union
 from django.urls import reverse
 from apps.base.models import Activity
@@ -20,6 +21,13 @@ from utils.serializers import (
     date_repr_format,
     default_datetime_str_format,
     get_location
+)
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS,
+    PAYMENT_STATUS_OPTIONS,
+    ACTIVE_DELIVERY_STATUS,
+    COMPLETED_STATUS,
+    FAILED_STATUS
 )
 
 
@@ -87,6 +95,10 @@ def bulk_delete_ordered_items_url(order_id: str):
 @pytest.fixture
 def bulk_create_list_cities_url():
     return reverse("bulk_create_list_cities")
+
+@pytest.fixture
+def get_client_orders_data_url():
+    return reverse("get_client_orders_data")
 
 
 @pytest.mark.django_db
@@ -2675,3 +2687,284 @@ class TestBulkCreateListCitiesView:
                     city["updated_at"] ==
                     default_datetime_str_format(city_2.updated_at)
                 )
+
+
+@pytest.mark.django_db
+class TestGetClientOrdersDataView:
+    """Tests for the GetClientOrdersData view"""
+
+    def test_get_client_orders_data_view_requires_auth(
+        self,
+        api_client,
+        get_client_orders_data_url
+    ):
+        res = api_client.get(get_client_orders_data_url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_client_orders_data_view_allowed_http_methods(
+        self,
+        auth_client,
+        get_client_orders_data_url
+    ):
+        get_res = auth_client.get(get_client_orders_data_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(get_client_orders_data_url, data={}, format="json")
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(get_client_orders_data_url, data={}, format="json")
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(get_client_orders_data_url, data={}, format="json")
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(get_client_orders_data_url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_get_client_orders_data_response_data_fields(
+        self,
+        auth_client,
+        get_client_orders_data_url
+    ):
+        res = auth_client.get(get_client_orders_data_url)
+
+        assert res.status_code == 200
+        assert isinstance(res.data, dict)
+
+        assert "clients" in res.data
+        assert "orders_count" in res.data
+        assert "countries" in res.data
+        assert "acq_sources" in res.data
+        assert "order_status" in res.data
+
+    def test_get_client_orders_data_response_data_fields_types(
+        self,
+        auth_client,
+        get_client_orders_data_url
+    ):
+        res = auth_client.get(get_client_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert isinstance(res_data, dict)
+        assert isinstance(res_data["clients"], dict)
+        assert isinstance(res_data["orders_count"], int)
+        assert isinstance(res_data["countries"], list)
+        assert isinstance(res_data["acq_sources"], list)
+        assert isinstance(res_data["order_status"], dict)
+
+    def test_get_client_orders_data_clients_field_structure_and_values(
+        self,
+        user,
+        api_client,
+        get_client_orders_data_url
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create two clients for the authenticated user
+        client_1 = ClientFactory.create(name="Client 1", created_by=user)
+        client_2 = ClientFactory.create(name="Client 2", created_by=user)
+
+        res = api_client.get(get_client_orders_data_url)
+
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "clients" in res_data
+        clients = res_data["clients"]
+        assert isinstance(clients, dict)
+
+        # Clients count field
+        assert "count" in clients
+        assert isinstance(clients["count"], int)
+        assert clients["count"] == 2
+
+        # Clients names field
+        assert "names" in clients
+        assert isinstance(clients["names"], list)
+        assert len(clients["names"]) == 2
+        assert client_1.name in clients["names"]
+        assert client_2.name in clients["names"]
+
+    def test_get_client_orders_data_orders_count_field_value(
+        self,
+        user,
+        auth_client,
+        get_client_orders_data_url
+    ):
+        # Create two client order for the authenticated user
+        ClientOrderFactory.create_batch(2, created_by=user)
+
+        res = auth_client.get(get_client_orders_data_url)
+
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "orders_count" in res_data
+        assert isinstance(res_data["orders_count"], int)
+        assert res_data["orders_count"] == 2
+        assert res_data["orders_count"] == (
+            ClientOrder.objects.filter(created_by=user).count()
+        )
+
+    def test_get_client_orders_data_countries_field_structure_and_value(
+        self,
+        auth_client,
+        get_client_orders_data_url
+    ):
+        # Create two countries
+        country_1 = CountryFactory.create(name="Morocco")
+        country_2 = CountryFactory.create(name="France")
+
+        # Create for each country two cities
+        city_1 = CityFactory.create(name="Casablanca", country=country_1)
+        city_2 = CityFactory.create(name="Fez", country=country_1)
+
+        city_3 = CityFactory.create(name="Paris", country=country_2)
+        city_4 = CityFactory.create(name="Lyon", country=country_2)
+
+        res = auth_client.get(get_client_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "countries" in res_data
+        countries = res_data["countries"]
+        assert isinstance(countries, list)
+        assert len(countries) == 2
+
+        # Verify that created countries names are in the countries in response data
+        country_names = [country["name"] for country in countries]
+        assert country_1.name in country_names
+        assert country_2.name in country_names
+
+        for country in countries:
+            assert isinstance(country, dict)
+            assert "name" in country
+            assert "cities" in country
+            assert isinstance(country["cities"], list)
+            assert len(country["cities"]) == 2
+
+            # Verify cities for each country
+            if country["name"] == country_1.name:
+                assert city_1.name in country["cities"]
+                assert city_2.name in country["cities"]
+            elif country["name"] == country_2.name:
+                assert city_3.name in country["cities"]
+                assert city_4.name in country["cities"]
+
+    def test_get_client_orders_data_acq_sources_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        get_client_orders_data_url
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create one acquisition source for the authenticated user
+        acq_source_1 = AcquisitionSourceFactory.create(name="ADS", added_by=user)
+
+        # Create two acquisition sources without linking them to the auth user
+        acq_source_2 = AcquisitionSourceFactory.create(name="Google", added_by=None)
+        acq_source_3 = AcquisitionSourceFactory.create(name="Facebook", added_by=None)
+
+        res = api_client.get(get_client_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "acq_sources" in res_data
+        acq_sources = res_data["acq_sources"]
+        assert isinstance(acq_sources, list)
+
+        # Verify that all created acquisition sources
+        # (linked to auth user and non-linked to any user)
+        # are returned in the response data
+        assert len(acq_sources) == 3
+        assert acq_source_1.name in acq_sources
+        assert acq_source_2.name in acq_sources
+        assert acq_source_3.name in acq_sources
+
+    def test_get_client_orders_data_order_status_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        get_client_orders_data_url
+    ):
+        # Authenticate the api client to the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 2 client orders for the auth user
+        # with an active status as delivery status
+        active_status = OrderStatusFactory.create(
+            name=random.choice(ACTIVE_DELIVERY_STATUS)
+        )
+        active_orders = ClientOrderFactory.create_batch(
+            2,
+            created_by=user,
+            delivery_status=active_status
+        )
+
+        # Create 3 client orders for the auth user
+        # with an completed status as delivery status
+        completed_status = OrderStatusFactory.create(
+            name=random.choice(COMPLETED_STATUS)
+        )
+        completed_orders = ClientOrderFactory.create_batch(
+            3,
+            created_by=user,
+            delivery_status=completed_status
+        )
+
+        # Create 4 client orders for the auth user
+        # with an failed status as delivery status
+        failed_status = OrderStatusFactory.create(
+            name=random.choice(FAILED_STATUS)
+        )
+        failed_orders = ClientOrderFactory.create_batch(
+            4,
+            created_by=user,
+            delivery_status=failed_status
+        )
+
+        res = api_client.get(get_client_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "order_status" in res_data
+        order_status = res_data["order_status"]
+        
+        # Delivery status field
+        assert "delivery_status" in order_status
+        assert order_status["delivery_status"] == DELIVERY_STATUS_OPTIONS
+
+        # Payment status field
+        assert "payment_status" in order_status
+        assert order_status["payment_status"] == PAYMENT_STATUS_OPTIONS
+
+        # Active orders field
+        assert "active" in order_status
+        assert order_status["active"] == len(active_orders)
+
+        # Completed orders field
+        assert "completed" in order_status
+        assert order_status["completed"] == len(completed_orders)
+
+        # Failed orders field
+        assert "failed" in order_status
+        assert order_status["failed"] == len(failed_orders)
