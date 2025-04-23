@@ -93,3 +93,64 @@ class TestSupplierOrderModel:
 
         assert supplier_order.items.count() == 2
         assert all(item.order == supplier_order for item in items)
+
+
+@pytest.mark.django_db
+class TestSupplierOrderedItemModel:
+    """Tests for SupplierOrderedItem model"""
+
+    def test_ordered_item_creation_with_related_objects(
+        self,
+        user,
+        supplier,
+        supplier_order,
+        item,
+    ):
+        ordered_item = SupplierOrderedItemFactory.create(
+            created_by=user,
+            order=supplier_order,
+            supplier=supplier,
+            item=item,
+            ordered_quantity=item.quantity - 1,
+            ordered_price=item.price,
+        )
+
+        assert str(ordered_item.created_by.id) == str(user.id)
+        assert str(ordered_item.order.id) == str(supplier_order.id)
+        assert str(ordered_item.supplier.id) == str(supplier.id)
+        assert str(ordered_item.item.id) == str(item.id)
+
+    def test_ordered_item_str_representation(
+        self,
+        user,
+        supplier,
+        supplier_order,
+        item
+    ):
+        ordered_item = SupplierOrderedItemFactory.create(
+            created_by=user,
+            supplier=supplier,
+            order=supplier_order,
+            item=item,
+            ordered_quantity=4
+        )
+
+        assert str(ordered_item) == item.name
+
+    def test_ordered_item_creation_fails_without_quantity(self):
+        with pytest.raises(IntegrityError):
+            SupplierOrderedItemFactory.create(ordered_quantity=None)
+
+    def test_ordered_item_creation_fails_without_price(self):
+        with pytest.raises(IntegrityError):
+            SupplierOrderedItemFactory.create(ordered_price=None)
+
+    def test_ordered_item_creation_fails_with_quantity_less_than_one(self):
+        ordered_item = SupplierOrderedItemFactory.create(ordered_quantity=0)
+        with pytest.raises(ValidationError):
+            ordered_item.full_clean()
+
+    def test_ordered_item_creation_fails_with_negative_price(self):
+        ordered_item = SupplierOrderedItemFactory.create(ordered_price=-1)
+        with pytest.raises(ValidationError):
+            ordered_item.full_clean()

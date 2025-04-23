@@ -333,7 +333,7 @@ class TestClientOrderedItemModel:
             ClientOrderedItemFactory.create(ordered_price=None)
 
     def test_ordered_item_validation_fails_with_quantity_less_than_one(self):
-        item = ClientOrderedItemFactory.create(ordered_quantity=-1)
+        item = ClientOrderedItemFactory.create(ordered_quantity=0)
         with pytest.raises(ValidationError):
             item.full_clean()
     

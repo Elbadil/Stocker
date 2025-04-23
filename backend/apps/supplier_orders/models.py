@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 from shortuuid.django_fields import ShortUUIDField
+from decimal import Decimal
 from utils.models import BaseModel, get_default_order_status
 from ..client_orders.models import Location, OrderStatus
 
@@ -99,7 +100,11 @@ class SupplierOrderedItem(BaseModel):
     item = models.ForeignKey('inventory.Item', on_delete=models.PROTECT,
                              null=True, blank=True)
     ordered_quantity = models.IntegerField(validators=[MinValueValidator(1)])
-    ordered_price = models.DecimalField(max_digits=6, decimal_places=2)
+    ordered_price = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.0'))]
+    )
 
     @property
     def in_inventory(self):
