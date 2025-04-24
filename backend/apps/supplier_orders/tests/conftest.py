@@ -64,3 +64,11 @@ def supplier_order(db, user, pending_status, supplier):
         delivery_status=pending_status,
         payment_status=pending_status,
     )
+
+@pytest.fixture
+def location_data(city, country):
+    return {
+        "country": country.name,
+        "city": city.name,
+        "street_address": "5th avenue"
+    }

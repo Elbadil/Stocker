@@ -1,11 +1,14 @@
 from rest_framework import serializers
 from django.db import transaction
 from typing import List, Union
-from utils.serializers import (date_repr_format,
-                               get_location,
-                               get_or_create_location,
-                               validate_restricted_fields,
-                               validate_changes_for_delivered_parent_instance)
+from utils.serializers import (
+    get_user,
+    date_repr_format,
+    get_location,
+    get_or_create_location,
+    validate_restricted_fields,
+    validate_changes_for_delivered_parent_instance
+)
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
 from utils.serializers import update_field, check_item_existence
@@ -51,7 +54,7 @@ class SupplierSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         # Retrieve special fields
-        user = self.context.get('request').user
+        user = get_user(self.context)
         location = validated_data.pop('location', None)
 
         # Create supplier
@@ -69,7 +72,7 @@ class SupplierSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         # Retrieve special fields
-        user = self.context.get('request').user
+        user = get_user(self.context)
         location = validated_data.pop('location', None)
 
         # Update supplier
@@ -200,7 +203,7 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
 
 
     def validate_supplier(self, value):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         supplier = Supplier.objects.filter(created_by=user,
                                            name__iexact=value).first()
         if not supplier:
@@ -212,7 +215,7 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        user = self.context['request'].user
+        user = get_user(self.context)
         item_name = validated_data.pop('item')
         supplier = validated_data.get('supplier')
         order = validated_data.get('order')
@@ -244,7 +247,7 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance: SupplierOrderedItem, validated_data):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         item_name = validated_data.pop('item', None)
         supplier = validated_data.get('supplier', instance.supplier)
         order = validated_data.get('order', instance.order)
@@ -406,7 +409,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             item.save()
 
     def validate_supplier(self, value):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         supplier = Supplier.objects.filter(created_by=user,
                                            name__iexact=value).first()
         if not supplier:

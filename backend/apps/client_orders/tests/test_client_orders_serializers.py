@@ -768,7 +768,7 @@ class TestClientSerializer:
         assert client.location is not None
 
         # Verify location has been created and set to client after client creation
-        location =  Location.objects.filter(
+        location = Location.objects.filter(
             country__name__iexact=location_data["country"],
             city__name__iexact=location_data["city"],
             street_address__iexact=location_data["street_address"]
@@ -942,6 +942,7 @@ class TestClientSerializer:
 
         client_update = serializer.save()
         assert client_update.name != client_name
+        assert client_update.location is not None
 
     def test_client_update_removes_optional_field_if_set_to_none(
         self,
