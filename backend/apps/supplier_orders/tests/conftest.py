@@ -44,17 +44,18 @@ def delivered_status(db):
     return OrderStatusFactory.create(name="Delivered")
 
 @pytest.fixture
-def item(db, user):
+def supplier(db, user):
+    return SupplierFactory.create(created_by=user)
+
+@pytest.fixture
+def item(db, user, supplier):
     return ItemFactory.create(
         created_by=user,
+        supplier=supplier,
         name="Projector",
         quantity=5,
         in_inventory=True
     )
-
-@pytest.fixture
-def supplier(db, user):
-    return SupplierFactory.create(created_by=user)
 
 @pytest.fixture
 def supplier_order(db, user, pending_status, supplier):
@@ -72,3 +73,22 @@ def location_data(city, country):
         "city": city.name,
         "street_address": "5th avenue"
     }
+
+@pytest.fixture
+def ordered_item_data(supplier_order, supplier):
+    return {
+        "order": supplier_order.id,
+        "supplier": supplier.name,
+        "item": "DataShow",
+        "ordered_quantity": 5,
+        "ordered_price": 640
+    }
+
+@pytest.fixture
+def ordered_item(db, user, supplier_order, supplier, item):
+    return SupplierOrderedItemFactory.create(
+        created_by=user,
+        order=supplier_order,
+        supplier=supplier,
+        item=item
+    )

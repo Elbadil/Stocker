@@ -7,7 +7,8 @@ from utils.serializers import (
     get_location,
     get_or_create_location,
     validate_restricted_fields,
-    validate_changes_for_delivered_parent_instance
+    validate_changes_for_delivered_parent_instance,
+    decimal_to_float
 )
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
@@ -104,6 +105,10 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 class SupplierOrderedItemSerializer(serializers.ModelSerializer):
     """Supplier Ordered Item Serializer"""
+    order = serializers.PrimaryKeyRelatedField(
+        many=False,
+        queryset=SupplierOrder.objects.all()
+    )
     item = serializers.CharField()
     supplier = serializers.CharField()
 
@@ -117,6 +122,8 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
             'item',
             'ordered_quantity',
             'ordered_price',
+            'in_inventory',
+            'total_price',
             'created_at',
             'updated_at'
         ]
@@ -164,7 +171,7 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
             item = Item.objects.filter(created_by=user,
                                     name__iexact=item_name).first()
 
-            if item and item.supplier and (item.supplier != supplier):
+            if item and item.supplier and (str(item.supplier.id) != str(supplier.id)):
                 raise serializers.ValidationError(
                     {
                         'item': f"Item '{item_name}' is associated "
@@ -286,7 +293,9 @@ class SupplierOrderedItemSerializer(serializers.ModelSerializer):
                                       if instance.created_by else None)
         item_to_repr['supplier'] = instance.supplier.name
         item_to_repr['item'] = instance.item.name
+        item_to_repr['ordered_price'] = decimal_to_float(instance.ordered_price)
         item_to_repr['in_inventory'] = instance.in_inventory
+        item_to_repr['total_price'] = decimal_to_float(instance.total_price)
         item_to_repr['created_at'] = date_repr_format(instance.created_at)
         item_to_repr['updated_at'] = date_repr_format(instance.updated_at)
         return item_to_repr
