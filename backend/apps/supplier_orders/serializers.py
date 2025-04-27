@@ -349,7 +349,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
 
     def create_ordered_items_for_supplier_order(
         self,
-        request,
+        user: User,
         order: SupplierOrder,
         supplier: Supplier,
         ordered_items: List[SupplierOrderedItem]):
@@ -357,7 +357,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             item['order'] = order.id
             item['supplier'] = supplier.name
             serializer = SupplierOrderedItemSerializer(data=item,
-                                                       context={'request': request})
+                                                       context={'user': user})
             if serializer.is_valid():
                 serializer.save()
             else:
@@ -365,7 +365,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
 
     def update_ordered_items_for_supplier_order(
         self,
-        request,
+        user: User,
         order: SupplierOrder,
         supplier: Supplier,
         ordered_items: List[SupplierOrderedItem]):
@@ -382,7 +382,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
                 existing_item.save()
             else:
                 # Create new ordered item
-                self.create_ordered_items_for_supplier_order(request,
+                self.create_ordered_items_for_supplier_order(user,
                                                              order,
                                                              supplier,
                                                              [new_item])
@@ -440,7 +440,8 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             item_name = ordered_item['item'].lower()
             if item_name in unique_items:
                 raise serializers.ValidationError(
-                    {'item': f'Item {ordered_item["item"]} been selected multiple times.'})
+                    f"Item '{ordered_item['item']}' has been selected multiple times."
+                )
             else:
                 unique_items.append(item_name)
         return ordered_items
@@ -462,8 +463,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         # Retrieve special fields
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
         supplier = validated_data.get('supplier')
         ordered_items = validated_data.pop('ordered_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
@@ -474,7 +474,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
 
         # Create and add ordered items to order
         self.create_ordered_items_for_supplier_order(
-            request,
+            user,
             order,
             supplier,
             ordered_items
@@ -500,8 +500,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance: SupplierOrder, validated_data):
         # Retrieve special fields
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
         supplier = validated_data.get('supplier', instance.supplier)
         ordered_items = validated_data.pop('ordered_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
@@ -529,7 +528,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         # Update ordered items of the order
         if ordered_items:
             self.update_ordered_items_for_supplier_order(
-                request,
+                user,
                 order,
                 supplier,
                 ordered_items

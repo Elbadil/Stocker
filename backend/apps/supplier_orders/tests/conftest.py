@@ -58,6 +58,21 @@ def item(db, user, supplier):
     )
 
 @pytest.fixture
+def order_data(supplier, pending_status):
+    return {
+        "supplier": supplier.name,
+        "delivery_status": pending_status.name,
+        "payment_status": pending_status.name,
+        "ordered_items": [
+            {
+                "item": "Projector",
+                "ordered_quantity": 5,
+                "ordered_price": 640
+            }
+        ]
+    }
+
+@pytest.fixture
 def supplier_order(db, user, pending_status, supplier):
     return SupplierOrderFactory.create(
         created_by=user,

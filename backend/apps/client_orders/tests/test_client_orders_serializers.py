@@ -37,6 +37,10 @@ from apps.client_orders.factories import (
     OrderStatusFactory,
     ClientOrderedItemFactory
 )
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS_LOWER,
+    PAYMENT_STATUS_OPTIONS_LOWER
+)
 
 
 @pytest.mark.django_db
@@ -1789,7 +1793,7 @@ class TestClientOrderSerializer:
             f"Item '{ordered_item_1['item']}' has been selected multiple times."
         ]
 
-    def test_order_creation_uses_client_ordered_item_serializer(
+    def test_order_creation_uses_client_ordered_item_serializer_for_ordered_items(
         self,
         user,
         client,
@@ -1830,7 +1834,7 @@ class TestClientOrderSerializer:
             # Verify Client Ordered Item serializer was called twice
             assert mock_ordered_item_serializer.call_count == 2
 
-            # Add order to the ordered items data
+            # Add order to the ordered items data for the data called with verification
             ordered_item_data["order"] = order.id
             ordered_item_2_data["order"] = order.id
 
@@ -1846,7 +1850,7 @@ class TestClientOrderSerializer:
                 context={"user": user}
             )
 
-            # Verify save was called on the Client Ordered Item serializer
+            # Verify save was called twice on the Client Ordered Item serializer
             assert mock_ordered_item_instance.save.call_count == 2
 
     def test_order_creation_creates_new_shipping_address_if_not_exists(
@@ -2072,6 +2076,36 @@ class TestClientOrderSerializer:
         assert order.payment_status is not None
         assert order.delivery_status.name == "Pending"
         assert order.payment_status.name == "Pending"
+
+    def test_order_creation_fails_with_invalid_delivery_status(self, user, order_data):
+        invalid_status = "InvalidStatus"
+        order_data["delivery_status"] = invalid_status
+
+        # Verify that the status does not exist in the delivery status options
+        assert invalid_status.lower() not in DELIVERY_STATUS_OPTIONS_LOWER
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        assert "delivery_status" in serializer.errors
+        assert serializer.errors["delivery_status"] == ["Invalid delivery status."]
+
+    def test_order_creation_fails_with_invalid_payment_status(self, user, order_data):
+        invalid_status = "InvalidStatus"
+        order_data["payment_status"] = invalid_status
+
+        # Verify that the status does not exist in the payment status options
+        assert invalid_status.lower() not in PAYMENT_STATUS_OPTIONS_LOWER
+
+        serializer = ClientOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        assert "payment_status" in serializer.errors
+        assert serializer.errors["payment_status"] == ["Invalid payment status."]
 
     def test_delivered_order_creates_a_sale_instance_with_orders_data(
         self,

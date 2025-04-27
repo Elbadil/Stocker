@@ -13,17 +13,23 @@ from apps.supplier_orders.models import (
 )
 from apps.supplier_orders.serializers import (
     SupplierSerializer,
-    SupplierOrderedItemSerializer
+    SupplierOrderedItemSerializer,
+    SupplierOrderSerializer
 )
 from apps.supplier_orders.factories import (
     SupplierFactory,
     SupplierOrderFactory,
     SupplierOrderedItemFactory
 )
+from apps.supplier_orders.utils import average_price
 from utils.serializers import (
     get_location,
     date_repr_format,
     decimal_to_float
+)
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS_LOWER,
+    PAYMENT_STATUS_OPTIONS_LOWER
 )
 
 
@@ -784,6 +790,50 @@ class TestSupplierOrderedItemSerializer:
         assert ordered_item_update.ordered_quantity != ordered_quantity
         assert ordered_item_update.ordered_quantity == ordered_quantity + 1
 
+    def test_ordered_item_update_validates_item_uniqueness_if_changed(
+        self,
+        user,
+        ordered_item,
+        supplier_order,
+        supplier,
+    ):
+        # Create an item and add it to the order's ordered items
+        item_pack = ItemFactory.create(
+            created_by=user,
+            supplier=supplier,
+            name="Pack"
+        )
+        ordered_item_pack = SupplierOrderedItemFactory.create(
+            created_by=user,
+            supplier=supplier,
+            order=supplier_order,
+            item=item_pack
+        )
+
+        # Ensure both items belong to the same order
+        assert str(ordered_item.order.id) == str(ordered_item_pack.order.id)
+
+        # Attempt to update the ordered item's item
+        # with the same name of the newly added item (ordered_item_pack)
+        serializer = SupplierOrderedItemSerializer(
+            ordered_item,
+            data={"item": item_pack.name},
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        # Ensure ValidationError is raised for existing item in order's items list
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert 'item' in errors.value.detail
+        assert errors.value.detail["item"] == (
+            f"Item '{item_pack.name}' already exists in the order's list of ordered items. "
+             "Consider updating the existing item if you need to modify its details."
+        )
+
     def test_ordered_item_serializer_data_fields(self, ordered_item):
         serializer = SupplierOrderedItemSerializer(ordered_item)
 
@@ -835,3 +885,318 @@ class TestSupplierOrderedItemSerializer:
         assert ordered_item_data["created_at"] == date_repr_format(ordered_item.created_at)
         assert ordered_item_data["updated_at"] == date_repr_format(ordered_item.updated_at)
 
+
+@pytest.mark.django_db
+class TestSupplierOrderSerializer:
+    """Tests for the SupplierOrderSerializer"""
+
+    def test_order_serializer_sets_created_by_from_context(self, user, order_data):
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.created_by is not None
+        assert str(order.created_by.id) == str(user.id)
+
+    def test_order_creation_fails_without_supplier_name(self, user, order_data):
+        order_data.pop("supplier")
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "supplier" in serializer.errors
+        assert "This field is required." in serializer.errors["supplier"]
+
+    def test_order_creation_fails_with_non_existing_supplier_name(self, user, order_data):
+        order_data["supplier"] = "Supplier 5"
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "supplier" in serializer.errors
+        assert serializer.errors["supplier"] == [
+            (f"Supplier 'Supplier 5' does not exist. "
+             "Please create a new supplier if this is a new entry.")
+        ]
+
+    def test_order_creation_fails_with_non_owned_supplier_name(self, user, order_data):
+        # Create a different user and link it to a supplier
+        user_2 = UserFactory.create(username="user_2")
+        supplier = SupplierFactory.create(created_by=user_2)
+
+        # Assign the order data to the supplier's name not owned by the context user
+        order_data["supplier"] = supplier.name
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        assert "supplier" in serializer.errors
+        assert serializer.errors["supplier"] == [
+            (f"Supplier '{supplier.name}' does not exist. "
+             "Please create a new supplier if this is a new entry.")
+        ]
+
+    def test_order_creation_fails_without_ordered_items(self, user, order_data):
+        order_data.pop("ordered_items")
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert "This field is required." in serializer.errors["ordered_items"]
+
+    def test_order_creation_fails_with_empty_ordered_items_list(self, user, order_data):
+        order_data["ordered_items"] = []
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert "This field is required." in serializer.errors["ordered_items"]
+
+    def test_order_creation_fails_with_empty_ordered_item_object(self, user, order_data):
+        # Append empty object to the ordered_items list
+        order_data["ordered_items"].append({})
+
+        assert len(order_data["ordered_items"]) == 2
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        assert serializer.errors["ordered_items"] == [
+            f"Item at position 2 cannot be empty. Please provide valid details."
+        ]
+
+    def test_order_creation_fails_with_duplicate_ordered_item_object(
+        self,
+        user,
+        order_data
+    ):
+        ordered_item_1 = order_data["ordered_items"][0]
+
+        # Add another ordered item with the same item name to the ordered_items list
+        ordered_item_2 = {
+            "item": ordered_item_1["item"],
+            "ordered_quantity": 2,
+            "ordered_price": 600
+        }
+        order_data["ordered_items"].append(ordered_item_2)
+
+        assert len(order_data["ordered_items"]) == 2
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+
+        assert "ordered_items" in serializer.errors
+        print(serializer.errors["ordered_items"])
+        assert serializer.errors["ordered_items"] == (
+            f"Item '{ordered_item_1['item']}' has been selected multiple times."
+        )
+
+    def test_order_creation_uses_supplier_ordered_item_serializer_for_ordered_items(
+        self,
+        user,
+        supplier,
+        ordered_item_data
+    ):
+        # Add second ordered item data object
+        ordered_item_2_data = {
+            "item": "Headphones",
+            "supplier": supplier.name,
+            "quantity": 5,
+            "price": 620
+        }
+
+        # Define order data
+        order_data = {
+            "supplier": supplier.name,
+            "ordered_items": [ordered_item_data, ordered_item_2_data]
+        }
+
+        # Mock the Supplier Ordered Item serializer to verify it's called
+        ordered_item_serializer_path = "apps.supplier_orders.serializers.SupplierOrderedItemSerializer"
+        with patch(ordered_item_serializer_path) as mock_ordered_item_serializer:
+            # Mock instance of the Supplier Ordered Item serializer
+            mock_ordered_item_instance = mock_ordered_item_serializer.return_value
+            mock_ordered_item_instance.is_valid.return_value = True
+
+            # Call the Supplier Order serializer
+            serializer = SupplierOrderSerializer(
+                data=order_data,
+                context={"user": user}
+            )
+            assert serializer.is_valid(), serializer.errors
+
+            order = serializer.save()
+            assert str(order.created_by.id) == str(user.id)
+
+            # Verify Supplier Ordered Item serializer was called twice
+            assert mock_ordered_item_serializer.call_count == 2
+
+            # Add order to the ordered items data for the data called with verification
+            ordered_item_data["order"] = order.id
+            ordered_item_2_data["order"] = order.id
+
+            # Verify Supplier Ordered Item serializer was called with the correct data
+            mock_ordered_item_serializer.assert_any_call(
+                data=ordered_item_data,
+                context={"user": user}
+            )
+
+            mock_ordered_item_serializer.assert_any_call(
+                data=ordered_item_2_data,
+                context={"user": user}
+            )
+
+            # Verify save method was called twice on the Supplier Ordered Item serializer
+            assert mock_ordered_item_instance.save.call_count == 2
+
+    def test_order_serializer_retrieves_delivery_and_payment_status_by_name(
+        self,
+        user,
+        order_data,
+        pending_status,
+    ):
+        order_data["payment_status"] = pending_status.name
+        order_data["delivery_status"] = pending_status.name
+        
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert str(order.payment_status.id) == str(pending_status.id)
+        assert str(order.delivery_status.id) == str(pending_status.id)
+
+    def test_order_status_is_set_to_pending_by_default(self, user, order_data):
+        # Remove delivery and payment status from order_data
+        order_data.pop("delivery_status")
+        order_data.pop("payment_status")
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        # Verify delivery and payment status have been set to Pending for order
+        assert order.delivery_status is not None
+        assert order.payment_status is not None
+        assert order.delivery_status.name == "Pending"
+        assert order.payment_status.name == "Pending"
+
+    def test_order_creation_fails_with_invalid_delivery_status(self, user, order_data):
+        invalid_status = "InvalidStatus"
+        order_data["delivery_status"] = invalid_status
+
+        # Verify that the status does not exist in the delivery status options
+        assert invalid_status.lower() not in DELIVERY_STATUS_OPTIONS_LOWER
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        assert "delivery_status" in serializer.errors
+        assert serializer.errors["delivery_status"] == ["Invalid delivery status."]
+
+    def test_order_creation_fails_with_invalid_payment_status(self, user, order_data):
+        invalid_status = "InvalidStatus"
+        order_data["payment_status"] = invalid_status
+
+        # Verify that the status does not exist in the payment status options
+        assert invalid_status.lower() not in PAYMENT_STATUS_OPTIONS_LOWER
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert not serializer.is_valid()
+        assert "payment_status" in serializer.errors
+        assert serializer.errors["payment_status"] == ["Invalid payment status."]
+
+    def test_delivered_order_ordered_items_in_inventory_state_update(
+        self,
+        user,
+        order_data,
+        delivered_status
+    ):
+        # Create two items in inventory
+        item_1 = ItemFactory.create(
+            created_by=user,
+            name="Pack",
+            in_inventory=True
+        )
+        initial_item_1 = item_1.copy()
+
+        item_2 = ItemFactory.create(
+            created_by=user,
+            name="Projector",
+            in_inventory=True
+        )
+        initial_item_2 = item_2.copy()
+
+        # Define two ordered items for the order with the created inventory items
+        ordered_item_1_data = {
+            "item": item_1.name,
+            "ordered_quantity": 2,
+            "ordered_price": 500
+        }
+        ordered_item_2_data = {
+            "item": item_2.name,
+            "ordered_quantity": 2,
+            "ordered_price": 600
+        }
+    
+        # Add the two ordered items to the order data
+        order_data["ordered_items"] = [ordered_item_1_data, ordered_item_2_data]
+
+        # Define order delivery status as Delivered
+        order_data["delivery_status"] = delivered_status.name
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.delivery_status.name == "Delivered"
+
+        # Verify that the ordered items were updated to the In Inventory state
+        item_1.refresh_from_db()
+        ordered_item_1 = SupplierOrderedItem.objects.get(order=order, item=item_1)
+        assert item_1.quantity == ordered_item_1["ordered_quantity"] + initial_item_1.quantity
+        assert item_1.price == average_price(initial_item_1, ordered_item_1)
+
+        item_2.refresh_from_db()
+        ordered_item_2 = SupplierOrderedItem.objects.get(order=order, item=item_2)
+        assert item_2.quantity == ordered_item_2["ordered_quantity"] + initial_item_2.quantity
+        assert item_2.price == average_price(initial_item_2, ordered_item_2)

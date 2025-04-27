@@ -567,14 +567,14 @@ class ClientOrderSerializer(serializers.ModelSerializer):
     def validate_delivery_status(self, value):
         if value:
             if value.lower() not in DELIVERY_STATUS_OPTIONS_LOWER:
-                raise serializers.ValidationError("Invalid order delivery status.")
+                raise serializers.ValidationError("Invalid delivery status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
 
     def validate_payment_status(self, value):
         if value:
             if value.lower() not in PAYMENT_STATUS_OPTIONS_LOWER:
-                raise serializers.ValidationError("Invalid order payment status.")
+                raise serializers.ValidationError("Invalid payment status.")
             return OrderStatus.objects.filter(name__iexact=value).first()
         return None
 
