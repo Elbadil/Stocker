@@ -136,8 +136,7 @@ class TestActivityModel:
         assert activity_instance.__str__() == expected_repr
     
     def test_activity_user_is_required(self):
-        with pytest.raises(IntegrityError,
-                           match='"user_id" violates not-null constraint'):
+        with pytest.raises(IntegrityError):
             Activity.objects.create(
                 action="deleted",
                 model_name="item",

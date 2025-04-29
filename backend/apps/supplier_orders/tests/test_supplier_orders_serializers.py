@@ -1,4 +1,5 @@
 import pytest
+import copy
 from unittest.mock import patch
 from rest_framework.exceptions import ValidationError
 from apps.base.models import Activity
@@ -1012,10 +1013,9 @@ class TestSupplierOrderSerializer:
         assert not serializer.is_valid()
 
         assert "ordered_items" in serializer.errors
-        print(serializer.errors["ordered_items"])
-        assert serializer.errors["ordered_items"] == (
+        assert serializer.errors["ordered_items"] == [
             f"Item '{ordered_item_1['item']}' has been selected multiple times."
-        )
+        ]
 
     def test_order_creation_uses_supplier_ordered_item_serializer_for_ordered_items(
         self,
@@ -1145,23 +1145,26 @@ class TestSupplierOrderSerializer:
     def test_delivered_order_ordered_items_in_inventory_state_update(
         self,
         user,
+        supplier,
         order_data,
         delivered_status
     ):
-        # Create two items in inventory
+        # Create two items in inventory and save a copy of their initial state
         item_1 = ItemFactory.create(
             created_by=user,
+            supplier=supplier,
             name="Pack",
             in_inventory=True
         )
-        initial_item_1 = item_1.copy()
+        initial_item_1 = copy.deepcopy(item_1)
 
         item_2 = ItemFactory.create(
             created_by=user,
+            supplier=supplier,
             name="Projector",
             in_inventory=True
         )
-        initial_item_2 = item_2.copy()
+        initial_item_2 = copy.deepcopy(item_2)
 
         # Define two ordered items for the order with the created inventory items
         ordered_item_1_data = {
@@ -1190,13 +1193,90 @@ class TestSupplierOrderSerializer:
         order = serializer.save()
         assert order.delivery_status.name == "Delivered"
 
-        # Verify that the ordered items were updated to the In Inventory state
+        # Verify that the ordered items were created
+        # and updated to the In Inventory state
         item_1.refresh_from_db()
-        ordered_item_1 = SupplierOrderedItem.objects.get(order=order, item=item_1)
-        assert item_1.quantity == ordered_item_1["ordered_quantity"] + initial_item_1.quantity
-        assert item_1.price == average_price(initial_item_1, ordered_item_1)
-
         item_2.refresh_from_db()
+        ordered_item_1 = SupplierOrderedItem.objects.get(order=order, item=item_1)
         ordered_item_2 = SupplierOrderedItem.objects.get(order=order, item=item_2)
-        assert item_2.quantity == ordered_item_2["ordered_quantity"] + initial_item_2.quantity
+
+        # Verify that the ordered quantity was added to the initial quantity
+        assert item_1.quantity == ordered_item_1.ordered_quantity + initial_item_1.quantity
+        assert item_2.quantity == ordered_item_2.ordered_quantity + initial_item_2.quantity
+
+        # Verify that the average price was calculated correctly
+        assert item_1.price == average_price(initial_item_1, ordered_item_1)
         assert item_2.price == average_price(initial_item_2, ordered_item_2)
+
+    def test_delivered_order_new_ordered_items_in_inventory_state_create(
+        self,
+        user,
+        order_data,
+        delivered_status
+    ):
+        # Define two ordered items for the order
+        ordered_item_1_data = {
+            "item": "Pack",
+            "ordered_quantity": 2,
+            "ordered_price": 500
+        }
+        ordered_item_2_data = {
+            "item": "Projector",
+            "ordered_quantity": 2,
+            "ordered_price": 600
+        }
+    
+        # Verify that the items do not exist in inventory
+        assert not Item.objects.filter(
+            name__iexact=ordered_item_1_data["item"],
+            in_inventory=True
+        ).exists()
+
+        assert not Item.objects.filter(
+            name__iexact=ordered_item_2_data["item"],
+            in_inventory=True
+        ).exists()
+
+        # Add the two ordered items to the order data
+        order_data["ordered_items"] = [ordered_item_1_data, ordered_item_2_data]
+
+        # Define order delivery status as Delivered
+        order_data["delivery_status"] = delivered_status.name
+
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        order = serializer.save()
+        assert order.delivery_status.name == "Delivered"
+
+        # Verify that the ordered items were created
+        # and updated to the In Inventory state
+        inventory_item_1 = Item.objects.get(
+            name__iexact=ordered_item_1_data["item"],
+            in_inventory=True
+        )
+        inventory_item_2 = Item.objects.get(
+            name__iexact=ordered_item_2_data["item"],
+            in_inventory=True
+        )
+
+        ordered_item_1 = SupplierOrderedItem.objects.get(
+            order=order,
+            item=inventory_item_1
+        )
+        ordered_item_2 = SupplierOrderedItem.objects.get(
+            order=order,
+            item=inventory_item_2
+        )
+
+        # Verify that the ordered quantity was added to the initial quantity
+        assert inventory_item_1.quantity == ordered_item_1.ordered_quantity
+        assert inventory_item_2.quantity == ordered_item_2.ordered_quantity
+
+        # Verify that the average price was calculated correctly
+        assert inventory_item_1.price == ordered_item_1.ordered_price
+        assert inventory_item_2.price == ordered_item_2.ordered_price
