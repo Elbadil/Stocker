@@ -1200,6 +1200,10 @@ class TestSupplierOrderSerializer:
         ordered_item_1 = SupplierOrderedItem.objects.get(order=order, item=item_1)
         ordered_item_2 = SupplierOrderedItem.objects.get(order=order, item=item_2)
 
+        # Verify that the items and ordered items are linked correctly
+        assert str(ordered_item_1.item.id) == str(item_1.id)
+        assert str(ordered_item_2.item.id) == str(item_2.id)
+
         # Verify that the ordered quantity was added to the initial quantity
         assert item_1.quantity == ordered_item_1.ordered_quantity + initial_item_1.quantity
         assert item_2.quantity == ordered_item_2.ordered_quantity + initial_item_2.quantity
@@ -1273,10 +1277,528 @@ class TestSupplierOrderSerializer:
             item=inventory_item_2
         )
 
-        # Verify that the ordered quantity was added to the initial quantity
+        # Verify that the items and ordered items are linked correctly
+        assert str(ordered_item_1.item.id) == str(inventory_item_1.id)
+        assert str(ordered_item_2.item.id) == str(inventory_item_2.id)
+
+        # Verify that the ordered quantity was set to item in inventory quantity
         assert inventory_item_1.quantity == ordered_item_1.ordered_quantity
         assert inventory_item_2.quantity == ordered_item_2.ordered_quantity
 
-        # Verify that the average price was calculated correctly
+        # Verify that the ordered price was set to item in inventory price
         assert inventory_item_1.price == ordered_item_1.ordered_price
         assert inventory_item_2.price == ordered_item_2.ordered_price
+
+    def test_order_creation_registers_a_new_activity(self, user, order_data):
+        serializer = SupplierOrderSerializer(
+            data=order_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid()
+
+        order = serializer.save()
+
+        assert Activity.objects.filter(
+            action="created",
+            model_name="supplier order",
+            object_ref__contains=order.reference_id
+        ).exists()
+
+    def test_order_update(self, user, supplier_order, order_data, delivered_status):
+        order_delivery_status = supplier_order.delivery_status
+        order_tracking_number = supplier_order.tracking_number
+
+        # Define order delivery status as Delivered and change tracking number
+        order_data["delivery_status"] = delivered_status.name
+        order_data["tracking_number"] = "ABC123"
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data=order_data,
+            context={"user": user},
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        # Verify that the order delivery status and tracking number were updated
+        assert str(order_update.delivery_status.id) == str(delivered_status.id)
+        assert order_update.tracking_number == "ABC123"
+        assert str(order_update.delivery_status.id) != str(order_delivery_status.id)
+        assert order_update.tracking_number != order_tracking_number
+
+    def test_order_partial_update(
+        self,
+        user,
+        supplier_order,
+        order_data,
+        delivered_status
+    ):
+        order_delivery_status = supplier_order.delivery_status
+        order_tracking_number = supplier_order.tracking_number
+
+        # Define order delivery status as Delivered and change tracking number
+        order_data["delivery_status"] = delivered_status.name
+        order_data["tracking_number"] = "ABC123"
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data=order_data,
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        # Verify that the order delivery status and tracking number were updated
+        assert str(order_update.delivery_status.id) == str(delivered_status.id)
+        assert order_update.tracking_number == "ABC123"
+        assert str(order_update.delivery_status.id) != str(order_delivery_status.id)
+        assert order_update.tracking_number != order_tracking_number
+
+    def test_supplier_update_fails_for_delivered_orders(
+        self,
+        user,
+        supplier_order,
+        delivered_status,
+        ordered_item
+
+    ):
+        # Update order delivery status to Delivered
+        supplier_order.delivery_status = delivered_status
+        supplier_order.save()
+
+        # Create a different supplier and assign it to the order's data
+        supplier_2 = SupplierFactory.create(created_by=user, name="Supplier 2")
+        order_data = {
+            "supplier": supplier_2.name
+        }
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data=order_data,
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid()
+
+        # Verify that a ValidationError was raised
+        # when we tried to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+        
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "supplier" in error_data["restricted_fields"]
+
+    def test_ordered_items_update_fails_for_delivered_orders(
+        self,
+        user,
+        supplier_order,
+        delivered_status,
+        ordered_item
+    ):
+        # Update order delivery status to Delivered
+        supplier_order.delivery_status = delivered_status
+        supplier_order.save()
+
+        # Get order's data
+        order_data = SupplierOrderSerializer(supplier_order).data
+
+        # Remove 'total_price' and 'in_inventory' from ordered_items data
+        keys_to_remove_from_items = ['total_price', 'in_inventory']
+        ordered_items = []
+        for item in order_data["ordered_items"]:
+            ordered_items.append(
+                {key: value for key,
+                 value in item.items()
+                 if key not in keys_to_remove_from_items}
+            )
+        ordered_items_set = {frozenset(item.items()) for item in ordered_items}
+
+        # Define new ordered items
+        new_ordered_items = [
+            {
+                "item": "DataShow",
+                "ordered_quantity": 4,
+                "ordered_price": 500
+            }
+        ]
+        new_ordered_items_set = {
+            frozenset(item.items())
+            for item in new_ordered_items
+        }
+
+        # Verify that new ordered items are different than order's ordered items
+        assert new_ordered_items_set != ordered_items_set
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data={'ordered_items': new_ordered_items},
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid(), serializer.errors
+
+        # Verify that a ValidationError was raised
+        # when we tried to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+        
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "ordered_items" in error_data["restricted_fields"]
+
+    def test_delivery_status_update_fails_for_delivered_orders(
+        self,
+        user,
+        supplier_order,
+        delivered_status,
+        pending_status,
+        ordered_item
+    ):
+        # Update order delivery status to Delivered
+        supplier_order.delivery_status = delivered_status
+        supplier_order.save()
+
+        # Define order delivery status as Delivered
+        order_data = {
+            "delivery_status": pending_status.name
+        }
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data=order_data,
+            context={"user": user},
+            partial=True
+        )
+
+        assert serializer.is_valid()
+
+        # Verify that a ValidationError was raised
+        # when we tried to save/update the order
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+        
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This order and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "delivery_status" in error_data["restricted_fields"]
+
+    def test_ordered_items_update_removes_missing_items(
+        self,
+        user,
+        supplier_order,
+    ):
+        # Create two items for the order
+        items = ItemFactory.create_batch(
+            2,
+            created_by=user,
+            supplier=supplier_order.supplier,
+        )
+        for item in items:
+            SupplierOrderedItemFactory.create(
+                created_by=user,
+                item=item,
+                supplier=supplier_order.supplier,
+                order=supplier_order
+            )
+
+        # Define new ordered items list
+        new_items = ItemFactory.create_batch(
+            2,
+            created_by=user,
+            supplier=supplier_order.supplier,
+        )
+        new_ordered_items = [
+            {
+                "item": item.name,
+                "ordered_quantity": item.quantity - 1,
+                "ordered_price": item.price + 100
+            }
+            for item in new_items
+        ]
+
+        # Call the SupplierOrderSerializer to update order's ordered_items
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data={"ordered_items": new_ordered_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        # Verify the length of the updated ordered_items list
+        ordered_items_update = order_update.ordered_items.all()
+        assert ordered_items_update.count() == 2
+        assert len(ordered_items_update) == len(new_ordered_items)
+
+        updated_items_ids = [
+            str(ordered_item.item.id)
+            for ordered_item
+            in ordered_items_update
+        ]
+
+        # Verify that the new items have been added to the order ordered items
+        assert all(str(item.id) in updated_items_ids for item in new_items)
+
+        # Verify that the old items have been removed from the order ordered items
+        assert all(str(item.id) not in updated_items_ids for item in items)
+
+    def test_ordered_items_update_keeps_and_updated_existing_items(
+        self,
+        user,
+        supplier_order,
+    ):
+        # Create two items for the order
+        items = ItemFactory.create_batch(
+            2, created_by=user, supplier=supplier_order.supplier
+        )
+        ordered_item_1 = SupplierOrderedItemFactory.create(
+            created_by=user,
+            item=items[0],
+            supplier=supplier_order.supplier,
+            order=supplier_order
+        )
+        ordered_item_2 = SupplierOrderedItemFactory.create(
+            created_by=user,
+            item=items[1],
+            supplier=supplier_order.supplier,
+            order=supplier_order
+        )
+
+        # Define new ordered items list
+        new_items = ItemFactory.create_batch(
+            2,
+            created_by=user,
+            supplier=supplier_order.supplier,
+        )
+        new_ordered_items = [
+            {
+                "item": item.name,
+                "ordered_quantity": item.quantity - 1,
+                "ordered_price": item.price + 100
+            }
+            for item in new_items
+        ]
+
+        # Add ordered_item_1 to the new ordered items list
+        new_ordered_items.append(
+            {
+                "item": ordered_item_1.item.name,
+                "ordered_quantity": ordered_item_1.ordered_quantity - 1,
+                "ordered_price": ordered_item_1.ordered_price + 100
+            }
+        )
+
+        # Call the SupplierOrderSerializer to update order's ordered_items
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data={"ordered_items": new_ordered_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        # Verify the length of the updated ordered_items list
+        ordered_items_update = order_update.ordered_items.all()
+        assert ordered_items_update.count() == 3
+        assert len(ordered_items_update) == len(new_ordered_items)
+
+        updated_items_ids = [
+            str(ordered_item.item.id)
+            for ordered_item
+            in ordered_items_update
+        ]
+
+        # Verify that the new items have been added to the order ordered items
+        assert all(str(item.id) in updated_items_ids for item in new_items)
+
+        # Verify that ordered_item_1 remain in the order ordered items
+        # and that its quantity and price have been updated
+        existing_item = order_update.ordered_items.filter(
+            item__id=ordered_item_1.item.id
+        ).first()
+        assert existing_item is not None
+        assert str(existing_item.item.id) in updated_items_ids
+        assert existing_item.ordered_quantity == ordered_item_1.ordered_quantity - 1
+        assert existing_item.ordered_price == ordered_item_1.ordered_price + 100
+
+        # Verify that ordered_item_2 has been removed from the order ordered items
+        assert str(ordered_item_2.item.id) not in updated_items_ids
+    
+    def test_order_update_removes_optional_fields_if_set_to_none(
+        self,
+        user,
+        supplier_order,
+    ):
+        assert supplier_order.tracking_number is not None
+        assert supplier_order.shipping_cost is not None
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data={"tracking_number": None, "shipping_cost": None},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        assert order_update.tracking_number is None
+        assert order_update.shipping_cost is None
+
+        supplier_order.refresh_from_db()
+        assert supplier_order.tracking_number is None
+        assert supplier_order.shipping_cost is None
+
+    def test_order_update_registers_a_new_activity(
+        self,
+        user,
+        supplier_order,
+    ):
+        assert not Activity.objects.filter(
+            action="updated",
+            model_name="supplier order",
+            object_ref__contains=supplier_order.reference_id
+        ).exists()
+
+        serializer = SupplierOrderSerializer(
+            supplier_order,
+            data={"tracking_number": "ABC123"},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+
+        assert Activity.objects.filter(
+            action="updated",
+            model_name="supplier order",
+            object_ref__contains=supplier_order.reference_id
+        ).exists()
+
+        assert order_update.tracking_number == "ABC123"
+
+        supplier_order.refresh_from_db()
+        assert supplier_order.tracking_number == "ABC123"
+
+    def test_order_serializer_data_fields(self, user, supplier_order):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        expected_fields = {
+            "id",
+            "reference_id",
+            "created_by",
+            "supplier",
+            "ordered_items",
+            "total_quantity",
+            "total_price",
+            "delivery_status",
+            "payment_status",
+            "tracking_number",
+            "shipping_cost",
+            "created_at",
+            "updated_at",
+            "updated",
+        }
+
+        assert expected_fields.issubset(order_data.keys())
+
+    def test_order_serializer_data_fields_types(self, supplier_order, ordered_item):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert isinstance(order_data["id"], str)
+        assert isinstance(order_data["reference_id"], str)
+        assert isinstance(order_data["created_by"], str)
+        assert isinstance(order_data["supplier"], str)
+        assert isinstance(order_data["ordered_items"], list)
+        assert isinstance(order_data["total_quantity"], int)
+        assert isinstance(order_data["total_price"], float)
+        assert isinstance(order_data["delivery_status"], str)
+        assert isinstance(order_data["payment_status"], str)
+        assert isinstance(order_data["tracking_number"], str)
+        assert isinstance(order_data["shipping_cost"], float)
+        assert isinstance(order_data["created_at"], str)
+        assert isinstance(order_data["updated_at"], str)
+        assert isinstance(order_data["updated"], bool)
+
+    def test_order_serializer_general_fields_data(self, supplier_order):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert order_data["id"] == str(supplier_order.id)
+        assert order_data["reference_id"] == supplier_order.reference_id
+        assert order_data["created_by"] == supplier_order.created_by.username
+        assert order_data["supplier"] == supplier_order.supplier.name
+
+    def test_order_serializer_ordered_items_data(self, supplier_order, ordered_item):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert len(order_data["ordered_items"]) == supplier_order.ordered_items.count()
+        ordered_item_data = order_data["ordered_items"][0]
+
+        assert str(ordered_item_data["id"]) == str(ordered_item.id)
+        assert ordered_item_data["item"] == ordered_item.item.name
+        assert ordered_item_data["ordered_quantity"] == ordered_item.ordered_quantity
+        assert ordered_item_data["ordered_price"] == ordered_item.ordered_price
+        assert ordered_item_data["total_price"] == ordered_item.total_price
+        assert ordered_item_data["in_inventory"] == ordered_item.in_inventory
+
+    def test_order_serializer_status_and_tracking_number_fields_data(self, supplier_order):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert order_data["delivery_status"] == supplier_order.delivery_status.name
+        assert order_data["payment_status"] == supplier_order.payment_status.name
+        assert order_data["tracking_number"] == supplier_order.tracking_number
+    
+    def test_order_serializer_date_fields_data(self, supplier_order):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert order_data["created_at"] == date_repr_format(supplier_order.created_at)
+        assert order_data["updated_at"] == date_repr_format(supplier_order.updated_at)
+
+    def test_order_serializer_financial_fields_data(self, supplier_order):
+        serializer = SupplierOrderSerializer(supplier_order)
+        order_data = serializer.data
+
+        assert order_data["total_price"] == float(supplier_order.total_price)
+        assert order_data["shipping_cost"] == float(supplier_order.shipping_cost)

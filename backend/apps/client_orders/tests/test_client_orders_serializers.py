@@ -2643,6 +2643,7 @@ class TestClientOrderSerializer:
 
         assert len(order_data["ordered_items"]) == 1
         ordered_item_data = order_data["ordered_items"][0]
+        assert str(ordered_item_data["id"]) == str(ordered_item.id)
         assert ordered_item_data["item"] == ordered_item.item.name
         assert ordered_item_data["ordered_quantity"] == ordered_item.ordered_quantity
         assert ordered_item_data["ordered_price"] == ordered_item.ordered_price

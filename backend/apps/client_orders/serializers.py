@@ -536,6 +536,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             ordered_items = []
             for ordered_item in order.items:
                 ordered_items.append({
+                    'id': ordered_item.id,
                     'item': ordered_item.item.name,
                     'ordered_quantity': ordered_item.ordered_quantity,
                     'ordered_price': ordered_item.ordered_price,

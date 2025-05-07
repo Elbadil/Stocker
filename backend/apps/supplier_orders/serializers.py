@@ -12,7 +12,7 @@ from utils.serializers import (
 )
 from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
                           PAYMENT_STATUS_OPTIONS_LOWER)
-from utils.serializers import update_field, check_item_existence
+from utils.serializers import update_field, check_item_existence, decimal_to_float
 from utils.activity import register_activity
 from ..base.models import User
 from ..inventory.models import Item
@@ -338,6 +338,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             ordered_items = []
             for ordered_item in instance.items:
                 ordered_items.append({
+                    'id': ordered_item.id,
                     'item': ordered_item.item.name,
                     'ordered_quantity': ordered_item.ordered_quantity,
                     'ordered_price': ordered_item.ordered_price,
@@ -557,8 +558,13 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
         order_repr['created_by'] = instance.created_by.username if instance.created_by else None
         order_repr['supplier'] = instance.supplier.name
         order_repr['ordered_items'] = self.get_ordered_items(instance)
+        order_repr['total_price'] = decimal_to_float(instance.total_price)
         order_repr['delivery_status'] = instance.delivery_status.name
         order_repr['payment_status'] = instance.payment_status.name
+        order_repr['shipping_cost'] = (
+            decimal_to_float(instance.shipping_cost)
+            if instance.shipping_cost else None
+        )
         order_repr['created_at'] = date_repr_format(instance.created_at)
         order_repr['updated_at'] = date_repr_format(instance.updated_at)
 
