@@ -2,7 +2,7 @@ import pytest
 import uuid
 from django.urls import reverse
 from apps.base.models import Activity
-from apps.supplier_orders.models import Supplier
+from apps.supplier_orders.models import Supplier, SupplierOrder
 from apps.supplier_orders.factories import (
     SupplierFactory,
     SupplierOrderedItemFactory,
@@ -20,6 +20,10 @@ def bulk_delete_suppliers_url():
 
 def supplier_url(supplier_id: str):
     return reverse('get_update_delete_suppliers', kwargs={"id": supplier_id})
+
+@pytest.fixture
+def create_list_orders_url():
+    return reverse('create_list_supplier_orders')
 
 
 @pytest.mark.django_db
@@ -788,3 +792,124 @@ class TestBulkDeleteSuppliersView:
             object_ref__contains=[supplier.name, supplier_2.name]
         ).exists()
 
+
+@pytest.mark.django_db
+class TestCreateListSupplierOrdersView:
+    """Tests for the create list supplier orders view"""
+   
+    def test_create_list_supplier_orders_view_requires_auth(
+        self,
+        api_client,
+        create_list_orders_url
+    ):
+        res = api_client.get(create_list_orders_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_create_list_supplier_orders_view_allowed_http_methods(
+        self,
+        auth_client,
+        order_data,
+        create_list_orders_url
+    ):
+        get_res = auth_client.get(create_list_orders_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert post_res.status_code == 201
+
+        put_res = auth_client.put(create_list_orders_url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(create_list_orders_url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(create_list_orders_url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_successful_order_creation(
+        self,
+        auth_client,
+        order_data,
+        create_list_orders_url
+    ):
+        res = auth_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 201
+
+        res_data = res.json()
+
+        # Verify that the order was created
+        assert "id" in res_data
+        assert SupplierOrder.objects.filter(id=res_data["id"]).exists()
+    
+    def test_order_created_by_authenticated_user(
+        self,
+        user,
+        api_client,
+        order_data,
+        create_list_orders_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        res = api_client.post(
+            create_list_orders_url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 201
+
+        res_data = res.json()
+        assert "id" in res_data
+
+        # Verify that the order was created
+        order = SupplierOrder.objects.filter(id=res_data["id"]).first()
+        assert order is not None
+
+        # Verify that the order was created by the authenticated user
+        assert str(order.created_by.id) == str(user.id)
+
+    def test_list_orders_to_authenticated_user(
+        self,
+        user,
+        api_client,
+        create_list_orders_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 7 orders for the authenticated user
+        user_orders = SupplierOrderFactory.create_batch(7, created_by=user)
+
+        # Create 5 orders for other users
+        SupplierOrderFactory.create_batch(5)
+
+        res = api_client.get(create_list_orders_url)
+        assert res.status_code == 200
+
+        assert isinstance(res.data, list)
+        assert len(res.data) == 7
+
+        # Verify that all orders belong to the authenticated user
+        assert all(order["created_by"] == str(user.username)
+                   for order in res.data)
+
+        user_orders_ids = {str(order.id) for order in user_orders}
+        assert all(
+            order["id"] in user_orders_ids
+            for order in res.data
+        )
