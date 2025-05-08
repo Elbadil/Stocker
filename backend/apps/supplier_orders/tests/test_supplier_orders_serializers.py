@@ -1772,6 +1772,10 @@ class TestSupplierOrderSerializer:
         order_data = serializer.data
 
         assert len(order_data["ordered_items"]) == supplier_order.ordered_items.count()
+
+        # Verify that ordered_item belongs to supplier_order
+        assert str(supplier_order.id) == str(ordered_item.order.id)
+
         ordered_item_data = order_data["ordered_items"][0]
 
         assert str(ordered_item_data["id"]) == str(ordered_item.id)

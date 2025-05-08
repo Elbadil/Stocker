@@ -2,7 +2,11 @@ import pytest
 import uuid
 from django.urls import reverse
 from apps.base.models import Activity
-from apps.supplier_orders.models import Supplier, SupplierOrder
+from apps.supplier_orders.models import (
+    Supplier,
+    SupplierOrder,
+    SupplierOrderedItem
+)
 from apps.supplier_orders.factories import (
     SupplierFactory,
     SupplierOrderedItemFactory,
@@ -24,6 +28,9 @@ def supplier_url(supplier_id: str):
 @pytest.fixture
 def create_list_orders_url():
     return reverse('create_list_supplier_orders')
+
+def order_url(order_id: str):
+    return reverse('get_update_delete_supplier_orders', kwargs={"id": order_id})
 
 
 @pytest.mark.django_db
@@ -246,7 +253,7 @@ class TestGetUpdateDeleteSuppliersView:
         delete_res = auth_client.delete(url)
         assert delete_res.status_code == 204
 
-    def test_supplier__operations_fail_with_inexistent_id(self, auth_client, random_uuid):
+    def test_supplier_operations_fail_with_inexistent_id(self, auth_client, random_uuid):
         url = supplier_url(random_uuid)
 
         # Test GET request
@@ -913,3 +920,413 @@ class TestCreateListSupplierOrdersView:
             order["id"] in user_orders_ids
             for order in res.data
         )
+
+
+@pytest.mark.django_db
+class TestGetUpdateDeleteSupplierOrdersView:
+    """Tests for the get update delete supplier orders view"""
+
+    def test_get_update_delete_orders_view_requires_auth(
+        self,
+        api_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_update_delete_orders_view_allowed_http_methods(
+        self,
+        auth_client,
+        supplier_order,
+        order_data
+    ):
+        url = order_url(supplier_order.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url, data=order_data, format='json')
+        assert put_res.status_code == 200
+
+        patch_res = auth_client.patch(url, data=order_data, format='json')
+        assert patch_res.status_code == 200
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 204
+
+    def test_order_operations_fail_with_inexistent_order_id(
+        self,
+        auth_client,
+        random_uuid,
+        order_data
+    ):
+        url = order_url(random_uuid)
+
+        # Test GET request
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 404
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test PUT request
+        put_res = auth_client.put(url, data=order_data, format='json')
+        assert put_res.status_code == 404
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test PATCH request
+        patch_res = auth_client.patch(url, data=order_data, format='json')
+        assert patch_res.status_code == 404
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test DELETE request
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 404
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "No SupplierOrder matches the given query."
+
+    def test_order_operations_fail_with_order_not_linked_to_authenticated_user(
+        self,
+        user,
+        api_client,
+        order_data
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        # Create an order without linking it to the authenticated user
+        order = SupplierOrderFactory.create()
+        url = order_url(order.id)
+
+        # Verify that the order does not belong to the authenticated user
+        assert str(order.created_by.id) != str(user.id)
+
+        # Test GET request
+        get_res = api_client.get(url)
+        assert get_res.status_code == 404
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test PUT request
+        put_res = api_client.put(url, data=order_data, format='json')
+        assert put_res.status_code == 404
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test PATCH request
+        patch_res = api_client.patch(url, data=order_data, format='json')
+        assert patch_res.status_code == 404
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "No SupplierOrder matches the given query."
+
+        # Test DELETE request
+        delete_res = api_client.delete(url)
+        assert delete_res.status_code == 404
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "No SupplierOrder matches the given query."
+
+    def test_get_order_with_valid_order_id(
+        self,
+        user,
+        api_client,
+        supplier_order
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        url = order_url(supplier_order.id)
+
+        # Verify that the order belongs to the authenticated user
+        assert str(supplier_order.created_by.id) == str(user.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+    def test_order_response_data_fields(self, auth_client, supplier_order):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+        
+        expected_fields = {
+            "id",
+            "reference_id",
+            "created_by",
+            "supplier",
+            "ordered_items",
+            'total_quantity',
+            'total_price',
+            "delivery_status",
+            "payment_status",
+            "tracking_number",
+            "shipping_cost",
+            "created_at",
+            "updated_at",
+            "updated"
+        }
+
+        assert expected_fields.issubset(res_data.keys())
+
+    def test_order_response_data_fields_types(
+        self,
+        auth_client,
+        supplier_order,
+        ordered_item
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data['id'], str)
+        assert isinstance(res_data['reference_id'], str)
+        assert isinstance(res_data['created_by'], str)
+        assert isinstance(res_data['supplier'], str)
+        assert isinstance(res_data['ordered_items'], list)
+        assert isinstance(res_data['total_quantity'], int)
+        assert isinstance(res_data['total_price'], float)
+        assert isinstance(res_data['delivery_status'], str)
+        assert isinstance(res_data['payment_status'], str)
+        assert isinstance(res_data['tracking_number'], str)
+        assert isinstance(res_data['shipping_cost'], float)
+        assert isinstance(res_data['created_at'], str)
+        assert isinstance(res_data['updated_at'], str)
+        assert isinstance(res_data['updated'], bool)
+
+    def test_order_response_data_for_general_fields(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data['id'] == str(supplier_order.id)
+        assert res_data['reference_id'] == supplier_order.reference_id
+        assert res_data['created_by'] == supplier_order.created_by.username
+        assert res_data['supplier'] == supplier_order.supplier.name
+        assert res_data["updated"] == supplier_order.updated
+
+    def test_order_response_data_for_ordered_items_field(
+        self,
+        auth_client,
+        supplier_order,
+        ordered_item
+    ):
+        # Verify that ordered_item belongs to supplier_order
+        assert str(supplier_order.id) == str(ordered_item.order.id)
+
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data['ordered_items'][0]['id'] == ordered_item.id
+        assert res_data['ordered_items'][0]['item'] == ordered_item.item.name
+        assert res_data['ordered_items'][0]['ordered_quantity'] == ordered_item.ordered_quantity
+        assert res_data['ordered_items'][0]['ordered_price'] == float(ordered_item.ordered_price)
+        assert res_data['ordered_items'][0]['total_price'] == float(ordered_item.total_price)
+        assert res_data['ordered_items'][0]['in_inventory'] == ordered_item.in_inventory
+
+    def test_order_response_data_for_financial_fields(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data['total_quantity'] == supplier_order.total_quantity
+        assert res_data['total_price'] == float(supplier_order.total_price)
+        assert res_data['shipping_cost'] == float(supplier_order.shipping_cost)
+
+    def test_order_response_data_for_status_fields(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data['delivery_status'] == supplier_order.delivery_status.name
+        assert res_data['payment_status'] == supplier_order.payment_status.name
+
+    def test_order_response_data_for_date_fields(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data['created_at'] == date_repr_format(supplier_order.created_at)
+        assert res_data['updated_at'] == date_repr_format(supplier_order.updated_at)
+
+    def test_order_put_update(
+        self,
+        auth_client,
+        supplier_order,
+        delivered_status,
+        order_data
+    ):
+        # Verify that order's delivery status and tracking number are different
+        # than the exiting ones
+        order_data["delivery_status"] = delivered_status.name
+        order_data["tracking_number"] = "123456789"
+
+        # Verify that order_data is different from supplier_order data
+        assert order_data["delivery_status"] != supplier_order.delivery_status.name
+        assert order_data["tracking_number"] != supplier_order.tracking_number
+
+        url = order_url(supplier_order.id)
+
+        res = auth_client.put(
+            url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        res_data = res.json()
+
+        # Verify that order was updated
+        assert res_data["delivery_status"] == order_data["delivery_status"]
+        assert res_data["tracking_number"] == order_data["tracking_number"]
+
+        # Verify that order record has been updated
+        supplier_order.refresh_from_db()
+        assert supplier_order.delivery_status.name == order_data["delivery_status"]
+        assert supplier_order.tracking_number == order_data["tracking_number"]
+
+    def test_order_patch_update(
+        self,
+        auth_client,
+        supplier_order,
+        delivered_status,
+    ):
+        # Verify that order's delivery status and tracking number are different
+        # than the exiting ones
+        order_data = {
+            "delivery_status": delivered_status.name,
+            "tracking_number": "123456789",
+        }
+
+        # Verify that order_data is different from supplier_order data
+        assert order_data["delivery_status"] != supplier_order.delivery_status.name
+        assert order_data["tracking_number"] != supplier_order.tracking_number
+
+        url = order_url(supplier_order.id)
+
+        res = auth_client.patch(
+            url,
+            data=order_data,
+            format='json'
+        )
+        assert res.status_code == 200
+        res_data = res.json()
+
+        # Verify that order was updated
+        assert res_data["delivery_status"] == order_data["delivery_status"]
+        assert res_data["tracking_number"] == order_data["tracking_number"]
+
+        # Verify that order record has been updated
+        supplier_order.refresh_from_db()
+        assert supplier_order.delivery_status.name == order_data["delivery_status"]
+        assert supplier_order.tracking_number == order_data["tracking_number"]
+
+    def test_order_deletion(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        url = order_url(supplier_order.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that order record has been deleted
+        assert not SupplierOrder.objects.filter(id=supplier_order.id).exists()
+
+    def test_order_deletion_deletes_linked_ordered_items(
+        self,
+        auth_client,
+        supplier_order,
+        ordered_item,
+    ):
+        # Create a second ordered item and link it to the order
+        ordered_item_2 = SupplierOrderedItemFactory.create(
+            created_by=supplier_order.created_by,
+            order=supplier_order
+        )
+
+        # Verify that both ordered items belong to the specified order
+        assert str(ordered_item.order.id) == str(supplier_order.id)
+        assert str(ordered_item_2.order.id) == str(supplier_order.id)
+
+        url = order_url(supplier_order.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that order record has been deleted
+        assert not SupplierOrder.objects.filter(id=supplier_order.id).exists()
+
+        # Verify that linked ordered items records have been deleted
+        assert not SupplierOrderedItem.objects.filter(order__id=supplier_order.id).exists()
+
+    def test_order_deletion_registers_a_new_activity(
+        self,
+        auth_client,
+        supplier_order
+    ):
+        # Verify that there's no delete activity for the order
+        assert not Activity.objects.filter(
+            action="deleted",
+            model_name="supplier order",
+            object_ref__contains=[supplier_order.reference_id]
+        ).exists()
+
+        url = order_url(supplier_order.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that the order record has been deleted
+        assert not SupplierOrder.objects.filter(id=supplier_order.id).exists()
+
+        # Verify that there's a delete activity for the order
+        assert Activity.objects.filter(
+            action="deleted",
+            model_name="supplier order",
+            object_ref__contains=[supplier_order.reference_id]
+        ).exists()
+

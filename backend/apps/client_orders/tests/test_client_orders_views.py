@@ -1268,7 +1268,7 @@ class TestGetUpdateDeleteClientOrdersView:
         order_data["tracking_number"] = "123456789"
 
         # Verify that order's delivery status and tracking number are different
-        # than the ones in the request
+        # than the exiting ones
         client_order.delivery_status.name != order_data["delivery_status"] 
         client_order.tracking_number != order_data["tracking_number"]
 
@@ -1276,8 +1276,6 @@ class TestGetUpdateDeleteClientOrdersView:
 
         assert res.status_code == 200
         res_data = res.json()
-
-        assert "delivery_status" in res_data
 
         # Verify that order delivery status has been set to delivered
         assert res_data["delivery_status"] == order_data["delivery_status"] 
