@@ -64,7 +64,7 @@ class BulkDeleteSuppliers(CreatedByUserMixin, generics.DestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         if not ids:
-            return Response({'error': 'No IDs provided'},
+            return Response({'error': 'No IDs provided.'},
                             status=status.HTTP_400_BAD_REQUEST)
         # Validate ids
         invalid_uuids = Token.validate_uuids(ids)

@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.supplier_orders.models import Supplier
@@ -12,6 +13,10 @@ from utils.serializers import date_repr_format, get_location
 @pytest.fixture
 def create_list_supplier_url():
     return reverse('create_list_suppliers')
+
+@pytest.fixture
+def bulk_delete_suppliers_url():
+    return reverse('bulk_delete_suppliers')
 
 def supplier_url(supplier_id: str):
     return reverse('get_update_delete_suppliers', kwargs={"id": supplier_id})
@@ -465,3 +470,321 @@ class TestGetUpdateDeleteSuppliersView:
                 object_ref__contains=[supplier.name]
             ).exists()
         )
+
+
+@pytest.mark.django_db
+class TestBulkDeleteSuppliersView:
+    """Tests for the bulk delete suppliers view."""
+
+    def test_bulk_delete_suppliers_view_requires_auth(
+        self,
+        api_client,
+        bulk_delete_suppliers_url
+    ):
+        res = api_client.delete(bulk_delete_suppliers_url)
+        assert res.status_code == 403
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_suppliers_view_allowed_http_methods(
+        self,
+        auth_client,
+        supplier,
+        bulk_delete_suppliers_url
+    ):
+        get_res = auth_client.get(bulk_delete_suppliers_url)
+        assert get_res.status_code == 405
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "Method \"GET\" not allowed."
+
+        post_res = auth_client.post(bulk_delete_suppliers_url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(bulk_delete_suppliers_url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(bulk_delete_suppliers_url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id]},
+            format="json"
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_suppliers_fails_without_list_of_ids(
+        self,
+        auth_client,
+        bulk_delete_suppliers_url
+    ):
+        res = auth_client.delete(bulk_delete_suppliers_url, data={}, format="json")
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+
+    def test_bulk_delete_suppliers_fails_with_empty_ids_list(
+        self,
+        auth_client,
+        bulk_delete_suppliers_url
+    ):
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": []},
+            format="json"
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+
+    def test_bulk_delete_suppliers_fails_with_invalid_uuids(
+        self,
+        supplier,
+        auth_client,
+        bulk_delete_suppliers_url
+    ):
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, "invalid_uuid"]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not valid UUIDs."
+        
+        assert "invalid_uuids" in res_error
+        assert len(res_error["invalid_uuids"]) == 1
+        assert res_error["invalid_uuids"] == ["invalid_uuid"]
+
+    def test_bulk_delete_suppliers_fails_with_inexistent_ids(
+        self,
+        supplier,
+        auth_client,
+        bulk_delete_suppliers_url
+    ):
+        random_id_1 = str(uuid.uuid4())
+        random_id_2 = str(uuid.uuid4())
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, random_id_1, random_id_2]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all suppliers could not be found."
+
+        assert "missing_ids" in res_error
+        missing_ids = res_error["missing_ids"]
+        assert len(missing_ids) == 2
+        assert random_id_1 in missing_ids
+        assert random_id_2 in missing_ids
+
+    def test_bulk_delete_suppliers_fails_with_unauthorized_suppliers(
+        self,
+        user,
+        api_client,
+        bulk_delete_suppliers_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 3 suppliers for the authenticated user
+        user_suppliers = SupplierFactory.create_batch(3, created_by=user)
+
+        # Create 2 suppliers for other users
+        other_suppliers = SupplierFactory.create_batch(2)
+
+        all_suppliers = user_suppliers + other_suppliers
+        res = api_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id for supplier in all_suppliers]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all suppliers could not be found."
+
+        assert "missing_ids" in res_error
+        missing_ids = res_error["missing_ids"]
+        assert len(missing_ids) == len(other_suppliers)
+        assert all(str(supplier.id) in missing_ids for supplier in other_suppliers)
+
+    def bulk_delete_suppliers_fails_with_all_suppliers_linked_to_orders(
+        self,
+        user,
+        supplier,
+        auth_client,
+        bulk_delete_suppliers_url,
+        supplier_order
+    ):
+        # Create a second supplier and link it to another order
+        supplier_2 = SupplierFactory.create(created_by=user)
+        supplier_order_2 = SupplierOrderFactory.create(supplier=supplier_2)
+
+        # Verify that both suppliers are linked to orders
+        assert supplier.total_orders > 0
+        assert supplier_2.total_orders > 0
+
+        # Current suppliers list
+        suppliers = [
+            {
+                "id": supplier.id,
+                "name": supplier.name
+            },
+            {
+                "id": supplier_2.id,
+                "name": supplier_2.name
+            }
+        ]
+
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, supplier_2.id]},
+            format='json'
+        )
+        assert res.status_code == 400
+
+        res_data = res.json()
+        assert "error" in res_data
+        res_error = res_data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == (
+            "All selected suppliers are linked to existing orders. "
+            "Manage orders before deletion."
+        )
+
+        assert "linked_suppliers" in res_error
+        assert len(res_error["linked_suppliers"]) == 2
+
+        assert suppliers[0] in res_error["linked_suppliers"]
+        assert suppliers[1] in res_error["linked_suppliers"]
+
+    def test_bulk_delete_suppliers_with_some_suppliers_linked_to_orders_and_others_not(
+        self,
+        user,
+        auth_client,
+        bulk_delete_suppliers_url,
+        supplier
+    ):
+        # Create a second supplier without linking it to an order
+        supplier_2 = SupplierFactory.create(created_by=user)
+        
+        # Create a third supplier and link it to another order
+        supplier_3 = SupplierFactory.create(created_by=user)
+        supplier_order = SupplierOrderFactory.create(supplier=supplier_3)
+
+        # Verify that supplier and supplier_2 are not linked to orders
+        assert supplier.total_orders == 0
+        assert supplier_2.total_orders == 0
+
+        # Verify that supplier_3 is linked to an order
+        assert supplier_3.total_orders > 0
+
+        supplier_with_order = {
+            "id": supplier_3.id,
+            "name": supplier_3.name
+        }
+
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, supplier_2.id, supplier_3.id]},
+            format='json'
+        )
+        assert res.status_code == 207
+        res_data = res.json()
+
+        assert "message" in res_data
+        assert res_data["message"] == (
+            "2 suppliers deleted successfully, but 1 supplier could not be deleted "
+            "because they are linked to existing orders."
+        )
+
+        assert "linked_suppliers" in res_data
+        assert len(res_data["linked_suppliers"]) == 1
+        assert supplier_with_order in res_data["linked_suppliers"]
+
+        # Verify that the two suppliers were deleted
+        assert not Supplier.objects.filter(id__in=[supplier.id, supplier_2.id]).exists()
+
+        # Verify that supplier_3 was not not deleted
+        assert Supplier.objects.filter(id=supplier_3.id).exists()
+
+    def test_bulk_delete_suppliers_succeeds_with_all_suppliers_not_linked_to_orders(
+        self,
+        user,
+        auth_client,
+        bulk_delete_suppliers_url,
+        supplier
+    ):
+        # Create a second supplier without linking it to an order
+        supplier_2 = SupplierFactory.create(created_by=user)
+
+        # Verify that both suppliers are not linked to orders
+        assert supplier.total_orders == 0
+        assert supplier_2.total_orders == 0
+
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, supplier_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 suppliers successfully deleted."
+
+        # Verify that both suppliers were deleted
+        assert not Supplier.objects.filter(id__in=[supplier.id, supplier_2.id]).exists()
+    
+    def test_bulk_delete_suppliers_registers_a_new_activity(
+        self,
+        user,
+        auth_client,
+        bulk_delete_suppliers_url,
+        supplier
+    ):
+        # Create a second supplier without linking it to an order
+        supplier_2 = SupplierFactory.create(created_by=user)
+
+        # Verify that there's no delete activity for the two suppliers
+        assert not Activity.objects.filter(
+            action="deleted",
+            model_name="supplier",
+            object_ref__contains=[supplier.name, supplier_2.name]
+        ).exists()
+
+        # Verify that both suppliers are not linked to orders
+        assert supplier.total_orders == 0
+        assert supplier_2.total_orders == 0
+
+        res = auth_client.delete(
+            bulk_delete_suppliers_url,
+            data={"ids": [supplier.id, supplier_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+
+        # Verify that both suppliers were deleted
+        assert not Supplier.objects.filter(id__in=[supplier.id, supplier_2.id]).exists()
+
+        # Verify that an activity record has been created for the suppliers deletion
+        assert Activity.objects.filter(
+            action="deleted",
+            model_name="supplier",
+            object_ref__contains=[supplier.name, supplier_2.name]
+        ).exists()
+
