@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from rest_framework.test import APIClient
 from apps.supplier_orders.factories import (
     SupplierFactory,
@@ -18,6 +19,10 @@ from apps.client_orders.factories import (
 @pytest.fixture
 def user(db):
   return UserFactory.create(username="adel")
+
+@pytest.fixture
+def random_uuid():
+    return str(uuid.uuid4())
 
 @pytest.fixture
 def api_client():
