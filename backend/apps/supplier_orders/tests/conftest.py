@@ -1,4 +1,5 @@
 import pytest
+from rest_framework.test import APIClient
 from apps.supplier_orders.factories import (
     SupplierFactory,
     SupplierOrderFactory,
@@ -17,6 +18,15 @@ from apps.client_orders.factories import (
 @pytest.fixture
 def user(db):
   return UserFactory.create(username="adel")
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+@pytest.fixture
+def auth_client(api_client, user):
+    api_client.force_authenticate(user=user)
+    return api_client
 
 @pytest.fixture
 def country(db):
@@ -42,6 +52,17 @@ def pending_status(db):
 @pytest.fixture
 def delivered_status(db):
     return OrderStatusFactory.create(name="Delivered")
+
+@pytest.fixture
+def supplier_data(location):
+    return {
+        "name": "Supplier 1",
+        "location": {
+            "country": location.country.name,
+            "city": location.city.name,
+            "street_address": location.street_address
+        }
+    }
 
 @pytest.fixture
 def supplier(db, user):
