@@ -1,8 +1,11 @@
 import pytest
 import uuid
+import random
 from typing import Union
 from django.urls import reverse
 from apps.base.models import Activity
+from apps.inventory.factories import ItemFactory
+from apps.client_orders.factories import OrderStatusFactory
 from apps.supplier_orders.models import (
     Supplier,
     SupplierOrder,
@@ -14,6 +17,13 @@ from apps.supplier_orders.factories import (
     SupplierOrderFactory
 )
 from utils.serializers import date_repr_format, get_location
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS,
+    PAYMENT_STATUS_OPTIONS,
+    COMPLETED_STATUS,
+    FAILED_STATUS,
+    ACTIVE_DELIVERY_STATUS
+)
 
 @pytest.fixture
 def create_list_supplier_url():
@@ -53,6 +63,10 @@ def ordered_item_url(order_id: str, item_id: Union[str, None]=None):
 def bulk_delete_items_url(order_id: str):
     return reverse("bulk_delete_supplier_ordered_items",
                    kwargs={"order_id": order_id})
+
+@pytest.fixture
+def supplier_orders_data_url():
+    return reverse('get_supplier_orders_data')
 
 
 @pytest.mark.django_db
@@ -2330,3 +2344,277 @@ class TestBulkDeleteSupplierOrderedItemsView:
         assert supplier_order.ordered_items.count() == 1
 
 
+@pytest.mark.django_db
+class TestGetSupplierOrdersDataView:
+    """Tests for the get supplier orders data view."""
+
+    def test_get_supplier_orders_view_requires_auth(
+        self,
+        api_client,
+        supplier_orders_data_url
+    ):
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_supplier_orders_view_allowed_http_methods(
+        self,
+        auth_client,
+        supplier_orders_data_url
+    ):
+        get_res = auth_client.get(supplier_orders_data_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(supplier_orders_data_url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(supplier_orders_data_url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(supplier_orders_data_url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(supplier_orders_data_url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_get_supplier_orders_response_data_fields(
+        self,
+        auth_client,
+        supplier_orders_data_url,
+    ):
+        res = auth_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+
+        expected_fields = {
+            "suppliers",
+            "no_supplier_items",
+            "suppliers_count",
+            "orders_count",
+            "order_status"
+        }
+
+        assert expected_fields.issubset(res.data.keys())
+
+    def test_get_supplier_orders_response_data_fields_types(
+        self,
+        auth_client,
+        supplier_orders_data_url,
+    ):
+        res = auth_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert isinstance(res_data["suppliers"], list)
+        assert isinstance(res_data["no_supplier_items"], list)
+        assert isinstance(res_data["suppliers_count"], int)
+        assert isinstance(res_data["orders_count"], int)
+        assert isinstance(res_data["order_status"], dict)
+
+    def test_get_supplier_orders_data_suppliers_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        supplier_orders_data_url,
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create two suppliers for the authenticated user
+        supplier_1 = SupplierFactory.create(name="Supplier 1", created_by=user)
+        supplier_2 = SupplierFactory.create(name="Supplier 2", created_by=user)
+
+        # Create two items for each supplier
+        item_1 = ItemFactory.create(name="Item 1", supplier=supplier_1)
+        item_2 = ItemFactory.create(name="Item 2", supplier=supplier_1)
+        item_3 = ItemFactory.create(name="Item 3", supplier=supplier_2)
+        item_4 = ItemFactory.create(name="Item 4", supplier=supplier_2)
+
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+
+        assert "suppliers" in res.data
+        res_data = res.json()
+        suppliers = res_data["suppliers"]
+        assert isinstance(suppliers, list)
+        assert len(suppliers) == 2
+
+        # Verify that suppliers has a list of dictionaries
+        assert all(isinstance(supplier, dict) for supplier in suppliers)
+
+        # Verify that each supplier object contains the supplier name and items
+        assert all("name" in supplier for supplier in suppliers)
+        assert all("item_names" in supplier for supplier in suppliers)
+
+        # Verify that the supplier name is correct
+        res_supplier_names = [supplier["name"] for supplier in suppliers]
+        assert supplier_1.name in res_supplier_names
+        assert supplier_2.name in res_supplier_names
+
+        # Verify that the items length and names are correct
+        assert len(suppliers[0]["item_names"]) == 2
+        assert len(suppliers[1]["item_names"]) == 2
+
+        for supplier in suppliers:
+            assert isinstance(supplier["item_names"], list)
+            if supplier["name"] == supplier_1.name:
+                assert item_1.name in supplier["item_names"]
+                assert item_2.name in supplier["item_names"]
+            elif supplier["name"] == supplier_2.name:
+                assert item_3.name in supplier["item_names"]
+                assert item_4.name in supplier["item_names"]
+
+    def test_get_supplier_orders_data_no_supplier_items_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        supplier,
+        supplier_orders_data_url,
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create two items without suppliers fo the authenticated user
+        item_1 = ItemFactory.create(name="item 1", created_by=user, supplier=None)
+        item_2 = ItemFactory.create(name="item 2", created_by=user, supplier=None)
+
+        # Create one item with supplier for the authenticated user
+        item_3 = ItemFactory.create(name="item 3", supplier=supplier, created_by=user)      
+
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+
+        assert "no_supplier_items" in res.data
+        res_data = res.json()
+
+        no_supplier_items = res_data["no_supplier_items"]
+        
+        assert isinstance(no_supplier_items, list)
+        assert len(no_supplier_items) == 2
+
+        # Verify that no_supplier_items only includes the items without supplier
+        assert item_1.name in no_supplier_items
+        assert item_2.name in no_supplier_items
+        assert item_3.name not in no_supplier_items
+
+    def test_get_supplier_orders_data_suppliers_count_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        supplier_orders_data_url
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create two suppliers for the authenticated user
+        SupplierFactory.create_batch(2, created_by=user)
+
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+
+        assert "suppliers_count" in res.data
+        res_data = res.json()
+        assert isinstance(res_data["suppliers_count"], int)
+        assert res_data["suppliers_count"] == 2
+
+    def test_get_supplier_orders_data_orders_count_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        supplier_orders_data_url
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create five supplier orders for the authenticated user
+        SupplierOrderFactory.create_batch(5, created_by=user)
+
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+
+        assert "orders_count" in res.data
+        res_data = res.json()
+        assert isinstance(res_data["orders_count"], int)
+        assert res_data["orders_count"] == 5
+
+        assert res_data["orders_count"] == (
+            SupplierOrder.objects.filter(created_by=user).count()
+        )
+
+    def test_get_client_orders_data_order_status_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        supplier_orders_data_url
+    ):
+        # Authenticate the api client to the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 2 supplier orders for the auth user
+        # with an active status as delivery status
+        active_status = OrderStatusFactory.create(
+            name=random.choice(ACTIVE_DELIVERY_STATUS)
+        )
+        active_orders = SupplierOrderFactory.create_batch(
+            2,
+            created_by=user,
+            delivery_status=active_status
+        )
+
+        # Create 3 supplier orders for the auth user
+        # with an completed status as delivery status
+        completed_status = OrderStatusFactory.create(
+            name=random.choice(COMPLETED_STATUS)
+        )
+        completed_orders = SupplierOrderFactory.create_batch(
+            3,
+            created_by=user,
+            delivery_status=completed_status
+        )
+
+        # Create 4 supplier orders for the auth user
+        # with a failed status as delivery status
+        failed_status = OrderStatusFactory.create(
+            name=random.choice(FAILED_STATUS)
+        )
+        failed_orders = SupplierOrderFactory.create_batch(
+            4,
+            created_by=user,
+            delivery_status=failed_status
+        )
+
+        res = api_client.get(supplier_orders_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "order_status" in res_data
+        order_status = res_data["order_status"]
+        
+        # Delivery status field
+        assert "delivery_status" in order_status
+        assert order_status["delivery_status"] == DELIVERY_STATUS_OPTIONS
+
+        # Payment status field
+        assert "payment_status" in order_status
+        assert order_status["payment_status"] == PAYMENT_STATUS_OPTIONS
+
+        # Active orders field
+        assert "active" in order_status
+        assert order_status["active"] == len(active_orders)
+
+        # Completed orders field
+        assert "completed" in order_status
+        assert order_status["completed"] == len(completed_orders)
+
+        # Failed orders field
+        assert "failed" in order_status
+        assert order_status["failed"] == len(failed_orders)

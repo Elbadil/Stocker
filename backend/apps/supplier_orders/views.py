@@ -358,7 +358,8 @@ class GetSupplierOrdersData(generics.GenericAPIView):
             .annotate(
                 item_names=ArrayAgg(
                     'items__name',
-                    filter=Q(items__name__isnull=False))
+                    filter=Q(items__name__isnull=False),
+                    default=[])
                 )
             .values('name', 'item_names')
         )
@@ -412,7 +413,7 @@ class GetSupplierOrdersData(generics.GenericAPIView):
 
         return Response({'suppliers': suppliers,
                          'no_supplier_items': no_supplier_items,
-                         'suppliers_count': suppliers.count(),
+                         'suppliers_count': suppliers.count() or 0,
                          'orders_count': orders_count,
                          'order_status': orders_status},
                          status=status.HTTP_200_OK)
