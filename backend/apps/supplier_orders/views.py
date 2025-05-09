@@ -322,19 +322,19 @@ class BulkDeleteSupplierOrderedItems(CreatedByUserMixin, generics.DestroyAPIView
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         queryset = self.get_queryset()
-        order = queryset.first().order
         
-        # Validate ordered items order delivery status
-        status_validation = validate_deletion_for_delivered_parent_instance(order)
-        if isinstance(status_validation, Response):
-            return status_validation
-
         # Validate ids and items for deletion
         result = validate_linked_items_for_deletion(ids, queryset, SupplierOrder)
 
         # Return Response if validation failed
         if isinstance(result, Response):
             return result
+
+        # Validate ordered items order delivery status
+        order = queryset.first().order
+        status_validation = validate_deletion_for_delivered_parent_instance(order)
+        if isinstance(status_validation, Response):
+            return status_validation
 
         # Perform items deletion
         order, items_for_deletion = result
