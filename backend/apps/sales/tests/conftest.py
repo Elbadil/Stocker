@@ -87,8 +87,8 @@ def sold_item(db, user, sale, item):
         created_by=user,
         sale=sale,
         item=item,
-        ordered_quantity=item.quantity - 1,
-        ordered_price=item.price + 100
+        sold_quantity=item.quantity - 1,
+        sold_price=item.price + 100
     )
 
 @pytest.fixture
@@ -107,3 +107,12 @@ def client_order(db, sale):
         ]
     }
     return ClientOrderFactory.create(**order_data)
+
+@pytest.fixture
+def sold_item_data(item, sale):
+    return {
+        "sale": sale.id,
+        "item": item.name,
+        "sold_quantity": item.quantity - 1,
+        "sold_price": item.price + 100
+    }

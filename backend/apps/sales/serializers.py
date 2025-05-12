@@ -2,17 +2,22 @@ from rest_framework import serializers
 from django.db import transaction
 from django.db.models import Q
 from typing import List
-from utils.serializers import (date_repr_format,
-                               get_location,
-                               get_or_create_location,
-                               get_or_create_source,
-                               update_item_quantity,
-                               update_field,
-                               check_item_existence,
-                               validate_restricted_fields,
-                               validate_changes_for_delivered_parent_instance)
-from utils.status import (DELIVERY_STATUS_OPTIONS_LOWER,
-                          PAYMENT_STATUS_OPTIONS_LOWER)
+from utils.serializers import (
+    get_user,
+    date_repr_format,
+    get_location,
+    get_or_create_location,
+    get_or_create_source,
+    update_item_quantity,
+    update_field,
+    check_item_existence,
+    validate_restricted_fields,
+    validate_changes_for_delivered_parent_instance
+)
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS_LOWER,
+    PAYMENT_STATUS_OPTIONS_LOWER
+)
 from utils.activity import register_activity
 from .models import Sale, SoldItem
 from ..inventory.models import Item
@@ -22,6 +27,10 @@ from ..client_orders.serializers import LocationSerializer
 
 class SoldItemSerializer(serializers.ModelSerializer):
     """Sold Item Serializer"""
+    sale = serializers.PrimaryKeyRelatedField(
+        many=False,
+        queryset=Sale.objects.all()
+    )
     item = serializers.CharField()
 
     class Meta:
@@ -40,7 +49,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
         ]
 
     def validate_item(self, value):
-        user = self.context.get('request').user
+        user = get_user(self.context)
         item = (
             Item.objects
             .filter(
@@ -80,7 +89,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         # Extract special fields
-        user = self.context.get('request').user
+        user = get_user(self.context)
         item = validated_data.get('item')
         sale = validated_data.get('sale')
         sold_quantity = validated_data.get('sold_quantity')
@@ -111,11 +120,12 @@ class SoldItemSerializer(serializers.ModelSerializer):
         # Validate item's sale delivery status
         validate_changes_for_delivered_parent_instance(sale)
 
-        # Case: Item instance has changed
-        if item and instance.item != item:
+        # Case: Related item instance has changed
+        if item and str(instance.item.id) != str(item.id):
             # Validate item's uniqueness in case item changed
-            if item and instance.item != item:
-                self.validate_item_uniqueness(item.name, sale)
+            self.validate_item_uniqueness(item.name, sale)
+
+            # Validate and update item's sold quantity
             if item.quantity < sold_quantity:
                 self.sold_quantity_validation_error(item.name)
 
@@ -127,7 +137,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
                 item.quantity -= sold_quantity
                 item.save()
 
-        # Case: Item instance remained the same
+        # Case: Related item instance remained the same
         else:
             item = item or instance.item
             item_new_quantity = update_item_quantity(item,

@@ -219,7 +219,7 @@ def validate_changes_for_delivered_parent_instance(
 
     if parent_instance.delivery_status.name == 'Delivered':
         raise serializers.ValidationError({
-            'order': (
+            parent_instance_name: (
                 f"Cannot apply changes to the {parent_instance_name} "
                 f"with ID '{parent_instance.id}' {items_name} "
                 "because it has already been marked as Delivered. "

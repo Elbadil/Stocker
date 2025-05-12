@@ -1474,7 +1474,7 @@ class TestClientOrderedItemSerializer:
         initial_ordered_price = ordered_item.ordered_price
 
         ordered_item_data["ordered_price"] = initial_ordered_price + 100
-        ordered_item_data["ordered_price"] = initial_ordered_quantity - 1
+        ordered_item_data["ordered_quantity"] = initial_ordered_quantity - 1
 
         serializer = ClientOrderedItemSerializer(
             ordered_item,
@@ -1587,7 +1587,39 @@ class TestClientOrderedItemSerializer:
             "if you need to modify its details."
         )
 
-    def test_ordered_item_update_recalculates_item_quantity(
+    def test_ordered_quantity_update_exceeds_item_quantity_in_inventory(
+        self,
+        user,
+        item,
+        ordered_item,
+    ):
+        ordered_quantity = ordered_item.ordered_quantity + 10
+        ordered_item_data = {
+            'ordered_quantity': ordered_quantity
+        }
+
+        # Verify that the ordered quantity is greater than the item's quantity
+        assert str(ordered_item.item.id) == str(item.id)
+        assert ordered_quantity > item.quantity
+
+        serializer = ClientOrderedItemSerializer(
+            ordered_item,
+            data=ordered_item_data,
+            context={'user': user},
+            partial=True,
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "ordered_quantity" in errors.value.detail
+        assert errors.value.detail["ordered_quantity"] == (
+            f"The ordered quantity for '{item.name}' "
+            "exceeds available stock."
+        )
+
+    def test_ordered_item_update_recalculates_item_quantity_in_inventory(
         self,
         user,
         item,
