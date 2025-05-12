@@ -10,22 +10,13 @@ from apps.client_orders.factories import (
     OrderStatusFactory,
     AcquisitionSourceFactory
 )
+from apps.supplier_orders.factories import SupplierFactory
 from apps.sales.factories import SaleFactory, SoldItemFactory
 
 
 @pytest.fixture
 def user(db):
     return UserFactory.create(username="adel")
-
-@pytest.fixture
-def item(db, user, supplier):
-    return ItemFactory.create(
-        created_by=user,
-        supplier=supplier,
-        name="Projector",
-        quantity=5,
-        in_inventory=True
-    )
 
 @pytest.fixture
 def country(db):
@@ -42,6 +33,20 @@ def location(db, user, country, city):
         country=country,
         city=city,
         street_address="5th avenue"
+    )
+
+@pytest.fixture
+def supplier(db, user, location):
+    return SupplierFactory.create(created_by=user, name="Dell", location=location)
+
+@pytest.fixture
+def item(db, user, supplier):
+    return ItemFactory.create(
+        created_by=user,
+        supplier=supplier,
+        name="Projector",
+        quantity=5,
+        in_inventory=True
     )
 
 @pytest.fixture

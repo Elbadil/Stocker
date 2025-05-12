@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from shortuuid.django_fields import ShortUUIDField
+from decimal import Decimal
 from utils.models import BaseModel, get_default_order_status
 from ..inventory.models import Item
 from ..client_orders.models import (Client,
@@ -90,7 +91,11 @@ class SoldItem(BaseModel):
                              related_name='sold_items')
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     sold_quantity = models.IntegerField(validators=[MinValueValidator(1)])
-    sold_price = models.DecimalField(max_digits=6, decimal_places=2)
+    sold_price = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.0'))]
+    )
 
     @property
     def total_price(self):
