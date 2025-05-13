@@ -85,7 +85,6 @@ def item(db, user):
         in_inventory=True
     )
 
-
 @pytest.fixture
 def client_order(db, user, client, location, source, pending_status):
     return ClientOrderFactory.create(
@@ -123,7 +122,6 @@ def ordered_item(db, user, client_order, item):
         ordered_quantity=3,
         ordered_price=item.price + 100
     )
-
 
 @pytest.fixture
 def location_data(city, country):

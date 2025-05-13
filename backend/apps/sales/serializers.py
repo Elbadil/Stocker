@@ -4,6 +4,7 @@ from django.db.models import Q
 from typing import List
 from utils.serializers import (
     get_user,
+    decimal_to_float,
     date_repr_format,
     get_location,
     get_or_create_location,
@@ -20,6 +21,7 @@ from utils.status import (
 )
 from utils.activity import register_activity
 from .models import Sale, SoldItem
+from ..base.models import User
 from ..inventory.models import Item
 from ..client_orders.models import Client, OrderStatus
 from ..client_orders.serializers import LocationSerializer
@@ -160,6 +162,9 @@ class SoldItemSerializer(serializers.ModelSerializer):
         sold_item_repr['created_by'] = (instance.created_by.username
                                         if instance.created_by else None)
         sold_item_repr['item'] = instance.item.name
+        sold_item_repr['sold_price'] = decimal_to_float(instance.sold_price)
+        sold_item_repr['total_price'] = decimal_to_float(instance.total_price)
+        sold_item_repr['total_profit'] = decimal_to_float(instance.total_profit)
         sold_item_repr['created_at'] = date_repr_format(instance.created_at)
         sold_item_repr['updated_at'] = date_repr_format(instance.updated_at)
         return sold_item_repr
@@ -219,14 +224,14 @@ class SaleSerializer(serializers.ModelSerializer):
 
     def create_sold_items_for_sale(
         self,
-        request,
+        user: User,
         sale: Sale,
         sold_items: List[dict]
     ) -> None:
         for sold_item in sold_items:
             sold_item['sale'] = sale.id
             serializer = SoldItemSerializer(data=sold_item,
-                                            context={'request': request})
+                                            context={'user': user})
             if serializer.is_valid():
                 serializer.save()
             else:
@@ -238,7 +243,7 @@ class SaleSerializer(serializers.ModelSerializer):
 
     def update_sold_items_for_sale(
         self,
-        request,
+        user: User,
         sale: Sale,
         sold_items: List[dict]
     ) -> None:
@@ -248,7 +253,7 @@ class SaleSerializer(serializers.ModelSerializer):
         names_query = Q()
         for name in item_names:
             names_query |= Q(name__iexact=name)
-        inventory_items = Item.objects.filter(names_query, created_by=request.user)
+        inventory_items = Item.objects.filter(names_query, created_by=user)
 
         # Create an inventory items map for all necessary items
         inventory_items_map = {item.name.lower(): item for item in inventory_items}
@@ -282,7 +287,7 @@ class SaleSerializer(serializers.ModelSerializer):
     
             # Create new sold item
             else:
-                self.create_sold_items_for_sale(request, sale, [sold_item])
+                self.create_sold_items_for_sale(user, sale, [sold_item])
 
         # Delete remaining sold items and update item's quantity in inventory
         for key, item_for_deletion in existing_items.items():
@@ -320,7 +325,11 @@ class SaleSerializer(serializers.ModelSerializer):
         ]
 
     def validate_client(self, value):
-        client = Client.objects.filter(name__iexact=value).first()
+        user = get_user(self.context)
+        client = Client.objects.filter(
+            created_by=user,
+            name__iexact=value
+        ).first()
         if not client:
             raise serializers.ValidationError(
                 f"Client '{value}' does not exist. "
@@ -365,8 +374,7 @@ class SaleSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         # Extract special fields
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
         sold_items = validated_data.pop('sold_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
         payment_status = validated_data.pop('payment_status', None)
@@ -377,7 +385,7 @@ class SaleSerializer(serializers.ModelSerializer):
         sale = Sale.objects.create(created_by=user, **validated_data)
 
         # Add sold items to the sale
-        self.create_sold_items_for_sale(request, sale, sold_items)
+        self.create_sold_items_for_sale(user, sale, sold_items)
 
         # Add delivery and payment status if any
         if delivery_status:
@@ -420,8 +428,7 @@ class SaleSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance: Sale, validated_data):
         # Extract special fields
-        request = self.context.get('request')
-        user = request.user
+        user = get_user(self.context)
         client = validated_data.get('client', instance.client)
         sold_items = validated_data.pop('sold_items', None)
         delivery_status = validated_data.pop('delivery_status', None)
@@ -448,7 +455,7 @@ class SaleSerializer(serializers.ModelSerializer):
 
         # Update sale's sold items if any
         if sold_items:
-            self.update_sold_items_for_sale(request, sale, sold_items)
+            self.update_sold_items_for_sale(user, sale, sold_items)
 
         # Update delivery and payment status if any
         if delivery_status:

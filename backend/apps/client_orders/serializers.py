@@ -559,7 +559,7 @@ class ClientOrderSerializer(serializers.ModelSerializer):
             if item_name in unique_items:
                 ordered_item_name = ordered_item["item"]
                 raise serializers.ValidationError(
-                    f"Item '{ordered_item_name}' has been selected multiple times."
+                    {"item": f"Item '{ordered_item_name}' has been selected multiple times."}
                 )
             else:
                 unique_items.append(item_name)

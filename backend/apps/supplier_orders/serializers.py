@@ -441,7 +441,7 @@ class SupplierOrderSerializer(serializers.ModelSerializer):
             item_name = ordered_item['item'].lower()
             if item_name in unique_items:
                 raise serializers.ValidationError(
-                    f"Item '{ordered_item['item']}' has been selected multiple times."
+                    {"item": f"Item '{ordered_item['item']}' has been selected multiple times."}
                 )
             else:
                 unique_items.append(item_name)

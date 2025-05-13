@@ -36,8 +36,8 @@ def location(db, user, country, city):
     )
 
 @pytest.fixture
-def supplier(db, user, location):
-    return SupplierFactory.create(created_by=user, name="Dell", location=location)
+def supplier(db, user):
+    return SupplierFactory.create(created_by=user, name="Dell")
 
 @pytest.fixture
 def item(db, user, supplier):
@@ -92,21 +92,40 @@ def sold_item(db, user, sale, item):
     )
 
 @pytest.fixture
-def client_order(db, sale):
-    order_data = {
-        field: getattr(sale, field)
-        for field in [
-            "created_by",
-            "client",
-            "delivery_status",
-            "payment_status",
-            "shipping_address",
-            "shipping_cost",
-            "source",
-            "tracking_number",
-        ]
+def client_order(db, user, location, client, source, pending_status):
+    return ClientOrderFactory.create(
+        created_by=user,
+        client=client,
+        delivery_status=pending_status,
+        payment_status=pending_status,
+        shipping_address=location,
+        source=source
+    )
+
+@pytest.fixture
+def location_data(city, country):
+    return {
+        "country": country.name,
+        "city": city.name,
+        "street_address": "5th avenue"
     }
-    return ClientOrderFactory.create(**order_data)
+
+@pytest.fixture
+def sale_data(user, client, item, pending_status, location_data, source):
+    return {
+        "client": client.name,
+        "sold_items": [
+            {
+                "item": item.name,
+                "sold_quantity": item.quantity - 1,
+                "sold_price": item.price + 100
+            }
+        ],
+        "delivery_status": pending_status.name,
+        "payment_status": pending_status.name,
+        "shipping_address": location_data,
+        "source": source.name
+    }
 
 @pytest.fixture
 def sold_item_data(item, sale):

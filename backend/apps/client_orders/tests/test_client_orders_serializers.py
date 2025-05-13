@@ -1821,9 +1821,10 @@ class TestClientOrderSerializer:
         assert not serializer.is_valid()
 
         assert "ordered_items" in serializer.errors
-        assert serializer.errors["ordered_items"] == [
+        assert "item" in serializer.errors["ordered_items"]
+        assert serializer.errors["ordered_items"]["item"] == (
             f"Item '{ordered_item_1['item']}' has been selected multiple times."
-        ]
+        )
 
     def test_order_creation_uses_client_ordered_item_serializer_for_ordered_items(
         self,
