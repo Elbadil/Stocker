@@ -56,7 +56,7 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
     def delete(self, request, *args, **kwargs):
         ids = request.data.get('ids', [])
         if not ids:
-            return Response({'error': 'No IDs provided'},
+            return Response({'error': 'No IDs provided.'},
                             status=status.HTTP_400_BAD_REQUEST)
         # Validate ids
         invalid_uuids = Token.validate_uuids(ids)
@@ -64,7 +64,7 @@ class BulkDeleteSales(CreatedByUserMixin, generics.DestroyAPIView):
             return Response(
                 {
                     'error': {
-                        'message': 'Some or all provided IDs are not valid uuids.',
+                        'message': 'Some or all provided IDs are not valid UUIDs.',
                         'invalid_uuids': invalid_uuids
                     }
                 },

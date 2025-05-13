@@ -1,6 +1,8 @@
+import uuid
 import pytest
 from django.urls import reverse
 from apps.base.models import Activity
+from apps.inventory.factories import ItemFactory
 from apps.sales.models import Sale, SoldItem
 from apps.sales.factories import SaleFactory, SoldItemFactory
 from utils.serializers import decimal_to_float, date_repr_format
@@ -12,6 +14,10 @@ def create_list_sales_url():
 
 def sale_url(sale_id: str):
     return reverse('get_update_delete_sales', kwargs={'id': sale_id})
+
+@pytest.fixture
+def bulk_delete_sales_url():
+    return reverse('bulk_delete_sales')
 
 
 @pytest.mark.django_db
@@ -488,6 +494,312 @@ class TestGetUpdateDeleteSalesView:
             action="deleted",
             model_name="sale",
             object_ref__contains=sale.reference_id
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestBulkDeleteSalesView:
+    """Tests for the bulk delete sales view."""
+
+    def test_bulk_delete_sales_view_requires_auth(self, api_client, bulk_delete_sales_url):
+        res = api_client.delete(bulk_delete_sales_url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_sales_view_allowed_http_methods(
+        self,
+        auth_client,
+        sale,
+        bulk_delete_sales_url
+    ):
+        get_res = auth_client.get(bulk_delete_sales_url)
+        assert get_res.status_code == 405
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "Method \"GET\" not allowed."
+
+        post_res = auth_client.post(bulk_delete_sales_url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(bulk_delete_sales_url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(bulk_delete_sales_url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id]},
+            format='json'
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_sales_fails_without_ids_list(
+        self,
+        auth_client,
+        bulk_delete_sales_url
+    ):
+        res = auth_client.delete(bulk_delete_sales_url)
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+
+    def test_bulk_delete_sales_fails_with_empty_ids_list(
+        self,
+        auth_client,
+        bulk_delete_sales_url
+    ):
+        res = auth_client.delete(bulk_delete_sales_url, data={"ids": []}, format='json')
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "No IDs provided."
+
+    def test_bulk_delete_sales_fails_with_invalid_uuids(
+        self,
+        auth_client,
+        sale,
+        bulk_delete_sales_url
+    ):
+        res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id, "invalid_uuid_1", "invalid_uuid_2"]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not valid UUIDs."
+
+        assert "invalid_uuids" in res_error
+        assert len(res_error["invalid_uuids"]) == 2
+        assert "invalid_uuid_1" in res_error["invalid_uuids"]
+        assert "invalid_uuid_2" in res_error["invalid_uuids"]
+
+    def test_bulk_delete_sales_fails_with_nonexistent_ids(
+        self,
+        auth_client,
+        sale,
+        bulk_delete_sales_url
+    ):
+        random_id_1 = str(uuid.uuid4())
+        random_id_2 = str(uuid.uuid4())
+
+        res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id, random_id_1, random_id_2]},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all selected sales are not found."
+
+        assert "missing_ids" in res_error
+        assert len(res_error["missing_ids"]) == 2
+        assert random_id_1 in res_error["missing_ids"]
+        assert random_id_2 in res_error["missing_ids"]
+
+    def test_bulk_delete_sales_fails_with_unauthorized_sales(
+        self,
+        user,
+        api_client,
+        bulk_delete_sales_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user)
+
+        user_sales = SaleFactory.create_batch(2, created_by=user)
+        other_sales = SaleFactory.create_batch(3)
+
+        sales = user_sales + other_sales
+        sales_ids = [sale.id for sale in sales]
+
+        res = api_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": sales_ids},
+            format='json'
+        )
+        assert res.status_code == 400
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all selected sales are not found."
+
+        assert "missing_ids" in res_error
+        assert len(res_error["missing_ids"]) == len(other_sales)
+        assert all(str(sale.id) in res_error["missing_ids"] for sale in other_sales)
+
+    def test_bulk_delete_sales_with_valid_sales(
+        self,
+        user,
+        api_client,
+        sale,
+        bulk_delete_sales_url
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user)
+
+        # Create another sale for the authenticated user
+        user_sale = SaleFactory.create(created_by=user)
+
+        # Verify that both sales belong to the authenticated user
+        assert str(sale.created_by.id) == str(user.id)
+        assert str(user_sale.created_by.id) == str(user.id)
+
+        sales = [sale, user_sale]
+        sales_ids = [sale.id for sale in sales]
+
+        res = api_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": sales_ids},
+            format='json'
+        )
+        assert res.status_code == 200
+
+        # Verify that both sales were deleted
+        assert not Sale.objects.filter(id__in=sales_ids).exists()
+
+    def test_bulk_delete_sales_deletes_linked_sold_items(
+        self,
+        user,
+        auth_client,
+        sale,
+        sold_item,
+        bulk_delete_sales_url
+    ):
+        # Verify that the sold item is linked to the sale
+        assert str(sold_item.sale.id) == str(sale.id)
+
+        # Create another sale with another sold_item
+        item_2 = ItemFactory.create(created_by=user, in_inventory=True)
+        sale_2 = SaleFactory.create(created_by=user)
+        sold_item_2 = SoldItemFactory.create(
+            created_by=user,
+            sale=sale_2,
+            item=item_2,
+            sold_quantity=item_2.quantity - 1
+        )
+
+        res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id, sale_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 sales successfully deleted."
+
+        # Verify that the two sales have been deleted
+        assert not Sale.objects.filter(
+            id__in=[sale.id, sale_2.id]
+        ).exists()
+
+        # Verify that linked sold items have been deleted
+        assert not SoldItem.objects.filter(
+            sale__id__in=[sale.id, sale_2.id]
+        ).exists()
+
+    def test_bulk_delete_sales_resets_inventory_quantities_if_not_linked_to_sales(
+        self,
+        user,
+        auth_client,
+        sale,
+        sold_item,
+        bulk_delete_sales_url
+    ):
+        # Verify that the sold item is linked to the sale
+        assert str(sold_item.sale.id) == str(sale.id)
+
+        item_1 = sold_item.item
+        item_1_quantity = item_1.quantity
+ 
+        # Create another sale with another sold_item
+        item_2 = ItemFactory.create(created_by=user, in_inventory=True)
+        item_2_quantity = item_2.quantity
+        sale_2 = SaleFactory.create(created_by=user)
+        sold_item_2 = SoldItemFactory.create(
+            created_by=user,
+            sale=sale_2,
+            item=item_2,
+            sold_quantity=item_2_quantity - 1
+        )
+
+        # Verify that the sales are not linked to orders
+        assert not sale.has_order
+        assert not sale_2.has_order
+
+        res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id, sale_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 sales successfully deleted."
+
+        # Verify that the two sales have been deleted
+        assert not Sale.objects.filter(
+            id__in=[sale.id, sale_2.id]
+        ).exists()
+
+        # Verify that the linked sold items have been deleted
+        assert not SoldItem.objects.filter(
+            sale__id__in=[sale.id, sale_2.id]
+        ).exists()
+
+        # Verify that the sold items's inventory quantity has been reset
+        item_1.refresh_from_db()
+        assert item_1.quantity != item_1_quantity
+        assert item_1.quantity == item_1_quantity + sold_item.sold_quantity
+
+        item_2.refresh_from_db()
+        assert item_2.quantity != item_2_quantity
+        assert item_2.quantity == item_2_quantity + sold_item_2.sold_quantity
+
+    def test_bulk_delete_sales_registers_a_new_activity(
+        self,
+        user,
+        auth_client,
+        sale,
+        bulk_delete_sales_url
+    ):
+        # Create another sale
+        sale_2 = SaleFactory.create(created_by=user)
+
+        res = auth_client.delete(
+            bulk_delete_sales_url,
+            data={"ids": [sale.id, sale_2.id]},
+            format='json'
+        )
+        assert res.status_code == 200
+        assert "message" in res.data
+        assert res.data["message"] == "2 sales successfully deleted."
+
+        # Verify that the two sales have been deleted
+        assert not Sale.objects.filter(
+            id__in=[sale.id, sale_2.id]
+        ).exists()
+
+        # Verify that a new activity has been created
+        assert Activity.objects.filter(
+            user=user,
+            action="deleted",
+            model_name="sale",
+            object_ref__contains=[
+                sale.reference_id,
+                sale_2.reference_id
+            ]
         ).exists()
 
 
