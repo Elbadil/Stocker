@@ -4,6 +4,7 @@ from apps.inventory.factories import ItemFactory
 from apps.client_orders.factories import (
     ClientFactory,
     ClientOrderFactory,
+    ClientOrderedItemFactory,
     CountryFactory,
     CityFactory,
     LocationFactory,
@@ -100,6 +101,16 @@ def client_order(db, user, location, client, source, pending_status):
         payment_status=pending_status,
         shipping_address=location,
         source=source
+    )
+
+@pytest.fixture
+def ordered_item(db, user, client_order, item):
+    return ClientOrderedItemFactory.create(
+        created_by=user,
+        order=client_order,
+        item=item,
+        ordered_quantity=3,
+        ordered_price=item.price + 100
     )
 
 @pytest.fixture

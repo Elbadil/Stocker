@@ -76,7 +76,7 @@ class Sale(BaseModel):
 
     @property
     def linked_order(self):
-        return self.order.reference_id if self.has_order else None
+        return self.order.id if self.has_order else None
 
     def __str__(self):
         return self.reference_id

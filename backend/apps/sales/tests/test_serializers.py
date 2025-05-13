@@ -6,7 +6,7 @@ from apps.base.factories import UserFactory
 from apps.inventory.factories import ItemFactory
 from apps.client_orders.models import Location, AcquisitionSource
 from apps.client_orders.serializers import ClientOrderSerializer
-from apps.client_orders.factories import ClientFactory, LocationFactory
+from apps.client_orders.factories import AcquisitionSourceFactory, ClientFactory, LocationFactory, OrderStatusFactory
 from apps.sales.models import Sale, SoldItem
 from apps.sales.serializers import SaleSerializer, SoldItemSerializer
 from apps.sales.factories import SaleFactory, SoldItemFactory
@@ -1153,3 +1153,565 @@ class TestSaleSerializer:
         ]
         order_items_set = {frozenset(item.items()) for item in order_items}
         assert sale_items_set == order_items_set
+
+    def test_sale_update(self, user, sale, sale_data):
+        sale_delivery_status = sale.delivery_status
+        sale_tracking_number = sale.tracking_number
+
+        shipped_status = OrderStatusFactory.create(name="Shipped")
+        sale_data["delivery_status"] = shipped_status.name
+        sale_data["tracking_number"] = "ABCD123"
+
+        serializer = SaleSerializer(
+            sale,
+            data=sale_data,
+            context={"user": user}
+        )
+        assert serializer.is_valid()
+
+        sale_update = serializer.save()
+        assert sale_update.delivery_status != sale_delivery_status
+        assert sale_update.tracking_number != sale_tracking_number
+
+    def test_sale_partial_updated(self, user, sale):
+        sale_tracking_number = sale.tracking_number
+        sale_data = {
+            "tracking_number": "ABCD123"
+        }
+
+        serializer = SaleSerializer(
+            sale,
+            data=sale_data,
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        sale_update = serializer.save()
+        assert sale_update.tracking_number != sale_tracking_number
+        assert sale_update.tracking_number == "ABCD123"
+
+    def test_client_update_fails_for_delivered_sales(
+        self,
+        user,
+        sale,
+        delivered_status,
+        sold_item
+    ):
+        # Update sale status to delivered
+        sale.delivery_status = delivered_status
+        sale.save()
+
+        # Create a new client
+        client = ClientFactory.create(created_by=user, name="Safuan")
+
+        # Try to update sale with a new value for the client field
+        serializer = SaleSerializer(
+            sale,
+            data={"client": client.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        # Verify a ValidationError is raised when we try to save/update the sale
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+    
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This sale and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "client" in error_data["restricted_fields"]
+
+    def test_sold_items_update_fails_for_delivered_sales(
+        self,
+        user,
+        sale,
+        delivered_status,
+        sold_item
+    ):
+        # Update sale status to delivered
+        sale.delivery_status = delivered_status
+        sale.save()
+
+        # Get sale's data
+        sale_data = SaleSerializer(sale).data
+
+        # Remove 'total_price' and 'total_profit' from sold_items data
+        keys_to_remove_from_items = ['total_price', 'total_profit']
+        sold_items = []
+        for item in sale_data["sold_items"]:
+            sold_items.append(
+                {key: value for key,
+                 value in item.items()
+                 if key not in keys_to_remove_from_items}
+            )
+        sold_items_set = {frozenset(item.items()) for item in sold_items}
+
+        # Define new sold items
+        new_sold_items = [
+            {
+                "item": "DataShow",
+                "sold_quantity": 4,
+                "sold_price": 500
+            }
+        ]
+        new_sold_items_set = {
+            frozenset(item.items())
+            for item in new_sold_items
+        }
+
+        # Verify that new sold items are different than sale's sold items
+        assert new_sold_items_set != sold_items_set
+
+        # Try to update sale with new sold items
+        serializer = SaleSerializer(
+            sale,
+            data={"sold_items": new_sold_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid()
+
+        # Verify a ValidationError is raised when we try to save/update the sale
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+    
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This sale and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "sold_items" in error_data["restricted_fields"]
+
+    def test_delivery_status_update_fails_for_delivered_sales(
+        self,
+        user,
+        sale,
+        pending_status,
+        delivered_status,
+        sold_item
+    ):
+        # Update sale status to delivered
+        sale.delivery_status = delivered_status
+        sale.save()
+
+        # Try to update sale with a new value for the delivery_status field
+        serializer = SaleSerializer(
+            sale,
+            data={"delivery_status": pending_status.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        # Verify a ValidationError is raised when we try to save/update the sale
+        with pytest.raises(ValidationError) as errors:
+            serializer.save()
+
+        assert "error" in errors.value.detail
+        error_data = errors.value.detail["error"]
+
+        assert "message" in error_data
+        assert error_data["message"] == (
+            'This sale and has already been marked as delivered. '
+            'Restricted fields cannot be modified.'
+        )
+
+        assert "restricted_fields" in error_data
+        assert "delivery_status" in error_data["restricted_fields"]
+
+    def test_sold_items_update_removes_missing_items(self, user, sale):
+        # Create two items for the sale
+        items = ItemFactory.create_batch(2, created_by=user, in_inventory=True)
+        for item in items:
+            SoldItemFactory.create(
+                created_by=user,
+                item=item,
+                sale=sale
+            )
+
+        # Define new sold items list
+        new_items = ItemFactory.create_batch(2, created_by=user, in_inventory=True)
+        new_sold_items = [
+            {
+                "item": item.name,
+                "sold_quantity": item.quantity - 1,
+                "sold_price": item.price + 100
+            }
+            for item in new_items
+        ]
+
+        # Call the SaleSerializer to update sale's sold_items
+        serializer = SaleSerializer(
+            sale,
+            data={"sold_items": new_sold_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        sale_update = serializer.save()
+
+        # Verify the length of the sale's new sold_items
+        sold_items_update = sale_update.sold_items.all()
+        assert sold_items_update.count() == 2
+        assert len(sold_items_update) == len(new_sold_items)
+
+        updated_items_ids = [
+            str(sold_item.item.id)
+            for sold_item
+            in sold_items_update
+        ]
+
+        # Verify that the new items have been added to the sale sold items
+        assert all(str(item.id) in updated_items_ids for item in new_items)
+
+        # Verify that the old items have been excluded from the sale's
+        # sold items list
+        assert all(str(item.id) not in updated_items_ids for item in items)
+
+    def test_sold_items_update_keeps_and_updates_existing_items(
+        self,
+        user,
+        sale
+    ):
+        # Create two items for the sale
+        items = ItemFactory.create_batch(2, created_by=user, in_inventory=True)
+        sold_item_1 = SoldItemFactory.create(
+            created_by=user,
+            sale=sale,
+            item=items[0]
+        )
+        sold_item_2 = SoldItemFactory.create(
+            created_by=user,
+            sale=sale,
+            item=items[1]
+        )
+
+        # Define new sold items list
+        new_items = ItemFactory.create_batch(2, created_by=user, in_inventory=True)
+        new_sold_items = [
+            {
+                "item": item.name,
+                "sold_quantity": item.quantity - 1,
+                "sold_price": item.price + 100
+            }
+            for item in new_items
+        ]
+
+        # Add sold_item_1 to the new sold items list
+        # with different sold_quantity and sold_price
+        new_sold_items.append({
+            "item": sold_item_1.item.name,
+            "sold_quantity": sold_item_1.sold_quantity - 1,
+            "sold_price": sold_item_1.sold_price + 100,
+        })
+
+        # Call the SaleSerializer to update sale's sold_items
+        serializer = SaleSerializer(
+            sale,
+            data={"sold_items": new_sold_items},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        sale_update = serializer.save()
+
+        # Verify the length of the sale's new sold_items
+        sold_items_update = sale_update.sold_items.all()
+        assert sold_items_update.count() == 3
+        assert len(sold_items_update) == len(new_sold_items)
+
+        updated_items_ids = [
+            str(sold_item.item.id)
+            for sold_item
+            in sold_items_update
+        ]
+
+        # Verify that the new items have been added to the sale sold items
+        assert all(str(item.id) in updated_items_ids for item in new_items)
+
+        # Verify that sold_item_1 remained in the sale's sold items list
+        # and that its quantity and price got updated
+        existing_item = sale_update.sold_items.filter(
+            item__id=sold_item_1.item.id
+        ).first()
+        assert existing_item is not None
+        assert str(existing_item.item.id) in updated_items_ids
+        assert existing_item.sold_quantity == sold_item_1.sold_quantity - 1
+        assert existing_item.sold_price == sold_item_1.sold_price + 100
+
+        # Verify that sold_item_2 has been excluded from
+        # the sale's sold items list
+        assert str(sold_item_2.item.id) not in updated_items_ids
+
+    def test_sale_update_removes_optional_field_if_set_to_none(
+        self,
+        user,
+        sale,
+    ):
+        assert sale.shipping_address is not None
+        assert sale.source is not None
+
+        serializer = SaleSerializer(
+            sale,
+            data={
+                "shipping_address": None,
+                "source": None, 
+            },
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        sale_update = serializer.save()
+        assert sale_update.updated
+        assert sale.shipping_address is None
+        assert sale.source is None
+
+    def test_client_order_status_update_to_delivered_creates_a_sale_with_orders_data(
+        self,
+        user,
+        client_order,
+        delivered_status
+    ):
+        assert client_order.delivery_status.name != delivered_status.name
+        assert client_order.sale is None
+
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"delivery_status": delivered_status.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+        assert order_update.sale is not None
+
+        sale = order_update.sale
+        assert isinstance(sale, Sale)
+        assert str(sale.client.id) == str(order_update.client.id)
+        assert str(sale.shipping_address.id) == str(order_update.shipping_address.id)
+        assert str(sale.source.id) == str(order_update.source.id)
+        assert str(sale.delivery_status.id) == str(order_update.delivery_status.id)
+        assert str(sale.payment_status.id) == str(order_update.payment_status.id)
+        assert len(sale.sold_items.all()) == len(order_update.ordered_items.all())
+
+        # Verify that both sale and order items are the same
+        sale_items = [
+            {"item": sold_item.item.name,
+             "quantity": sold_item.sold_quantity,
+             "price": sold_item.sold_price}
+            for sold_item
+            in sale.sold_items.all()
+        ]
+        sale_items_set = {frozenset(item.items()) for item in sale_items}
+        order_items = [
+            {"item": ordered_item.item.name,
+             "quantity": ordered_item.ordered_quantity,
+             "price": ordered_item.ordered_price}
+            for ordered_item
+            in order_update.ordered_items.all()
+        ]
+        order_items_set = {frozenset(item.items()) for item in order_items}
+        assert sale_items_set == order_items_set
+
+    def test_changes_to_sale_reflect_to_linked_order(
+        self,
+        user,
+        client_order,
+        delivered_status,
+        ordered_item
+    ):
+        # Change order delivery status to delivered to create a linked sale
+        assert client_order.delivery_status.name != delivered_status.name
+        assert client_order.sale is None
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={"delivery_status": delivered_status.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        order_update = serializer.save()
+
+        # Verify that a sale has been created with order's data
+        assert order_update.sale is not None
+        sale = order_update.sale
+        assert str(sale.source.id) == str(order_update.source.id)
+
+        # Update sale's source of acquisition
+        emailing_source = AcquisitionSourceFactory.create(
+            added_by=user,
+            name="Emailing"
+        )
+        serializer = SaleSerializer(
+            sale,
+            data={"source": emailing_source.name},
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        sale_update = serializer.save()
+        linked_order = sale_update.order
+
+        # Verify that source has been updated for both sale and order
+        assert str(sale_update.source.id) == str(emailing_source.id)
+        assert str(sale_update.source.id) == str(linked_order.source.id)
+
+    def test_sale_update_registers_a_new_activity(
+        self,
+        user,
+        sale,
+    ):
+        serializer = SaleSerializer(
+            sale,
+            data={
+                "shipping_address": None,
+                "source": None, 
+            },
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        sale_update = serializer.save()
+        assert sale_update.updated
+
+        assert Activity.objects.filter(
+            user=user,
+            action="updated",
+            model_name="sale",
+            object_ref__contains=sale.reference_id
+        ).exists()
+
+    def test_sale_serializer_data_fields(self, sale):
+        serializer = SaleSerializer(sale)
+
+        expected_fields = {
+            'id',
+            'reference_id',
+            'created_by',
+            'client',
+            'sold_items',
+            'delivery_status',
+            'payment_status',
+            'source',
+            'shipping_address',
+            'shipping_cost',
+            'tracking_number',
+            'net_profit',
+            'linked_order',
+            'created_at',
+            'updated_at',
+            'updated',
+        }
+
+        assert expected_fields.issubset(serializer.data.keys())
+    
+    def test_sale_serializer_data_fields_types(self, client_order, sale, sold_item):
+        client_order.sale = sale
+        client_order.save()
+
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert isinstance(sale_data["id"], str)
+        assert isinstance(sale_data["reference_id"], str)
+        assert isinstance(sale_data["created_by"], str)
+        assert isinstance(sale_data["client"], str)
+        assert isinstance(sale_data["sold_items"], list)
+        assert isinstance(sale_data["delivery_status"], str)
+        assert isinstance(sale_data["payment_status"], str)
+        assert isinstance(sale_data["source"], str)
+        assert isinstance(sale_data["shipping_address"], dict)
+        assert isinstance(sale_data["shipping_cost"], float)
+        assert isinstance(sale_data["tracking_number"], str)
+        assert isinstance(sale_data["net_profit"], float)
+        assert isinstance(sale_data["linked_order"], str)
+        assert isinstance(sale_data["created_at"], str)
+        assert isinstance(sale_data["updated_at"], str)
+        assert isinstance(sale_data["updated"], bool)
+
+    def test_sale_serializer_general_fields_data(self, sale):
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert sale_data["id"] == str(sale.id)
+        assert sale_data["reference_id"] == sale.reference_id
+        assert sale_data["created_by"] == sale.created_by.username
+        assert sale_data["created_at"] == date_repr_format(sale.created_at)
+        assert sale_data["updated_at"] == date_repr_format(sale.updated_at)
+        assert sale_data["updated"] == sale.updated
+
+    def test_sale_serializer_client_and_source_fields_data(self, sale):
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert sale_data["client"] == sale.client.name
+        assert sale_data["source"] == sale.source.name
+
+    def test_sale_serializer_sold_items_field_data(self, sale, sold_item):
+        assert str(sold_item.sale.id) == str(sale.id)
+
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert len(sale_data["sold_items"]) == 1
+        sold_item_data = sale_data["sold_items"][0]
+        assert sold_item_data["item"] == sold_item.item.name
+        assert sold_item_data["sold_quantity"] == sold_item.sold_quantity
+        assert sold_item_data["sold_price"] == sold_item.sold_price
+        assert sold_item_data["total_price"] == sold_item.total_price
+        assert sold_item_data["total_profit"] == sold_item.total_profit
+
+    def test_sale_serializer_status_and_tracking_fields_data(self, sale):
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert sale_data["delivery_status"] == sale.delivery_status.name
+        assert sale_data["payment_status"] == sale.payment_status.name
+        assert sale_data["tracking_number"] == sale.tracking_number
+
+    def test_sale_serializer_shipping_address_field_data(self, sale):
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        shipping_address = sale_data["shipping_address"]
+        assert shipping_address["country"] == sale.shipping_address.country.name
+        assert shipping_address["city"] == sale.shipping_address.city.name
+        assert shipping_address["street_address"] == sale.shipping_address.street_address
+
+    def test_sale_serializer_financial_fields_data(self, sale):
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert sale_data["shipping_cost"] == float(sale.shipping_cost)
+        assert sale_data["net_profit"] == float(sale.net_profit)
+
+    def test_sale_serializer_linked_order_field_data(self, sale, client_order):
+        client_order.sale = sale
+        client_order.save()
+
+        serializer = SaleSerializer(sale)
+        sale_data = serializer.data
+
+        assert sale_data["linked_order"] is not None
+        assert sale_data["linked_order"] == str(sale.order.id)
+        assert sale_data["linked_order"] == str(client_order.id)

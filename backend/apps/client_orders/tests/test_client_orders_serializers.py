@@ -2599,6 +2599,32 @@ class TestClientOrderSerializer:
         assert str(order_update.source.id) == str(emailing_source.id)
         assert str(order_update.source.id) == str(sale.source.id)
 
+    def test_order_update_registers_a_new_activity(
+        self,
+        user,
+        client_order,
+    ):
+        serializer = ClientOrderSerializer(
+            client_order,
+            data={
+                "shipping_address": None,
+                "source": None, 
+            },
+            context={"user": user},
+            partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+
+        order_update = serializer.save()
+        assert order_update.updated
+
+        assert Activity.objects.filter(
+            user=user,
+            action="updated",
+            model_name="client order",
+            object_ref__contains=client_order.reference_id
+        ).exists()
+
     def test_order_serializer_data_fields(self, client_order):
         serializer = ClientOrderSerializer(client_order)
 

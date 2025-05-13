@@ -188,15 +188,12 @@ def validate_restricted_fields(
 
     changed_fields = restricted_fields_have_changes(prev_values, new_values)
 
-    instance_in_error_message = (
-        'sale is linked to a client order and'
-        if isinstance(instance, Sale) else 'order'
-    )
+    instance_name = 'sale' if isinstance(instance, Sale) else 'order'
 
     if changed_fields:
         raise serializers.ValidationError({
             'error': {
-                'message': f'This {instance_in_error_message} and '
+                'message': f'This {instance_name} and '
                             'has already been marked as delivered. '
                             'Restricted fields cannot be modified.',
                 'restricted_fields': changed_fields,
