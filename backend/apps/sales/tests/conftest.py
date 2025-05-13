@@ -1,4 +1,5 @@
 import pytest
+from rest_framework.test import APIClient
 from apps.base.factories import UserFactory
 from apps.inventory.factories import ItemFactory
 from apps.client_orders.factories import (
@@ -18,6 +19,15 @@ from apps.sales.factories import SaleFactory, SoldItemFactory
 @pytest.fixture
 def user(db):
     return UserFactory.create(username="adel")
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+@pytest.fixture
+def auth_client(api_client, user):
+    api_client.force_authenticate(user=user)
+    return api_client
 
 @pytest.fixture
 def country(db):

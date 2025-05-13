@@ -1,7 +1,6 @@
 import pytest
 from django.db.utils import IntegrityError
 from django.core.exceptions import ValidationError
-from apps.sales.models import Sale, SoldItem
 from apps.sales.factories import SaleFactory, SoldItemFactory
 
 

@@ -9,7 +9,7 @@ from apps.client_orders.serializers import ClientOrderSerializer
 from apps.client_orders.factories import AcquisitionSourceFactory, ClientFactory, LocationFactory, OrderStatusFactory
 from apps.sales.models import Sale, SoldItem
 from apps.sales.serializers import SaleSerializer, SoldItemSerializer
-from apps.sales.factories import SaleFactory, SoldItemFactory
+from apps.sales.factories import SoldItemFactory
 from utils.status import (
     DELIVERY_STATUS_OPTIONS_LOWER,
     PAYMENT_STATUS_OPTIONS_LOWER
