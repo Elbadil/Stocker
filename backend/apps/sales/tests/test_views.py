@@ -1,5 +1,6 @@
-import uuid
 import pytest
+import uuid
+from typing import Union
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.inventory.factories import ItemFactory
@@ -18,6 +19,13 @@ def sale_url(sale_id: str):
 @pytest.fixture
 def bulk_delete_sales_url():
     return reverse('bulk_delete_sales')
+
+def sold_item_url(sale_id: str, item_id: Union[str, None]=None):
+    if item_id:
+        return reverse('get_update_delete_sold_items',
+                       kwargs={'sale_id': sale_id, 'id': item_id})
+    return reverse('create_list_sold_items', kwargs={'sale_id': sale_id})
+
 
 
 @pytest.mark.django_db
@@ -801,5 +809,166 @@ class TestBulkDeleteSalesView:
                 sale_2.reference_id
             ]
         ).exists()
+
+
+@pytest.mark.django_db
+class TestCreateListSoldItemsView:
+    """Tests for the create list sold items view"""
+
+    def test_create_list_sold_items_view_requires_auth(self, api_client, sale):
+        url = sold_item_url(sale.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_create_list_sold_items_view_allowed_http_methods(
+        self,
+        auth_client,
+        sold_item_data,
+        sale
+    ):
+        url = sold_item_url(sale.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(url, data=sold_item_data, format='json')
+        assert post_res.status_code == 201
+
+        put_res = auth_client.put(url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_create_list_sold_items_fails_with_nonexistent_sale_id(
+        self,
+        auth_client,
+        sold_item_data,
+        random_uuid,
+    ):
+        url = sold_item_url(random_uuid)
+
+        res = auth_client.post(url, data=sold_item_data, format='json')
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Sale with id '{random_uuid}' does not exist."
+
+    def test_create_list_sold_items_fails_with_unauthorized_sale(
+        self,
+        api_client,
+        user,
+        sold_item_data,
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create an sale with a different user
+        sale = SaleFactory.create()
+
+        # Verify the created sale is not linked to the authenticated user
+        assert str(sale.created_by.id) != str(user.id)
+
+        url = sold_item_url(sale.id)
+
+        res = api_client.post(url, data=sold_item_data, format='json')
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Sale with id '{sale.id}' does not exist."
+
+    def test_create_sold_item_with_valid_sale_id_and_data(
+        self,
+        auth_client,
+        sold_item_data,
+        sale
+    ):
+        url = sold_item_url(sale.id)
+
+        res = auth_client.post(url, data=sold_item_data, format='json')
+        assert res.status_code == 201
+
+        # Verify that the sold item has been created
+        assert "id" in res.data
+        sold_item = SoldItem.objects.filter(id=res.data["id"]).first()
+        assert sold_item is not None
+
+        # Verify that the created sold item is linked to the correct sale
+        assert "sale" in res.data
+        assert str(res.data["sale"]) == str(sale.id)
+        assert str(sold_item.sale.id) == (sale.id)
+
+    def test_sold_item_created_by_authenticated_user(
+        self,
+        api_client,
+        user,
+        sold_item_data,
+        sale
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        url = sold_item_url(sale.id)
+
+        res = api_client.post(url, data=sold_item_data, format='json')
+        assert res.status_code == 201
+
+        # Verify that the sold item has been created
+        assert "id" in res.data
+        sold_item = SoldItem.objects.filter(id=res.data["id"]).first()
+        assert sold_item is not None
+
+        # Verify that the created sold item is linked to the correct user
+        assert "created_by" in res.data
+        assert res.data["created_by"] == user.username
+        assert str(sold_item.created_by.id) == str(user.id)
+
+    def test_list_sold_items_to_authenticated_user(
+        self,
+        api_client,
+        user,
+        sale
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 5 sold items for the sale and authenticated user
+        user_items = SoldItemFactory.create_batch(
+            5, sale=sale, created_by=user
+        )
+
+        # Create 4 sold items for other sales and users
+        SoldItemFactory.create_batch(4)
+
+        url = sold_item_url(sale.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        assert isinstance(res.data, list)
+        assert len(res.data) == len(user_items)
+
+        # Verify that all sold items belong to the correct sale and user
+        assert all(
+            str(item["sale"]) == str(sale.id)
+            and item["created_by"] == user.username
+            for item in res.data
+        )
+
+        user_item_ids = {str(item.id) for item in user_items}
+        assert all(
+            str(item["id"]) in user_item_ids
+            for item in res.data
+        )
 
 
