@@ -1,12 +1,21 @@
 import pytest
 import uuid
+import random
 from typing import Union
 from django.urls import reverse
 from apps.base.models import Activity
 from apps.inventory.factories import ItemFactory
+from apps.client_orders.factories import OrderStatusFactory
 from apps.sales.models import Sale, SoldItem
 from apps.sales.factories import SaleFactory, SoldItemFactory
 from utils.serializers import decimal_to_float, date_repr_format
+from utils.status import (
+    DELIVERY_STATUS_OPTIONS,
+    PAYMENT_STATUS_OPTIONS,
+    COMPLETED_STATUS,
+    FAILED_STATUS,
+    ACTIVE_DELIVERY_STATUS
+)
 
 
 @pytest.fixture
@@ -28,6 +37,10 @@ def sold_item_url(sale_id: str, item_id: Union[str, None]=None):
 
 def bulk_delete_items_url(sale_id: str):
     return reverse('bulk_delete_sold_items', kwargs={'sale_id': sale_id})
+
+@pytest.fixture
+def get_sales_data_url():
+    return reverse('sales_data')
 
 
 @pytest.mark.django_db
@@ -1566,3 +1579,149 @@ class TestBulkDeleteSoldItemsView:
             initial_item_2_quantity + sold_item_2.sold_quantity
         )
 
+
+@pytest.mark.django_db
+class TestGetSalesDataView:
+    """Tests for the get sales data view"""
+
+    def test_get_sales_data_view_requires_auth(self, api_client, get_sales_data_url):
+        res = api_client.get(get_sales_data_url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_sales_data_view_allowed_http_methods(
+        self,
+        auth_client,
+        get_sales_data_url
+    ):
+        get_res = auth_client.get(get_sales_data_url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(get_sales_data_url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(get_sales_data_url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(get_sales_data_url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(get_sales_data_url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_get_sales_data_response_data_fields(self, auth_client, get_sales_data_url):
+        res = auth_client.get(get_sales_data_url)
+
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert "sales_count" in res_data
+        assert "sale_status" in res_data
+
+    def test_get_sales_data_response_data_fields_types(self, auth_client, get_sales_data_url):
+        res = auth_client.get(get_sales_data_url)
+
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data["sales_count"], int)
+        assert isinstance(res_data["sale_status"], dict)
+    
+    def test_get_sales_data_sales_count_value(self, api_client, user, get_sales_data_url):
+        # Authenticate the api client to the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 6 sales for the authenticated user
+        user_sales = SaleFactory.create_batch(6, created_by=user)
+
+        # Create 4 sales for another user
+        SaleFactory.create_batch(4)
+
+        res = api_client.get(get_sales_data_url)
+
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert res_data["sales_count"] == len(user_sales)
+
+    def test_get_sales_data_sale_status_field_structure_and_value(
+        self,
+        user,
+        api_client,
+        get_sales_data_url
+    ):
+        # Authenticate the api client to the given user
+        api_client.force_authenticate(user=user)
+
+        # Create 2 sales for the auth user
+        # with an active status as delivery status
+        active_status = OrderStatusFactory.create(
+            name=random.choice(ACTIVE_DELIVERY_STATUS)
+        )
+        active_sales = SaleFactory.create_batch(
+            2,
+            created_by=user,
+            delivery_status=active_status
+        )
+
+        # Create 3 sales for the auth user
+        # with an completed status as delivery status
+        completed_status = OrderStatusFactory.create(
+            name=random.choice(COMPLETED_STATUS)
+        )
+        completed_sales = SaleFactory.create_batch(
+            3,
+            created_by=user,
+            delivery_status=completed_status
+        )
+
+        # Create 4 sales for the auth user
+        # with an failed status as delivery status
+        failed_status = OrderStatusFactory.create(
+            name=random.choice(FAILED_STATUS)
+        )
+        failed_sales = SaleFactory.create_batch(
+            4,
+            created_by=user,
+            delivery_status=failed_status
+        )
+
+        res = api_client.get(get_sales_data_url)
+        assert res.status_code == 200
+        res_data = res.json()
+        assert isinstance(res_data, dict)
+
+        assert "sale_status" in res_data
+        sale_status = res_data["sale_status"]
+        
+        # Delivery status field
+        assert "delivery_status" in sale_status
+        assert sale_status["delivery_status"] == DELIVERY_STATUS_OPTIONS
+
+        # Payment status field
+        assert "payment_status" in sale_status
+        assert sale_status["payment_status"] == PAYMENT_STATUS_OPTIONS
+
+        # Active orders field
+        assert "active" in sale_status
+        assert sale_status["active"] == len(active_sales)
+
+        # Completed orders field
+        assert "completed" in sale_status
+        assert sale_status["completed"] == len(completed_sales)
+
+        # Failed orders field
+        assert "failed" in sale_status
+        assert sale_status["failed"] == len(failed_sales)
