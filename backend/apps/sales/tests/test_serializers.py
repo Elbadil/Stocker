@@ -544,6 +544,7 @@ class TestSoldItemSerializer:
             'sold_price',
             'total_price',
             'total_profit',
+            'unit_profit',
             'created_at',
             'updated_at'
         }
@@ -565,6 +566,7 @@ class TestSoldItemSerializer:
         assert isinstance(item_data['sold_price'], float)
         assert isinstance(item_data['total_price'], float)
         assert isinstance(item_data['total_profit'], float)
+        assert isinstance(item_data['unit_profit'], float)
         assert isinstance(item_data['created_at'], str)
         assert isinstance(item_data['updated_at'], str)
 
@@ -583,6 +585,7 @@ class TestSoldItemSerializer:
         assert item_data['sold_price'] == decimal_to_float(sold_item.sold_price)
         assert item_data['total_price'] == decimal_to_float(sold_item.total_price)
         assert item_data['total_profit'] == decimal_to_float(sold_item.total_profit)
+        assert item_data['unit_profit'] == decimal_to_float(sold_item.unit_profit)
         assert item_data['created_at'] == date_repr_format(sold_item.created_at)
         assert item_data['updated_at'] == date_repr_format(sold_item.updated_at)
 

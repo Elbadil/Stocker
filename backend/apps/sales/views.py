@@ -160,16 +160,17 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
                 {
                     'error': (
                         "This item cannot be deleted because it is the only item in the "
-                        f"sale record with reference ID '{sold_item.sale.reference_id}'. "
-                        "Every sale record must have at least one item."
+                        f"sale with reference ID '{sold_item.sale.reference_id}'. "
+                        "Every sale must have at least one item."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Reset item's inventory quantity
-        sold_item.item.quantity += sold_item.sold_quantity
-        sold_item.item.save()
+        # Reset item's inventory quantity if the parent sale is not from order
+        if not sold_item.sale.has_order:
+            sold_item.item.quantity += sold_item.sold_quantity
+            sold_item.item.save()
 
         return super().delete(request, *args, **kwargs)
 

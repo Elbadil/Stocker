@@ -46,6 +46,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
             'sold_price',
             'total_price',
             'total_profit',
+            'unit_profit',
             'created_at',
             'updated_at'
         ]
@@ -165,6 +166,7 @@ class SoldItemSerializer(serializers.ModelSerializer):
         sold_item_repr['sold_price'] = decimal_to_float(instance.sold_price)
         sold_item_repr['total_price'] = decimal_to_float(instance.total_price)
         sold_item_repr['total_profit'] = decimal_to_float(instance.total_profit)
+        sold_item_repr['unit_profit'] = decimal_to_float(instance.unit_profit)
         sold_item_repr['created_at'] = date_repr_format(instance.created_at)
         sold_item_repr['updated_at'] = date_repr_format(instance.updated_at)
         return sold_item_repr

@@ -972,3 +972,314 @@ class TestCreateListSoldItemsView:
         )
 
 
+@pytest.mark.django_db
+class TestGetUpdateDeleteSoldItemsView:
+    """Test for the GetUpdateDeleteSoldItems view."""
+
+    def test_get_update_delete_sold_item_view_requires_auth(
+        self,
+        api_client,
+        sold_item,
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_get_update_delete_sold_item_view_allowed_http_methods(
+        self,
+        auth_client,
+        sold_item,
+        sold_item_2,
+        sold_item_data,
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(url, data=sold_item_data, format='json')
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url, data=sold_item_data, format='json')
+        assert put_res.status_code == 200
+
+        patch_res = auth_client.patch(url, data=sold_item_data, format='json')
+        assert patch_res.status_code == 200
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 204
+
+    def test_get_update_delete_sold_item_fails_with_non_existent_sale_id(
+        self,
+        auth_client,
+        sold_item,
+        random_uuid
+    ):
+        url = sold_item_url(random_uuid, sold_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Sale with id '{random_uuid}' does not exist."
+
+    def test_get_update_delete_sold_item_fails_with_unauthorized_sale(
+        self,
+        user,
+        api_client,
+        sold_item
+    ):
+        # Authenticate the api client with the given user
+        api_client.force_authenticate(user=user)
+
+        # Create another sale with a different user
+        sale = SaleFactory.create()
+
+        # Verify that the sale's created_by is different from the authenticated user
+        assert str(sale.created_by.id) != str(user.id)
+
+        url = sold_item_url(sale.id, sold_item.id)
+
+        res = api_client.get(url)
+        assert res.status_code == 404
+        assert "detail" in res.data
+        assert res.data["detail"] == f"Sale with id '{sale.id}' does not exist."
+
+    def test_sold_item_operations_fail_with_nonexistent_sold_item_id(
+        self,
+        auth_client,
+        random_uuid,
+        sale
+    ):
+        url = sold_item_url(sale.id, random_uuid)
+
+        # Test GET request
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 404
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == f"No SoldItem matches the given query."
+
+        # Test PUT request
+        put_res = auth_client.put(url, data={}, format='json')
+        assert put_res.status_code == 404
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == f"No SoldItem matches the given query."
+
+        # Test PATCH request
+        patch_res = auth_client.patch(url, data={}, format='json')
+        assert patch_res.status_code == 404
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == f"No SoldItem matches the given query."
+
+        # Test DELETE request
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 404
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == f"No SoldItem matches the given query."
+
+    def test_get_sold_item_with_valid_id_and_sale_id(
+        self,
+        auth_client,
+        sold_item,
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+    def test_sold_item_response_data_fields(
+        self,
+        auth_client,
+        sold_item,
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        expected_fields = {
+            "id",
+            "created_by",
+            "sale",
+            "item",
+            "sold_quantity",
+            "sold_price",
+            "total_price",
+            "total_profit",
+            "unit_profit",
+            "created_at",
+            "updated_at"
+        }
+
+        assert expected_fields.issubset(res.data.keys())
+
+    def test_sold_item_response_data_fields_types(
+        self,
+        auth_client,
+        sold_item
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        item_data = res.json()
+
+        assert isinstance(item_data['id'], str)
+        assert isinstance(item_data['created_by'], str)
+        assert isinstance(item_data['sale'], str)
+        assert isinstance(item_data['item'], str)
+        assert isinstance(item_data['sold_quantity'], int)
+        assert isinstance(item_data['sold_price'], float)
+        assert isinstance(item_data['total_price'], float)
+        assert isinstance(item_data['total_profit'], float)
+        assert isinstance(item_data['unit_profit'], float)
+        assert isinstance(item_data['created_at'], str)
+        assert isinstance(item_data['updated_at'], str)
+
+    def test_sold_item_response_data_fields_values(
+        self,
+        auth_client,
+        sold_item
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        item_data = res.json()
+
+        assert item_data['id'] == str(sold_item.id)
+        assert item_data['created_by'] == sold_item.created_by.username
+        assert item_data['sale'] == str(sold_item.sale.id)
+        assert item_data['item'] == sold_item.item.name
+        assert item_data['sold_quantity'] == sold_item.sold_quantity
+        assert item_data['sold_price'] == decimal_to_float(sold_item.sold_price)
+        assert item_data['total_price'] == decimal_to_float(sold_item.total_price)
+        assert item_data['total_profit'] == decimal_to_float(sold_item.total_profit)
+        assert item_data['unit_profit'] == decimal_to_float(sold_item.unit_profit)
+        assert item_data['created_at'] == date_repr_format(sold_item.created_at)
+        assert item_data['updated_at'] == date_repr_format(sold_item.updated_at)
+
+    def test_sold_item_put_update(self, auth_client, sold_item, sold_item_data):
+        sold_item_data["sold_price"] = sold_item.sold_price + 100
+
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = auth_client.put(url, data=sold_item_data, format='json')
+        assert res.status_code == 200
+        res_data = res.json()
+        
+        # Verify that sold item has been updated
+        assert "sold_price" in res_data
+        assert res_data["sold_price"] == float(sold_item_data["sold_price"])
+
+        sold_item.refresh_from_db()
+        assert sold_item.sold_price == sold_item_data["sold_price"]
+
+    def test_sold_item_patch_update(self,auth_client, sold_item):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+        initial_sold_price = sold_item.sold_price
+
+        res = auth_client.patch(
+            url,
+            data={"sold_price": initial_sold_price + 100},
+            format='json'
+        )
+
+        assert res.status_code == 200
+        res_data = res.json()
+        
+        # Verify that sold item has been updated
+        assert "sold_price" in res_data
+        assert res_data["sold_price"] == float(sold_item.sold_price + 100)
+
+        sold_item.refresh_from_db()
+        assert sold_item.sold_price == initial_sold_price + 100
+
+    def test_sold_item_deletion_fails_for_delivered_sales(
+        self,
+        auth_client,
+        sold_item,
+        delivered_status,
+    ):
+        # Update sold item's sale status to delivered
+        sold_item.sale.delivery_status = delivered_status
+        sold_item.sale.save()
+
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot perform item deletion because the sale "
+            f"with reference ID '{sold_item.sale.reference_id}' has "
+            "already been marked as Delivered. Changes to delivered "
+            f"sales' sold items are restricted to "
+            "maintain data integrity."
+        )
+
+    def test_sold_item_deletion_fails_for_single_sold_item_in_a_sale(
+        self,
+        auth_client,
+        sold_item,
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        # Verify that the linked sale has only one sold item
+        assert SoldItem.objects.filter(sale=sold_item.sale).count() == 1
+
+        res = auth_client.delete(url)
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            "This item cannot be deleted because it is the only item in the "
+            f"sale with reference ID '{sold_item.sale.reference_id}'. "
+            "Every sale must have at least one item."
+        )
+
+    def test_successful_sold_item_deletion(
+        self,
+        auth_client,
+        sold_item,
+        sold_item_2
+    ):
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that the sold item has been deleted
+        assert not SoldItem.objects.filter(id=sold_item.id).exists()
+
+    def test_sold_item_deletion_resets_item_inventory_quantity_if_not_linked_to_an_order(
+        self,
+        auth_client,
+        sold_item,
+        sold_item_2,
+    ):
+        # Verify that the sold item parent sale is not linked any orders
+        assert not sold_item.sale.has_order
+
+        url = sold_item_url(sold_item.sale.id, sold_item.id)
+
+        inventory_item = sold_item.item
+        initial_item_quantity = inventory_item.quantity
+
+        res = auth_client.delete(url)
+        assert res.status_code == 204
+
+        # Verify that the sold item has been deleted
+        assert not SoldItem.objects.filter(id=sold_item.id).exists()
+
+        # Verify that the item's quantity has been reset
+        inventory_item.refresh_from_db()
+        assert inventory_item.quantity != initial_item_quantity
+        assert inventory_item.quantity == sold_item.sold_quantity + initial_item_quantity
+
+    

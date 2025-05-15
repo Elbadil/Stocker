@@ -66,6 +66,16 @@ def item(db, user, supplier):
     )
 
 @pytest.fixture
+def item_2(db, user, supplier):
+    return ItemFactory.create(
+        created_by=user,
+        supplier=supplier,
+        name="Pack",
+        quantity=5,
+        in_inventory=True
+    )
+
+@pytest.fixture
 def pending_status(db):
     return OrderStatusFactory.create(name="Pending")
 
@@ -105,6 +115,16 @@ def sold_item(db, user, sale, item):
         item=item,
         sold_quantity=item.quantity - 1,
         sold_price=item.price + 100
+    )
+
+@pytest.fixture
+def sold_item_2(db, user, sale, item_2):
+    return SoldItemFactory.create(
+        created_by=user,
+        sale=sale,
+        item=item_2,
+        sold_quantity=item_2.quantity - 1,
+        sold_price=item_2.price + 100
     )
 
 @pytest.fixture
