@@ -26,6 +26,8 @@ def sold_item_url(sale_id: str, item_id: Union[str, None]=None):
                        kwargs={'sale_id': sale_id, 'id': item_id})
     return reverse('create_list_sold_items', kwargs={'sale_id': sale_id})
 
+def bulk_delete_items_url(sale_id: str):
+    return reverse('bulk_delete_sold_items', kwargs={'sale_id': sale_id})
 
 
 @pytest.mark.django_db
@@ -1257,15 +1259,12 @@ class TestGetUpdateDeleteSoldItemsView:
         # Verify that the sold item has been deleted
         assert not SoldItem.objects.filter(id=sold_item.id).exists()
 
-    def test_sold_item_deletion_resets_item_inventory_quantity_if_not_linked_to_an_order(
+    def test_sold_item_deletion_resets_item_inventory_quantity(
         self,
         auth_client,
         sold_item,
         sold_item_2,
     ):
-        # Verify that the sold item parent sale is not linked any orders
-        assert not sold_item.sale.has_order
-
         url = sold_item_url(sold_item.sale.id, sold_item.id)
 
         inventory_item = sold_item.item
@@ -1282,4 +1281,288 @@ class TestGetUpdateDeleteSoldItemsView:
         assert inventory_item.quantity != initial_item_quantity
         assert inventory_item.quantity == sold_item.sold_quantity + initial_item_quantity
 
-    
+
+@pytest.mark.django_db
+class TestBulkDeleteSoldItemsView:
+    """Tests for the bulk delete sold items view"""
+
+    def test_bulk_delete_sold_items_view_requires_auth(
+        self,
+        api_client,
+        sale
+    ):
+        url = bulk_delete_items_url(sale.id)
+        res = api_client.delete(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_bulk_delete_sold_items_view_allowed_http_methods(
+        self,
+        auth_client,
+        sold_item,
+        sold_item_2
+    ):
+        url = bulk_delete_items_url(sold_item.sale.id)
+
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 405
+        assert "detail" in get_res.data
+        assert get_res.data["detail"] == "Method \"GET\" not allowed."
+
+        post_res = auth_client.post(url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id]},
+            format="json"
+        )
+        assert delete_res.status_code == 200
+
+    def test_bulk_delete_sold_items_fails_with_nonexistent_sale_id(
+        self,
+        auth_client,
+        random_uuid
+    ):
+        url = bulk_delete_items_url(random_uuid)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": []},
+            format="json"
+        )
+        assert res.status_code == 404
+
+        assert "detail" in res.data
+        assert res.data["detail"] == (
+            f"Sale with id '{random_uuid}' does not exist."
+        )
+
+    def test_bulk_delete_sold_items_fails_for_delivered_sales(
+        self,
+        auth_client,
+        sold_item,
+        sold_item_2,
+        delivered_status
+    ):
+        # Update sold item's sale status to delivered
+        sold_item.sale.delivery_status = delivered_status
+        sold_item.sale.save()
+
+        url = bulk_delete_items_url(sold_item.sale.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot perform item deletion because the sale "
+            f"with reference ID '{sold_item.sale.reference_id}' has "
+            "already been marked as Delivered. Changes to delivered "
+            f"sales' sold items are restricted to "
+            "maintain data integrity."
+        )
+
+    def test_bulk_delete_sold_items_fails_with_invalid_uuids(
+        self,
+        auth_client,
+        sale,
+        sold_item,
+    ):
+        url = bulk_delete_items_url(sale.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id, "invalid_uuid_1", "invalid_uuid_2"]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not valid uuids."
+
+        assert "invalid_uuids" in res_error
+        assert "invalid_uuid_1" in res_error["invalid_uuids"]
+        assert "invalid_uuid_2" in res_error["invalid_uuids"]
+
+    def test_bulk_delete_sold_items_fails_for_nonexistent_uuids(
+        self,
+        auth_client,
+        sale,
+        sold_item,
+    ):
+        random_uuid_1 = str(uuid.uuid4())
+        random_uuid_2 = str(uuid.uuid4())
+
+        url = bulk_delete_items_url(sale.id)
+
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id, random_uuid_1, random_uuid_2]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        res_error = res.data["error"]
+
+        assert "message" in res_error
+        assert res_error["message"] == "Some or all provided IDs are not found."
+
+        assert "missing_ids" in res_error
+        assert random_uuid_1 in res_error["missing_ids"]
+        assert random_uuid_2 in res_error["missing_ids"]
+
+    def test_bulk_delete_sold_items_fails_for_all_sold_items(
+        self,
+        auth_client,
+        sale,
+        sold_item,
+        sold_item_2,
+    ):
+        # Verify that both sold items belong to the specified sale
+        assert str(sold_item.sale.id) == str(sale.id)
+        assert str(sold_item_2.sale.id) == str(sale.id)
+
+        # Verify that the sale only has the two sold items
+        assert len(sale.sold_items.all()) == 2
+
+        url = bulk_delete_items_url(sale.id)
+
+        # Try to delete both sold items
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id, sold_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == (
+            f"Cannot delete items from sale with reference ID "
+            f"'{sale.reference_id}' as it would leave no items linked. "
+            f"Each sale must have at least one item."
+        )
+
+    def test_bulk_delete_sold_items_succeeds(
+        self,
+        auth_client,
+        sale,
+        sold_item,
+        sold_item_2,
+    ):
+        # Verify that both sold items belong to the specified sale
+        assert str(sold_item.sale.id) == str(sale.id)
+        assert str(sold_item_2.sale.id) == str(sale.id)
+
+        # Create a third sold item to prevent sale with no items linked error
+        sold_item_3 = SoldItemFactory.create(
+            created_by=sale.created_by,
+            sale=sale
+        )
+
+        # Verify that the sale has three sold items
+        assert len(sale.sold_items.all()) == 3
+
+        url = bulk_delete_items_url(sale.id)
+
+        # Try to delete two sold items
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id, sold_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 200
+
+        assert "message" in res.data
+        assert res.data["message"] == "2 sold items successfully deleted."
+
+        # Verify that the two sold items have been deleted
+        assert not SoldItem.objects.filter(
+            id__in=[sold_item.id, sold_item_2.id]
+        ).exists()
+
+        # Verify that the sale still has one linked sold item
+        sale.refresh_from_db()
+        assert len(sale.sold_items.all()) == 1
+        assert SoldItem.objects.filter(sale=sale).exists()
+        assert SoldItem.objects.filter(id=sold_item_3.id).exists()
+
+    def test_bulk_delete_sold_items_resets_items_inventory_quantities(
+        self,
+        auth_client,
+        sale,
+        sold_item,
+        sold_item_2,
+    ):
+        # Verify that both sold items belong to the specified sale
+        assert str(sold_item.sale.id) == str(sale.id)
+        assert str(sold_item_2.sale.id) == str(sale.id)
+
+        # Get sold items linked inventory items quantities
+        inventory_item_1 = sold_item.item
+        initial_item_1_quantity = inventory_item_1.quantity
+
+        inventory_item_2 = sold_item_2.item
+        initial_item_2_quantity = inventory_item_2.quantity
+
+        # Create a third sold item to prevent sale with no items linked error
+        SoldItemFactory.create(
+            created_by=sale.created_by,
+            sale=sale
+        )
+
+        # Verify that the sale has three sold items
+        assert len(sale.sold_items.all()) == 3
+
+        url = bulk_delete_items_url(sale.id)
+
+        # Try to delete two sold items
+        res = auth_client.delete(
+            url,
+            data={"ids": [sold_item.id, sold_item_2.id]},
+            format="json"
+        )
+        assert res.status_code == 200
+
+        assert "message" in res.data
+        assert res.data["message"] == "2 sold items successfully deleted."
+
+        #  Verify that the sold items have been deleted
+        assert not SoldItem.objects.filter(
+            id__in=[sold_item.id, sold_item_2.id]
+        ).exists()
+
+        # Verify that the items inventory's quantities have been reset
+        inventory_item_1.refresh_from_db()
+        assert inventory_item_1.quantity != initial_item_1_quantity
+        assert inventory_item_1.quantity == (
+            initial_item_1_quantity + sold_item.sold_quantity
+        )
+
+        inventory_item_2.refresh_from_db()
+        assert inventory_item_2.quantity != initial_item_2_quantity
+        assert inventory_item_2.quantity == (
+            initial_item_2_quantity + sold_item_2.sold_quantity
+        )
+

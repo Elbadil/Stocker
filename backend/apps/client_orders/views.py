@@ -313,10 +313,9 @@ class GetUpdateDeleteClientOrderedItems(generics.RetrieveUpdateDestroyAPIView):
             )
 
         # Reset item inventory's quantity
-        if not ordered_item.order.sale:
-            inventory_item = Item.objects.get(id=ordered_item.item.id)
-            inventory_item.quantity += ordered_item.ordered_quantity
-            inventory_item.save()
+        inventory_item = Item.objects.get(id=ordered_item.item.id)
+        inventory_item.quantity += ordered_item.ordered_quantity
+        inventory_item.save()
 
         # Delete ordered item
         ordered_item.delete()

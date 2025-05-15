@@ -2129,15 +2129,12 @@ class TestGetUpdateDeleteClientOrderedItemsView:
         # Verify that the ordered item has been deleted
         assert not ClientOrderedItem.objects.filter(id=ordered_item.id).exists()
 
-    def test_ordered_item_deletion_resets_item_inventory_quantity_if_not_linked_sale(
+    def test_ordered_item_deletion_resets_item_inventory_quantity(
         self,
         auth_client,
         ordered_item,
         ordered_item_2
     ):
-        # Verify that the ordered item parent order is not linked to a sale
-        assert ordered_item.order.sale is None
-
         url = ordered_item_url(ordered_item.order.id, ordered_item.id)
 
         inventory_item = ordered_item.item

@@ -166,11 +166,9 @@ class GetUpdateDeleteSoldItems(CreatedByUserMixin,
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        # Reset item's inventory quantity if the parent sale is not from order
-        if not sold_item.sale.has_order:
-            sold_item.item.quantity += sold_item.sold_quantity
-            sold_item.item.save()
+        # Reset item inventory's quantity
+        sold_item.item.quantity += sold_item.sold_quantity
+        sold_item.item.save()
 
         return super().delete(request, *args, **kwargs)
 
