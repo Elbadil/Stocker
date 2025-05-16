@@ -46,5 +46,5 @@ urlpatterns = [
     # Dashboard
     path('dashboard/',
          dashboard_views.DashboardAPIView.as_view(),
-         name='dashboard_info'),
+         name='dashboard'),
 ]

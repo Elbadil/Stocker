@@ -1,8 +1,10 @@
+import random
 import pytest
 import os
 import jwt
 import shutil
-from urllib.parse import urlparse, parse_qs
+from typing import Union
+from urllib.parse import urlparse, parse_qs, urlencode
 from dateutil import parser
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -17,6 +19,14 @@ from rest_framework_simplejwt.exceptions import TokenError
 from datetime import datetime, timezone, timedelta
 from apps.base.models import User, Activity
 from apps.base.factories import ActivityFactory
+from apps.inventory.factories import ItemFactory
+from apps.client_orders.factories import OrderStatusFactory, ClientOrderFactory
+from apps.sales.factories import SaleFactory, SoldItemFactory
+from utils.status import (
+    ACTIVE_DELIVERY_STATUS,
+    ACTIVE_PAYMENT_STATUS,
+    COMPLETED_STATUS
+)
 
 
 @pytest.fixture
@@ -171,6 +181,12 @@ def valid_reset_password_url(user_instance):
 @pytest.fixture
 def user_activities_url():
     return reverse('get_user_activities')
+
+def dashboard_url(query_params: Union[dict, None]=None):
+    url = reverse("dashboard")
+    if query_params:
+        return f"{url}?{urlencode(query_params)}"
+    return url
 
 
 @pytest.mark.django_db
@@ -2903,3 +2919,154 @@ class TestGetUserActivitiesView:
             parser.parse(first_page_activities[-1]['created_at']) > 
             parser.parse(second_page_activities[0]['created_at'])
         )
+
+
+@pytest.mark.django_db
+class TestDashboardAPIView:
+    """Tests for the dashboard API view."""
+
+    def test_dashboard_view_requires_auth(self, api_client):
+        url = reverse("dashboard")
+        res = api_client.get(url)
+        assert res.status_code == 403
+        assert "detail" in res.data
+        assert res.data["detail"] == "Authentication credentials were not provided."
+
+    def test_dashboard_view_allowed_http_methods(self, auth_client):
+        url = dashboard_url({"info": "general"})
+        
+        get_res = auth_client.get(url)
+        assert get_res.status_code == 200
+
+        post_res = auth_client.post(url)
+        assert post_res.status_code == 405
+        assert "detail" in post_res.data
+        assert post_res.data["detail"] == "Method \"POST\" not allowed."
+
+        put_res = auth_client.put(url)
+        assert put_res.status_code == 405
+        assert "detail" in put_res.data
+        assert put_res.data["detail"] == "Method \"PUT\" not allowed."
+
+        patch_res = auth_client.patch(url)
+        assert patch_res.status_code == 405
+        assert "detail" in patch_res.data
+        assert patch_res.data["detail"] == "Method \"PATCH\" not allowed."
+
+        delete_res = auth_client.delete(url)
+        assert delete_res.status_code == 405
+        assert "detail" in delete_res.data
+        assert delete_res.data["detail"] == "Method \"DELETE\" not allowed."
+
+    def test_dashboard_request_fails_without_info_query_param(self, auth_client):
+        url = dashboard_url()
+        res = auth_client.get(url)
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "info parameter is required."
+
+    def test_dashboard_request_fails_with_invalid_info_query_param(self, auth_client):
+        url = dashboard_url({"info": "invalid"})
+        res = auth_client.get(url)
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "Invalid info parameter."
+
+    def test_dashboard_view_returns_data_for_the_auth_user(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 7 items and 6 sales for the auth user
+        user_items = ItemFactory.create_batch(7, created_by=user_instance, in_inventory=True)
+        user_sales = SaleFactory.create_batch(6, created_by=user_instance)
+
+        # Create 4 items and 3 sales for other users
+        ItemFactory.create_batch(4, in_inventory=True)
+        SaleFactory.create_batch(3)
+
+        url = dashboard_url({"info": "general"})
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        assert "total_items" in res.data
+        assert res.data["total_items"] == sum(item.quantity for item in user_items)
+
+        assert "total_sales" in res.data
+        assert res.data["total_sales"] == len(user_sales)
+
+    def test_get_dashboard_general_info(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create active/completed delivery and payment status instances
+        active_delivery_status = OrderStatusFactory.create(
+            name=random.choice(ACTIVE_DELIVERY_STATUS)
+        )
+        completed_delivery_status = OrderStatusFactory.create(name="Delivered")
+        active_payment_status = OrderStatusFactory.create(name="Pending")
+        completed_payment_status = OrderStatusFactory.create(name="Paid")
+
+        # Create 3 active and 4 completed sales for the auth user
+        # to verify that the active sales are included in the active sales orders count
+        # and to calculate the total profit from completed sales
+        active_sales = SaleFactory.create_batch(
+            3,
+            created_by=user_instance,
+            delivery_status=active_delivery_status,
+            payment_status=active_payment_status,
+        )
+        completed_sales = SaleFactory.create_batch(
+            4,
+            created_by=user_instance,
+            delivery_status=completed_delivery_status,
+            payment_status=completed_payment_status,
+        )
+        # Create for each completed sale a sold item and calculate estimated total profit
+        total_profit = 0
+        for sale in completed_sales:
+            sold_item = SoldItemFactory.create(sale=sale)
+            total_profit += (sold_item.total_profit - sale.shipping_cost)
+
+        # Create 5 active client orders for the auth user
+        # to verify that it is included in the active sales orders count
+        active_client_orders = ClientOrderFactory.create_batch(
+            5,
+            created_by=user_instance,
+            delivery_status=active_delivery_status,
+            payment_status=active_payment_status,
+        )
+
+        # Create 7 items and 6 sales for the auth user
+        # to verify that the total items in the response
+        # is the sum of all items quantities
+        items = ItemFactory.create_batch(7, created_by=user_instance, in_inventory=True)
+
+        # Define expected response data
+        expected_total_items = sum(item.quantity for item in items)
+        expected_total_sales = len(active_sales + completed_sales)
+        expected_active_sales_orders = len(active_sales + active_client_orders)
+        expected_total_profit = sum(sale.net_profit for sale in completed_sales)
+
+        url = dashboard_url({"info": "general"})
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        assert "total_items" in res.data
+        assert res.data["total_items"] == expected_total_items
+
+        assert "total_sales" in res.data
+        assert res.data["total_sales"] == expected_total_sales
+
+        assert "active_sales_orders" in res.data
+        assert res.data["active_sales_orders"] == expected_active_sales_orders
+
+        assert "total_profit" in res.data
+        assert res.data["total_profit"] == expected_total_profit

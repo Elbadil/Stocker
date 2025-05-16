@@ -31,7 +31,7 @@ class DashboardAPIView(generics.GenericAPIView):
 
         if not info:
             return Response(
-                {'error': 'info parameter is required'},
+                {'error': 'info parameter is required.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
