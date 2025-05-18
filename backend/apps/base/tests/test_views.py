@@ -3222,3 +3222,91 @@ class TestDashboardAPIView:
         assert len(series) == 2
 
         assert series == expected_series
+
+    def test_get_dashboard_sales_revenue_response_data_fields(self, auth_client):
+        url = dashboard_url({"info": "sales-revenue", "period": "week"})
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "series" in res.data
+        assert "date_range" in res.data
+        assert "categories" in res.data
+        assert "total_revenue" in res.data
+
+        assert isinstance(res.data["series"], list)
+        assert isinstance(res.data["categories"], list)
+        assert isinstance(res.data["date_range"], str)
+        assert isinstance(res.data["total_revenue"], float)
+
+    def test_dashboard_sales_revenue_series_fields_structure_and_values(
+        self,
+        user_instance,
+        api_client,
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        paid_status = OrderStatusFactory.create(name="Paid")
+
+        # Create 3 completed sales for the auth user
+        completed_sales = SaleFactory.create_batch(
+            3,
+            created_by=user_instance,
+            delivery_status=delivered_status,
+            payment_status=paid_status
+        )
+
+        # Create for each sale a sold item
+        for sale in completed_sales:
+            SoldItemFactory.create(created_by=user_instance, sale=sale)
+
+        # Define expected values
+        expected_sales_total_cost = sum(
+            sale.total_cost for sale in completed_sales
+        )
+        expected_sales_total_profit = sum(
+            sale.net_profit for sale in completed_sales
+        )
+        expected_total_revenue = float(
+            expected_sales_total_cost + expected_sales_total_profit
+        )
+
+        initial_data_list = [0] * 7
+        current_day_index = date.today().weekday()
+
+        expected_data_for_cost = initial_data_list.copy()
+        expected_data_for_cost[current_day_index] = (
+            float(expected_sales_total_cost)
+        )
+
+        expected_data_for_profit = initial_data_list.copy()
+        expected_data_for_profit[current_day_index] = (
+            float(expected_sales_total_profit)
+        )
+
+        expected_series = [
+            {
+                "name": "Cost",
+                "data": expected_data_for_cost
+            },
+            {
+                "name": "Profit",
+                "data": expected_data_for_profit
+            }
+        ]
+
+        url = dashboard_url({"info": "sales-revenue", "period": "week"})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+        res_data = res.json()
+
+        assert "series" in res.data
+        assert res_data["series"] == expected_series
+
+        assert "total_revenue" in res_data
+        assert res_data["total_revenue"] == expected_total_revenue
+
+    

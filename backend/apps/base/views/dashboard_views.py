@@ -205,7 +205,7 @@ class DashboardAPIView(generics.GenericAPIView):
             }
         ]
 
-        total_revenue = sum(costs_list + profits_list)
+        total_revenue = float(sum(costs_list + profits_list))
 
         return Response({'series': series,
                          'date_range': filter_info['date_range'],
