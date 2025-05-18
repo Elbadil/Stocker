@@ -1,8 +1,9 @@
-import random
 import pytest
 import os
 import jwt
 import shutil
+import calendar
+import random
 from typing import Union
 from urllib.parse import urlparse, parse_qs, urlencode
 from dateutil import parser
@@ -16,17 +17,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from apps.base.models import User, Activity
 from apps.base.factories import ActivityFactory
 from apps.inventory.factories import ItemFactory
 from apps.client_orders.factories import OrderStatusFactory, ClientOrderFactory
 from apps.sales.factories import SaleFactory, SoldItemFactory
-from utils.status import (
-    ACTIVE_DELIVERY_STATUS,
-    ACTIVE_PAYMENT_STATUS,
-    COMPLETED_STATUS
-)
+from utils.status import ACTIVE_DELIVERY_STATUS
 
 
 @pytest.fixture
@@ -2998,6 +2995,16 @@ class TestDashboardAPIView:
         assert "total_sales" in res.data
         assert res.data["total_sales"] == len(user_sales)
 
+    def test_get_dashboard_general_info_response_data_fields(self, auth_client):
+        url = dashboard_url({"info": "general"})
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "total_items" in res.data
+        assert "total_sales" in res.data
+        assert "active_sales_orders" in res.data
+        assert "total_profit" in res.data
+
     def test_get_dashboard_general_info(
         self,
         user_instance,
@@ -3007,9 +3014,7 @@ class TestDashboardAPIView:
         api_client.force_authenticate(user=user_instance)
 
         # Create active/completed delivery and payment status instances
-        active_delivery_status = OrderStatusFactory.create(
-            name=random.choice(ACTIVE_DELIVERY_STATUS)
-        )
+        active_delivery_status = OrderStatusFactory.create(name="Shipped")
         completed_delivery_status = OrderStatusFactory.create(name="Delivered")
         active_payment_status = OrderStatusFactory.create(name="Pending")
         completed_payment_status = OrderStatusFactory.create(name="Paid")
@@ -3070,3 +3075,150 @@ class TestDashboardAPIView:
 
         assert "total_profit" in res.data
         assert res.data["total_profit"] == expected_total_profit
+
+    def test_dashboard_request_fails_with_invalid_period_query_param(self, auth_client):
+        url = dashboard_url({"info": "sales-status", "period": "invalid"})
+
+        res = auth_client.get(url)
+        assert res.status_code == 400
+        assert "error" in res.data
+        assert res.data["error"] == "period parameter must be either week or month."
+
+    def test_dashboard_categories_and_date_range_fields_with_week_as_period(
+        self,
+        auth_client
+    ):
+        expected_categories = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        start_of_week = datetime.today() - timedelta(days=date.today().weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+
+        expected_date_range = (
+            start_of_week.strftime("%d.%m.%Y") 
+            + ' - ' + end_of_week.strftime("%d.%m.%Y")
+        )
+
+        url = dashboard_url({"info": "sales-status", "period": "week"})
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "categories" in res.data
+        assert res.data["categories"] == expected_categories
+        assert res.data["date_range"] == expected_date_range
+
+    def test_dashboard_categories_and_date_range_fields_with_month_as_period(
+        self,
+        auth_client
+    ):
+        today = date.today()
+        _, last_day = calendar.monthrange(today.year, today.month)
+
+        expected_categories = [
+            date(today.year, today.month, day).strftime("%d.%m.%Y")
+            for day in range(1, last_day + 1)
+        ]
+
+        expected_date_range = (
+            date(today.year, today.month, 1).strftime("%d.%m.%Y") 
+            + ' - ' + date(today.year, today.month, last_day).strftime("%d.%m.%Y")
+        )
+
+        url = dashboard_url({"info": "sales-status", "period": "month"})
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "categories" in res.data
+        assert res.data["categories"] == expected_categories
+        assert res.data["date_range"] == expected_date_range
+
+    def test_get_dashboard_sales_status_response_data_fields(self, auth_client):
+        url = dashboard_url({"info": "sales-status", "period": "week"})
+
+        res = auth_client.get(url)
+        assert res.status_code == 200
+
+        assert "series" in res.data
+        assert "date_range" in res.data
+        assert "categories" in res.data
+
+        assert isinstance(res.data["series"], list)
+        assert isinstance(res.data["categories"], list)
+        assert isinstance(res.data["date_range"], str)
+
+    def test_dashboard_sales_status_series_field_structure_and_values(
+        self,
+        user_instance,
+        api_client,
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        failed_status = OrderStatusFactory.create(name="Failed")
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        paid_status = OrderStatusFactory.create(name="Paid")
+
+        # Create 3 completed and 4 fails sales for the auth user
+        completed_sales = SaleFactory.create_batch(
+            3,
+            created_by=user_instance,
+            delivery_status=delivered_status,
+            payment_status=paid_status
+        )
+
+        failed_sales = SaleFactory.create_batch(
+            4,
+            created_by=user_instance,
+            delivery_status=failed_status,
+            payment_status=failed_status
+        )
+
+        # Create 5 failed client orders for the auth user
+        failed_client_orders = ClientOrderFactory.create_batch(
+            5,
+            created_by=user_instance,
+            delivery_status=failed_status,
+            payment_status=failed_status
+        )
+
+        # Define expected values
+        expected_failed_sales_orders_count = (
+            len(failed_sales) + len(failed_client_orders)
+        )
+        expected_completed_sales_count = len(completed_sales)
+
+        initial_data_list = [0] * 7
+        current_day_index = date.today().weekday()
+
+        expected_data_for_failed_sales_orders = initial_data_list.copy()
+        expected_data_for_failed_sales_orders[current_day_index] = (
+            expected_failed_sales_orders_count
+        )
+
+        expected_data_for_completed_sales = initial_data_list.copy()
+        expected_data_for_completed_sales[current_day_index] = (
+            expected_completed_sales_count
+        )
+
+        expected_series = [
+            {
+                "name": "Failed Sales - Orders",
+                "data": expected_data_for_failed_sales_orders
+            },
+            {
+                "name": "Completed Sales",
+                "data": expected_data_for_completed_sales
+            }
+        ]
+
+        url = dashboard_url({"info": "sales-status", "period": "week"})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        assert "series" in res.data
+        series = res.data["series"]
+
+        assert len(series) == 2
+
+        assert series == expected_series
