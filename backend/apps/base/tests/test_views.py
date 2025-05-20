@@ -23,7 +23,7 @@ from apps.inventory.factories import ItemFactory
 from apps.client_orders.factories import OrderStatusFactory, ClientOrderFactory
 from apps.sales.models import SoldItem
 from apps.sales.factories import SaleFactory, SoldItemFactory
-from utils.status import ACTIVE_DELIVERY_STATUS
+from utils.serializers import datetime_repr_format
 
 
 @pytest.fixture
@@ -3353,20 +3353,21 @@ class TestDashboardAPIView:
         assert len(res_data) == 5
 
         # Verify fields for each item in the response data
-        assert "name" in res_data[0]
-        assert "picture" in res_data[0]
-        assert "total_quantity" in res_data[0]
-        assert "total_profit" in res_data[0]
-        assert "total_revenue" in res_data[0]
+        for i in range(5):
+            assert "name" in res_data[i]
+            assert "picture" in res_data[i]
+            assert "total_quantity" in res_data[i]
+            assert "total_profit" in res_data[i]
+            assert "total_revenue" in res_data[i]
 
-        assert isinstance(res_data[0]["name"], str)
-        if res_data[0]["picture"] is not None:
-            assert isinstance(res_data[0]["picture"], str)
-        assert isinstance(res_data[0]["total_quantity"], int)
-        assert isinstance(res_data[0]["total_profit"], float)
-        assert isinstance(res_data[0]["total_revenue"], float)
+            assert isinstance(res_data[i]["name"], str)
+            if res_data[i]["picture"] is not None:
+                assert isinstance(res_data[i]["picture"], str)
+            assert isinstance(res_data[i]["total_quantity"], int)
+            assert isinstance(res_data[i]["total_profit"], float)
+            assert isinstance(res_data[i]["total_revenue"], float)
 
-    def test_get_dashboard_top_selling_items_sorted_by_total_sold_quantity(
+    def test_get_dashboard_top_selling_items_ordered_by_total_sold_quantity_desc(
         self,
         user_instance,
         api_client,
@@ -3510,4 +3511,135 @@ class TestDashboardAPIView:
             assert res_data[i]["total_quantity"] == item.total_sold_quantity
             assert res_data[i]["total_profit"] == float(item.total_profit)
             assert res_data[i]["total_revenue"] == float(item.total_revenue)
+
+    def test_get_dashboard_recent_activities_info_response_data_fields(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 5 activities for the auth user
+        ActivityFactory.create_batch(5, user=user_instance)
+
+        url = dashboard_url({"info": "recent-activities", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        for i in range(5):
+            assert "id" in res_data[i]
     
+            # user field
+            assert "user" in res_data[i]
+            user = res_data[i]["user"]
+            assert "username" in user
+            assert "avatar" in user
+    
+            assert "action" in res_data[i]
+            assert "model_name" in res_data[i]
+            assert "object_ref" in res_data[i]
+            assert "created_at" in res_data[i]
+
+            assert isinstance(res_data[i]["id"], str)
+            assert isinstance(res_data[i]["user"], dict)
+            assert isinstance(res_data[i]["user"]["username"], str)
+            if res_data[i]["user"]["avatar"] is not None:
+                assert isinstance(res_data[i]["user"]["avatar"], str)
+            assert isinstance(res_data[i]["action"], str)
+            assert isinstance(res_data[i]["model_name"], str)
+            assert isinstance(res_data[i]["object_ref"], list)
+            assert isinstance(res_data[i]["created_at"], str)
+
+    def test_get_dashboard_recent_activities_info_ordered_by_created_at_desc(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 20 activity entries
+        activities = ActivityFactory.create_batch(20, user=user_instance)
+
+        # Assign unique timestamps manually
+        now = datetime.now(timezone.utc)
+        for i, activity in enumerate(activities):
+            activity.created_at = now + timedelta(seconds=i)
+
+        # Perform bulk update to save changes
+        Activity.objects.bulk_update(activities, ['created_at'])
+
+        ordered_activities = sorted(
+            activities,
+            key=lambda activity: activity.created_at,
+            reverse=True
+        )
+
+        recent_activities = ordered_activities[:5]
+
+        url = dashboard_url({"info": "recent-activities", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        for i, activity in enumerate(recent_activities):
+            assert res_data[i]["id"] == str(activity.id)
+
+    def test_get_dashboard_recent_activities_info_response_data_values(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 20 activity entries
+        activities = ActivityFactory.create_batch(20, user=user_instance)
+
+        # Assign unique timestamps manually
+        now = datetime.now(timezone.utc)
+        for i, activity in enumerate(activities):
+            activity.created_at = now + timedelta(seconds=i)
+
+        # Perform bulk update to save changes
+        Activity.objects.bulk_update(activities, ['created_at'])
+
+        url = dashboard_url({"info": "recent-activities", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        ordered_activities = sorted(
+            activities,
+            key=lambda activity: activity.created_at,
+            reverse=True
+        )
+
+        recent_activities = ordered_activities[:5]
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        for i, activity in enumerate(recent_activities):
+            assert res_data[i]["id"] == str(activity.id)
+            assert res_data[i]["user"]["username"] == activity.user.username
+            if res_data[i]["user"]["avatar"] is not None:
+                assert res_data[i]["user"]["avatar"] == activity.user.avatar.url
+            assert res_data[i]["action"] == activity.action
+            assert res_data[i]["model_name"] == activity.model_name
+            assert res_data[i]["object_ref"] == activity.object_ref
+            assert res_data[i]["created_at"] == datetime_repr_format(activity.created_at)
