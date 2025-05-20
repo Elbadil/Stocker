@@ -3,7 +3,6 @@ import os
 import jwt
 import shutil
 import calendar
-import random
 from typing import Union
 from urllib.parse import urlparse, parse_qs, urlencode
 from dateutil import parser
@@ -22,6 +21,7 @@ from apps.base.models import User, Activity
 from apps.base.factories import ActivityFactory
 from apps.inventory.factories import ItemFactory
 from apps.client_orders.factories import OrderStatusFactory, ClientOrderFactory
+from apps.sales.models import SoldItem
 from apps.sales.factories import SaleFactory, SoldItemFactory
 from utils.status import ACTIVE_DELIVERY_STATUS
 
@@ -3309,4 +3309,205 @@ class TestDashboardAPIView:
         assert "total_revenue" in res_data
         assert res_data["total_revenue"] == expected_total_revenue
 
+    def test_dashboard_request_fails_with_invalid_limit_query_parameter_type(
+        self,
+        auth_client
+    ):
+        url = dashboard_url({"info": "top-selling-items", "limit": "invalid"})
+        res = auth_client.get(url)
+        assert res.status_code == 400
+
+        assert "error" in res.data
+        assert res.data["error"] == "limit parameter must be a number."
+
+    def test_get_dashboard_top_selling_items_response_data_fields(
+        self,
+        user_instance,
+        api_client,
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 6 completed sales
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        paid_status = OrderStatusFactory.create(name="Paid")
+        sales = SaleFactory.create_batch(
+            6,
+            created_by=user_instance,
+            delivery_status=delivered_status,
+            payment_status=paid_status
+        )
+
+        # Create for each sale 2 sold items
+        for sale in sales:
+            SoldItemFactory.create_batch(2, created_by=user_instance, sale=sale)
+
+        url = dashboard_url({"info": "top-selling-items", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        # Verify fields for each item in the response data
+        assert "name" in res_data[0]
+        assert "picture" in res_data[0]
+        assert "total_quantity" in res_data[0]
+        assert "total_profit" in res_data[0]
+        assert "total_revenue" in res_data[0]
+
+        assert isinstance(res_data[0]["name"], str)
+        if res_data[0]["picture"] is not None:
+            assert isinstance(res_data[0]["picture"], str)
+        assert isinstance(res_data[0]["total_quantity"], int)
+        assert isinstance(res_data[0]["total_profit"], float)
+        assert isinstance(res_data[0]["total_revenue"], float)
+
+    def test_get_dashboard_top_selling_items_sorted_by_total_sold_quantity(
+        self,
+        user_instance,
+        api_client,
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 5 completed sales
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        paid_status = OrderStatusFactory.create(name="Paid")
+        sales = SaleFactory.create_batch(
+            5,
+            created_by=user_instance,
+            delivery_status=delivered_status,
+            payment_status=paid_status
+        )
+
+        # Create 5 items in inventory
+        items = ItemFactory.create_batch(5, created_by=user_instance, in_inventory=True)
+
+        # Create for each sale a sold item
+        for i, sale in enumerate(sales):
+            item = items[i]
+            SoldItemFactory.create(
+                created_by=user_instance,
+                sale=sale,
+                item=item,
+                sold_quantity=item.quantity - 1,
+                sold_price=item.price + 100
+            )
+
+        # Calculate for each item total sold quantity
+        for item in items:
+            sold_items = SoldItem.objects.filter(item=item)
+            total_sold_quantity = sum(
+                sold_item.sold_quantity for sold_item in sold_items
+            )
+            item.total_sold_quantity = total_sold_quantity
+
+        # Sort items by total sold quantity
+        sorted_items = sorted(
+            items,
+            key=lambda item: item.total_sold_quantity,
+            reverse=True
+        )
+
+        # Get the top 5 sold items
+        top_selling_items = sorted_items[:5]
+
+        url = dashboard_url({"info": "top-selling-items", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        # Verify that the top 5 sold items are sorted by total quantity sold
+        for i in range(5):
+            assert res_data[i]["name"] == top_selling_items[i].name
+
+    def test_get_dashboard_top_selling_items_response_data_values(
+        self,
+        user_instance,
+        api_client
+    ):
+        # Authenticate the api client as the given user
+        api_client.force_authenticate(user=user_instance)
+
+        # Create 5 completed sales
+        delivered_status = OrderStatusFactory.create(name="Delivered")
+        paid_status = OrderStatusFactory.create(name="Paid")
+        sales = SaleFactory.create_batch(
+            5,
+            created_by=user_instance,
+            delivery_status=delivered_status,
+            payment_status=paid_status
+        )
+
+        # Create 5 items in inventory
+        items = ItemFactory.create_batch(5, created_by=user_instance, in_inventory=True)
+
+        # Create for each sale a sold item
+        for i, sale in enumerate(sales):
+            item = items[i]
+            SoldItemFactory.create(
+                created_by=user_instance,
+                sale=sale,
+                item=item,
+                sold_quantity=item.quantity - 1,
+                sold_price=item.price + 100
+            )
+
+        # Calculate for each item total sold quantity, total profit and total revenue
+        for item in items:
+            sold_items = SoldItem.objects.filter(item=item)
+    
+            # Calculate total sold quantity
+            total_sold_quantity = sum(
+                sold_item.sold_quantity for sold_item in sold_items
+            )
+            item.total_sold_quantity = total_sold_quantity
+
+            # Calculate total profit
+            total_profit = sum(
+                sold_item.total_profit for sold_item in sold_items
+            )
+            item.total_profit = total_profit
+
+            # Calculate total revenue
+            total_revenue = sum(
+                sold_item.total_price for sold_item in sold_items
+            )
+            item.total_revenue = total_revenue
+
+        # Sort items by total sold quantity
+        sorted_items = sorted(
+            items,
+            key=lambda item: item.total_sold_quantity,
+            reverse=True
+        )
+
+        # Get the top 5 sold items
+        top_selling_items = sorted_items[:5]
+
+        url = dashboard_url({"info": "top-selling-items", "limit": 5})
+
+        res = api_client.get(url)
+        assert res.status_code == 200
+
+        res_data = res.json()
+
+        assert isinstance(res_data, list)
+        assert len(res_data) == 5
+
+        for i, item in enumerate(top_selling_items):
+            assert res_data[i]["name"] == item.name
+            assert res_data[i]["picture"] == item.picture
+            assert res_data[i]["total_quantity"] == item.total_sold_quantity
+            assert res_data[i]["total_profit"] == float(item.total_profit)
+            assert res_data[i]["total_revenue"] == float(item.total_revenue)
     

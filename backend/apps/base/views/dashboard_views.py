@@ -1,8 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Sum, Q, F, Value, CharField
-from django.db.models.functions import Concat
+from django.db.models import Sum, Q, F, Value, CharField, Case, When
+from django.db.models.functions import Concat, Length
 from django.conf import settings
 from ..auth import TokenVersionAuthentication
 from ..models import User, Activity
@@ -235,15 +235,22 @@ class DashboardAPIView(generics.GenericAPIView):
             delivery_status__name='Delivered',
             payment_status__name='Paid',
         )
-
         sold_items = SoldItem.objects.filter(sale__in=completed_sales)
+
         top_selling_items = (
             sold_items
+            # Values followed by annotate to perform group by and aggregate
             .values(name=F('item__name'))
             .annotate(
-                picture=Concat(
-                    Value(request.build_absolute_uri(settings.MEDIA_URL)),
-                    F('item__picture'),
+                picture=Case(
+                    When(
+                        ~Q(item__picture=''),
+                        then=Concat(
+                            Value(request.build_absolute_uri(settings.MEDIA_URL)),
+                            F('item__picture')
+                        )
+                    ),
+                    default=Value(None),
                     output_field=CharField()
                 ),
                 total_quantity=Sum('sold_quantity'),
