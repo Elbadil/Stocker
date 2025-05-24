@@ -43,7 +43,7 @@ class UserSerializer(serializers.ModelSerializer):
         return handle_null_fields(attrs)
     
     def update(self, instance, validated_data):
-        if "email" in self.initial_data:
+        if "email" in self.initial_data and self.initial_data["email"] != instance.email:
             raise serializers.ValidationError(
                 {'email': "Email cannot be updated."}
             )

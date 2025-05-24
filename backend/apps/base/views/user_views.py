@@ -203,7 +203,7 @@ class ResetPasswordView(APIView):
                 user = serializer.save()
                 user.token_version += 1
                 user.save()
-                return Response({'message': 'User password has been successfully reset.'},
+                return Response({'message': 'Password has been successfully reset.'},
                                 status=status.HTTP_200_OK)
             else:
                 return Response(serializer.errors,
